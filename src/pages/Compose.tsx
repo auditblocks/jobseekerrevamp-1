@@ -174,14 +174,20 @@ const Compose = () => {
   // Fetch Google Client ID and check Gmail connection
   useEffect(() => {
     const initialize = async () => {
-      // Fetch Google Client ID from edge function
-      try {
-        const { data, error } = await supabase.functions.invoke("get-google-client-id");
-        if (!error && data?.clientId) {
-          setGoogleClientId(data.clientId);
+      // Try to use environment variable first, then fallback to edge function
+      const envClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+      if (envClientId) {
+        setGoogleClientId(envClientId);
+      } else {
+        // Fetch Google Client ID from edge function as fallback
+        try {
+          const { data, error } = await supabase.functions.invoke("get-google-client-id");
+          if (!error && data?.clientId) {
+            setGoogleClientId(data.clientId);
+          }
+        } catch (error) {
+          console.error("Error fetching Google Client ID:", error);
         }
-      } catch (error) {
-        console.error("Error fetching Google Client ID:", error);
       }
 
       // Check Gmail connection
