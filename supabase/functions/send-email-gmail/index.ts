@@ -1,0 +1,200 @@
+import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+
+interface EmailRequest {
+  to: string;
+  subject: string;
+  body: string;
+  recruiterName?: string;
+  attachResume?: boolean;
+}
+
+serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      throw new Error("No authorization header");
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    
+    const token = authHeader.replace("Bearer ", "");
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    if (authError || !user) {
+      throw new Error("Unauthorized");
+    }
+
+    // Get user profile with Gmail token
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", user.id)
+      .single();
+
+    if (profileError || !profile) {
+      throw new Error("Profile not found");
+    }
+
+    if (!profile.google_refresh_token) {
+      throw new Error("Gmail not connected. Please connect your Gmail account first.");
+    }
+
+    // Check daily limit
+    const today = new Date().toISOString().split('T')[0];
+    const dailyLimit = profile.subscription_tier === "FREE" ? 5 : 
+                       profile.subscription_tier === "PRO" ? 50 : 1000;
+    
+    if (profile.last_sent_date === today && profile.daily_emails_sent >= dailyLimit) {
+      throw new Error(`Daily email limit (${dailyLimit}) reached. Upgrade to send more emails.`);
+    }
+
+    const { to, subject, body, recruiterName }: EmailRequest = await req.json();
+
+    // Refresh Gmail token
+    const googleClientId = Deno.env.get("GOOGLE_CLIENT_ID")!;
+    const googleClientSecret = Deno.env.get("GOOGLE_CLIENT_SECRET")!;
+
+    const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        client_id: googleClientId,
+        client_secret: googleClientSecret,
+        refresh_token: profile.google_refresh_token,
+        grant_type: "refresh_token",
+      }),
+    });
+
+    if (!tokenResponse.ok) {
+      console.error("Failed to refresh token");
+      throw new Error("Failed to refresh Gmail access. Please reconnect your Gmail account.");
+    }
+
+    const tokens = await tokenResponse.json();
+    const accessToken = tokens.access_token;
+
+    // Generate tracking pixel ID
+    const trackingPixelId = crypto.randomUUID();
+
+    // Create email with tracking pixel
+    const trackingPixelUrl = `${supabaseUrl}/functions/v1/track-email-open?id=${trackingPixelId}`;
+    const emailBodyWithTracking = `${body}
+<img src="${trackingPixelUrl}" width="1" height="1" style="display:none;" alt="" />`;
+
+    // Build email
+    const rawEmail = [
+      `To: ${to}`,
+      `Subject: ${subject}`,
+      `MIME-Version: 1.0`,
+      `Content-Type: text/html; charset=utf-8`,
+      ``,
+      emailBodyWithTracking,
+    ].join("\r\n");
+
+    const encodedEmail = btoa(rawEmail)
+      .replace(/\+/g, "-")
+      .replace(/\//g, "_")
+      .replace(/=+$/, "");
+
+    // Send via Gmail API
+    const gmailResponse = await fetch(
+      "https://gmail.googleapis.com/gmail/v1/users/me/messages/send",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ raw: encodedEmail }),
+      }
+    );
+
+    if (!gmailResponse.ok) {
+      const errorData = await gmailResponse.text();
+      console.error("Gmail API error:", errorData);
+      throw new Error("Failed to send email via Gmail");
+    }
+
+    const gmailResult = await gmailResponse.json();
+    console.log("Email sent:", gmailResult.id);
+
+    // Extract domain from email
+    const domain = to.split("@")[1]?.split(".")[0] || "unknown";
+
+    // Store tracking record
+    const { error: trackingError } = await supabase
+      .from("email_tracking")
+      .insert({
+        user_id: user.id,
+        recipient: to,
+        subject,
+        status: "sent",
+        sent_at: new Date().toISOString(),
+        tracking_pixel_id: trackingPixelId,
+        email_id: gmailResult.id,
+        domain,
+      });
+
+    if (trackingError) {
+      console.error("Failed to store tracking:", trackingError);
+    }
+
+    // Store in email history
+    await supabase
+      .from("email_history")
+      .insert({
+        user_id: user.id,
+        recipient: to,
+        subject,
+        status: "sent",
+        domain,
+      });
+
+    // Update daily count
+    const newDailyCount = profile.last_sent_date === today 
+      ? profile.daily_emails_sent + 1 
+      : 1;
+
+    await supabase
+      .from("profiles")
+      .update({
+        daily_emails_sent: newDailyCount,
+        last_sent_date: today,
+        total_emails_sent: profile.total_emails_sent + 1,
+        successful_emails: profile.successful_emails + 1,
+      })
+      .eq("id", user.id);
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        message_id: gmailResult.id,
+        tracking_id: trackingPixelId,
+      }),
+      {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      }
+    );
+  } catch (error: any) {
+    console.error("Error sending email:", error);
+    return new Response(
+      JSON.stringify({ error: error.message }),
+      {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      }
+    );
+  }
+});

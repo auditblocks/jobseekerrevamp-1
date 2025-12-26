@@ -1,0 +1,755 @@
+import { Helmet } from "react-helmet-async";
+import { useState, useEffect } from "react";
+import { motion } from "framer-motion";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  ArrowLeft,
+  Send,
+  Paperclip,
+  Users,
+  Sparkles,
+  FileText,
+  Search,
+  Filter,
+  Mail,
+  Building2,
+  User,
+  CheckCircle2,
+  AlertCircle,
+  Loader2,
+  Unlink
+} from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+
+interface Recruiter {
+  id: string;
+  name: string;
+  email: string;
+  company: string | null;
+  domain: string | null;
+}
+
+interface Domain {
+  id: string;
+  name: string;
+  display_name: string;
+}
+
+interface EmailLimit {
+  dailyLimit: number;
+  dailySent: number;
+  remaining: number;
+  tier: string;
+}
+
+const Compose = () => {
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const [subject, setSubject] = useState("");
+  const [body, setBody] = useState("");
+  const [selectedRecruiters, setSelectedRecruiters] = useState<string[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedDomain, setSelectedDomain] = useState<string>("all");
+  const [attachResume, setAttachResume] = useState(true);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [isGmailConnected, setIsGmailConnected] = useState(false);
+  const [isCheckingGmail, setIsCheckingGmail] = useState(true);
+  const [isConnectingGmail, setIsConnectingGmail] = useState(false);
+  const [isDisconnectingGmail, setIsDisconnectingGmail] = useState(false);
+  const [isSending, setIsSending] = useState(false);
+  const [googleClientId, setGoogleClientId] = useState<string | null>(null);
+  const [recruiters, setRecruiters] = useState<Recruiter[]>([]);
+  const [domains, setDomains] = useState<Domain[]>([]);
+  const [isLoadingRecruiters, setIsLoadingRecruiters] = useState(true);
+  const [emailLimit, setEmailLimit] = useState<EmailLimit | null>(null);
+  const [isLoadingLimits, setIsLoadingLimits] = useState(true);
+
+  // Fetch recruiters and domains from database
+  useEffect(() => {
+    const fetchData = async () => {
+      setIsLoadingRecruiters(true);
+      try {
+        const [recruitersRes, domainsRes] = await Promise.all([
+          supabase.from("recruiters").select("id, name, email, company, domain").order("name"),
+          supabase.from("domains").select("id, name, display_name").eq("is_active", true).order("sort_order")
+        ]);
+
+        if (recruitersRes.error) throw recruitersRes.error;
+        if (domainsRes.error) throw domainsRes.error;
+        
+        setRecruiters(recruitersRes.data || []);
+        setDomains(domainsRes.data || []);
+      } catch (error) {
+        console.error("Error fetching data:", error);
+        toast.error("Failed to load data");
+      } finally {
+        setIsLoadingRecruiters(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  // Fetch email limits based on subscription tier
+  useEffect(() => {
+    const fetchEmailLimits = async () => {
+      if (!user?.id) {
+        setIsLoadingLimits(false);
+        return;
+      }
+
+      try {
+        // Get user's profile and subscription tier
+        const { data: profile, error: profileError } = await supabase
+          .from("profiles")
+          .select("subscription_tier, daily_emails_sent, last_sent_date")
+          .eq("id", user.id)
+          .single();
+
+        if (profileError) throw profileError;
+
+        const tier = profile?.subscription_tier || "FREE";
+        const lastSentDate = profile?.last_sent_date;
+        const today = new Date().toISOString().split("T")[0];
+
+        // Reset daily count if it's a new day
+        let dailySent = profile?.daily_emails_sent || 0;
+        if (lastSentDate !== today) {
+          dailySent = 0;
+          // Update the profile to reset the count
+          await supabase
+            .from("profiles")
+            .update({ daily_emails_sent: 0, last_sent_date: today })
+            .eq("id", user.id);
+        }
+
+        // Get the daily limit from subscription plan
+        const { data: planData, error: planError } = await supabase
+          .from("subscription_plans")
+          .select("daily_limit")
+          .eq("id", tier)
+          .maybeSingle();
+
+        // Default limits if plan not found
+        const dailyLimit = planData?.daily_limit ?? (tier === "FREE" ? 5 : tier === "PRO" ? 50 : 100);
+
+        setEmailLimit({
+          dailyLimit,
+          dailySent,
+          remaining: Math.max(0, dailyLimit - dailySent),
+          tier,
+        });
+      } catch (error) {
+        console.error("Error fetching email limits:", error);
+        // Set default limits on error
+        setEmailLimit({
+          dailyLimit: 5,
+          dailySent: 0,
+          remaining: 5,
+          tier: "FREE",
+        });
+      } finally {
+        setIsLoadingLimits(false);
+      }
+    };
+
+    fetchEmailLimits();
+  }, [user?.id]);
+
+  // Fetch Google Client ID and check Gmail connection
+  useEffect(() => {
+    const initialize = async () => {
+      // Fetch Google Client ID from edge function
+      try {
+        const { data, error } = await supabase.functions.invoke("get-google-client-id");
+        if (!error && data?.clientId) {
+          setGoogleClientId(data.clientId);
+        }
+      } catch (error) {
+        console.error("Error fetching Google Client ID:", error);
+      }
+
+      // Check Gmail connection
+      if (!user?.id) {
+        setIsCheckingGmail(false);
+        return;
+      }
+      
+      try {
+        const { data, error } = await supabase
+          .from("profiles")
+          .select("google_refresh_token")
+          .eq("id", user.id)
+          .maybeSingle();
+
+        if (!error && data?.google_refresh_token) {
+          setIsGmailConnected(true);
+        }
+      } catch (error) {
+        console.error("Error checking Gmail connection:", error);
+      } finally {
+        setIsCheckingGmail(false);
+      }
+    };
+
+    initialize();
+  }, [user?.id]);
+
+  // Handle OAuth callback
+  useEffect(() => {
+    const handleOAuthCallback = async () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const code = urlParams.get("code");
+      const state = urlParams.get("state");
+
+      if (code && state === "gmail_oauth") {
+        setIsConnectingGmail(true);
+        
+        // Clear URL params
+        window.history.replaceState({}, document.title, window.location.pathname);
+
+        try {
+          const { data: sessionData } = await supabase.auth.getSession();
+          if (!sessionData?.session?.access_token) {
+            throw new Error("Not authenticated");
+          }
+
+          const redirectUri = `${window.location.origin}/compose`;
+
+          const { data, error } = await supabase.functions.invoke("gmail-oauth-callback", {
+            body: { code, redirect_uri: redirectUri },
+          });
+
+          if (error) throw error;
+
+          setIsGmailConnected(true);
+          toast.success("Gmail connected successfully!");
+        } catch (error: any) {
+          console.error("OAuth error:", error);
+          toast.error(error.message || "Failed to connect Gmail");
+        } finally {
+          setIsConnectingGmail(false);
+        }
+      }
+    };
+
+    handleOAuthCallback();
+  }, []);
+
+  const handleConnectGmail = () => {
+    if (!googleClientId) {
+      toast.error("Google OAuth is not configured. Please contact support.");
+      return;
+    }
+
+    const redirectUri = `${window.location.origin}/compose`;
+    const scope = encodeURIComponent("https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/gmail.readonly");
+    
+    const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
+      `client_id=${googleClientId}` +
+      `&redirect_uri=${encodeURIComponent(redirectUri)}` +
+      `&response_type=code` +
+      `&scope=${scope}` +
+      `&access_type=offline` +
+      `&prompt=consent` +
+      `&state=gmail_oauth`;
+
+    window.location.href = authUrl;
+  };
+
+  const handleDisconnectGmail = async () => {
+    if (!user?.id) return;
+    
+    setIsDisconnectingGmail(true);
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ 
+          google_refresh_token: null,
+          gmail_token_refreshed_at: null 
+        })
+        .eq("id", user.id);
+
+      if (error) throw error;
+
+      setIsGmailConnected(false);
+      toast.success("Gmail disconnected successfully");
+    } catch (error: any) {
+      console.error("Error disconnecting Gmail:", error);
+      toast.error("Failed to disconnect Gmail");
+    } finally {
+      setIsDisconnectingGmail(false);
+    }
+  };
+
+  const filteredRecruiters = recruiters.filter((r) => {
+    const matchesSearch = 
+      r.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      r.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (r.company?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false);
+    const matchesDomain = selectedDomain === "all" || r.domain === selectedDomain;
+    return matchesSearch && matchesDomain;
+  });
+
+  const toggleRecruiter = (id: string) => {
+    setSelectedRecruiters((prev) =>
+      prev.includes(id) ? prev.filter((r) => r !== id) : [...prev, id]
+    );
+  };
+
+  const handleGenerateAI = async () => {
+    setIsGenerating(true);
+    // Simulate AI generation
+    setTimeout(() => {
+      setSubject("Application for Software Engineer Position");
+      setBody(`Dear Hiring Manager,
+
+I am writing to express my strong interest in the Software Engineer position at your company. With my background in full-stack development and passion for building innovative solutions, I believe I would be a valuable addition to your team.
+
+My experience includes working with React, TypeScript, and Node.js to build scalable web applications. I am particularly drawn to your company's mission and would love the opportunity to contribute to your success.
+
+I have attached my resume for your review and would welcome the chance to discuss how my skills align with your needs.
+
+Thank you for considering my application.
+
+Best regards,
+[Your Name]`);
+      setIsGenerating(false);
+      toast.success("Email generated with AI!");
+    }, 1500);
+  };
+
+  const handleSend = async () => {
+    if (!isGmailConnected) {
+      toast.error("Please connect your Gmail account first");
+      return;
+    }
+    if (selectedRecruiters.length === 0) {
+      toast.error("Please select at least one recruiter");
+      return;
+    }
+    if (!subject || !body) {
+      toast.error("Please fill in subject and body");
+      return;
+    }
+
+    // Check email limits
+    if (emailLimit) {
+      if (emailLimit.remaining <= 0) {
+        toast.error(`Daily email limit reached (${emailLimit.dailyLimit}). Upgrade your plan for more emails.`);
+        return;
+      }
+      if (selectedRecruiters.length > emailLimit.remaining) {
+        toast.error(`You can only send ${emailLimit.remaining} more emails today. Please select fewer recipients.`);
+        return;
+      }
+    }
+
+    setIsSending(true);
+    
+    try {
+      const selectedRecruiterData = recruiters.filter(r => selectedRecruiters.includes(r.id));
+      let successCount = 0;
+      
+      for (const recruiter of selectedRecruiterData) {
+        const { error } = await supabase.functions.invoke("send-email-gmail", {
+          body: {
+            to: recruiter.email,
+            subject: subject,
+            body: body,
+          },
+        });
+
+        if (error) {
+          console.error(`Failed to send to ${recruiter.email}:`, error);
+        } else {
+          successCount++;
+        }
+      }
+
+      // Update daily email count in profile
+      if (user?.id && successCount > 0) {
+        const today = new Date().toISOString().split("T")[0];
+        const newCount = (emailLimit?.dailySent || 0) + successCount;
+        
+        // Get current total and update both counts
+        const { data: currentProfile } = await supabase
+          .from("profiles")
+          .select("total_emails_sent")
+          .eq("id", user.id)
+          .single();
+
+        const currentTotal = currentProfile?.total_emails_sent || 0;
+
+        await supabase
+          .from("profiles")
+          .update({
+            daily_emails_sent: newCount,
+            last_sent_date: today,
+            total_emails_sent: currentTotal + successCount,
+          })
+          .eq("id", user.id);
+
+        // Update local state
+        setEmailLimit(prev => prev ? {
+          ...prev,
+          dailySent: newCount,
+          remaining: Math.max(0, prev.dailyLimit - newCount),
+        } : null);
+      }
+
+      toast.success(`Sent email to ${successCount} recipients!`);
+      setSelectedRecruiters([]);
+    } catch (error: any) {
+      console.error("Send error:", error);
+      toast.error(error.message || "Failed to send emails");
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  // Get unique domains from recruiters for fallback
+  const uniqueRecruiterDomains = [...new Set(recruiters.map(r => r.domain).filter(Boolean))];
+
+  return (
+    <>
+      <Helmet>
+        <title>Compose Email | JobSeeker</title>
+        <meta name="description" content="Compose and send professional emails to recruiters" />
+      </Helmet>
+
+      <div className="min-h-screen bg-background">
+        {/* Header */}
+        <header className="sticky top-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-xl">
+          <div className="container mx-auto px-4 py-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <Button variant="ghost" size="icon" onClick={() => navigate("/dashboard")}>
+                  <ArrowLeft className="h-5 w-5" />
+                </Button>
+                <div>
+                  <h1 className="text-xl font-bold text-foreground">Compose Email</h1>
+                  <p className="text-sm text-muted-foreground">Craft your perfect outreach</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                {emailLimit && (
+                  <Badge 
+                    variant="outline" 
+                    className={`${
+                      emailLimit.remaining <= 0 
+                        ? "text-destructive border-destructive/30" 
+                        : emailLimit.remaining <= 3 
+                          ? "text-warning border-warning/30" 
+                          : "text-success border-success/30"
+                    }`}
+                  >
+                    {emailLimit.remaining}/{emailLimit.dailyLimit} emails left today
+                  </Badge>
+                )}
+                <Badge variant="outline" className="text-accent border-accent/30">
+                  {selectedRecruiters.length} selected
+                </Badge>
+                <Button 
+                  variant="hero" 
+                  onClick={handleSend} 
+                  disabled={!isGmailConnected || isSending || (emailLimit?.remaining || 0) <= 0}
+                >
+                  {isSending ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Send className="h-4 w-4 mr-2" />
+                  )}
+                  {isSending ? "Sending..." : "Send Email"}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <main className="container mx-auto px-4 py-8">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            {/* Email Composer */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="lg:col-span-2 space-y-6"
+            >
+              {/* Gmail Connection Status */}
+              {isCheckingGmail ? (
+                <Card className="border-border/50 bg-card/50 backdrop-blur">
+                  <CardContent className="flex items-center justify-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                    <span className="ml-2 text-muted-foreground">Checking Gmail connection...</span>
+                  </CardContent>
+                </Card>
+              ) : !isGmailConnected ? (
+                <Card className="border-warning/30 bg-warning/5 backdrop-blur">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-warning">
+                      <AlertCircle className="h-5 w-5" />
+                      Connect Your Gmail
+                    </CardTitle>
+                    <CardDescription>
+                      To send emails to recruiters, you need to connect your Gmail account.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                      <div className="flex-1">
+                        <p className="text-sm text-muted-foreground">
+                          We'll use your Gmail to send personalized emails on your behalf. 
+                          Your credentials are stored securely and you can disconnect anytime.
+                        </p>
+                      </div>
+                      <Button 
+                        variant="accent" 
+                        onClick={handleConnectGmail}
+                        disabled={isConnectingGmail}
+                        className="shrink-0"
+                      >
+                        {isConnectingGmail ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Connecting...
+                          </>
+                        ) : (
+                          <>
+                            <Mail className="h-4 w-4 mr-2" />
+                            Connect Gmail
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ) : (
+                <Card className="border-success/30 bg-success/5 backdrop-blur">
+                  <CardContent className="flex items-center justify-between py-4">
+                    <div className="flex items-center gap-3">
+                      <CheckCircle2 className="h-5 w-5 text-success" />
+                      <div>
+                        <p className="text-sm font-medium text-success">Gmail Connected</p>
+                        <p className="text-xs text-muted-foreground">You can now send emails to recruiters</p>
+                      </div>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleDisconnectGmail}
+                      disabled={isDisconnectingGmail}
+                      className="text-muted-foreground hover:text-destructive"
+                    >
+                      {isDisconnectingGmail ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <>
+                          <Unlink className="h-4 w-4 mr-1" />
+                          Disconnect
+                        </>
+                      )}
+                    </Button>
+                  </CardContent>
+                </Card>
+              )}
+
+              <Card className="border-border/50 bg-card/50 backdrop-blur">
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="flex items-center gap-2">
+                        <Mail className="h-5 w-5 text-accent" />
+                        Email Content
+                      </CardTitle>
+                      <CardDescription>Compose your message or use AI to generate</CardDescription>
+                    </div>
+                    <Button
+                      variant="accent"
+                      size="sm"
+                      onClick={handleGenerateAI}
+                      disabled={isGenerating}
+                    >
+                      <Sparkles className="h-4 w-4 mr-2" />
+                      {isGenerating ? "Generating..." : "Generate with AI"}
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <label className="text-sm font-medium text-foreground mb-2 block">Subject</label>
+                    <Input
+                      placeholder="Enter email subject..."
+                      value={subject}
+                      onChange={(e) => setSubject(e.target.value)}
+                      className="bg-background/50"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-foreground mb-2 block">Body</label>
+                    <Textarea
+                      placeholder="Write your email content..."
+                      value={body}
+                      onChange={(e) => setBody(e.target.value)}
+                      className="min-h-[300px] bg-background/50 resize-none"
+                    />
+                  </div>
+                  <div className="flex items-center justify-between pt-4 border-t border-border/50">
+                    <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-2">
+                        <Checkbox
+                          id="resume"
+                          checked={attachResume}
+                          onCheckedChange={(checked) => setAttachResume(checked as boolean)}
+                        />
+                        <label htmlFor="resume" className="text-sm text-muted-foreground cursor-pointer">
+                          Attach Resume
+                        </label>
+                      </div>
+                      <Button variant="ghost" size="sm">
+                        <Paperclip className="h-4 w-4 mr-2" />
+                        Add Attachment
+                      </Button>
+                    </div>
+                    <Button variant="outline" size="sm">
+                      <FileText className="h-4 w-4 mr-2" />
+                      Use Template
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+
+            {/* Recruiter Selection */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
+            >
+              <Card className="border-border/50 bg-card/50 backdrop-blur sticky top-24">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Users className="h-5 w-5 text-accent" />
+                    Select Recipients
+                  </CardTitle>
+                  <CardDescription>Choose recruiters to contact</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search recruiters..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="pl-10 bg-background/50"
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <Select value={selectedDomain} onValueChange={setSelectedDomain}>
+                      <SelectTrigger className="flex-1">
+                        <Filter className="h-3 w-3 mr-2" />
+                        <SelectValue placeholder="All Domains" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Domains</SelectItem>
+                        {domains.length > 0 ? (
+                          domains.map((domain) => (
+                            <SelectItem key={domain.id} value={domain.name}>
+                              {domain.display_name}
+                            </SelectItem>
+                          ))
+                        ) : (
+                          uniqueRecruiterDomains.map((domain) => (
+                            <SelectItem key={domain} value={domain!}>
+                              {domain}
+                            </SelectItem>
+                          ))
+                        )}
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setSelectedRecruiters(filteredRecruiters.map((r) => r.id))}
+                    >
+                      Select All
+                    </Button>
+                  </div>
+                  <div className="space-y-2 max-h-[400px] overflow-y-auto">
+                    {isLoadingRecruiters ? (
+                      <div className="flex items-center justify-center py-8">
+                        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                      </div>
+                    ) : filteredRecruiters.length === 0 ? (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <Users className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                        <p className="text-sm">No recruiters found</p>
+                      </div>
+                    ) : (
+                      filteredRecruiters.map((recruiter) => (
+                        <div
+                          key={recruiter.id}
+                          onClick={() => toggleRecruiter(recruiter.id)}
+                          className={`p-3 rounded-lg border cursor-pointer transition-all ${
+                            selectedRecruiters.includes(recruiter.id)
+                              ? "border-accent/50 bg-accent/10"
+                              : "border-border/50 bg-background/30 hover:border-border"
+                          }`}
+                        >
+                          <div className="flex items-start gap-3">
+                            <Checkbox
+                              checked={selectedRecruiters.includes(recruiter.id)}
+                              onCheckedChange={() => toggleRecruiter(recruiter.id)}
+                            />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <User className="h-4 w-4 text-muted-foreground" />
+                                <span className="font-medium text-sm truncate">{recruiter.name}</span>
+                              </div>
+                              {recruiter.company && (
+                                <div className="flex items-center gap-2 mt-1">
+                                  <Building2 className="h-3 w-3 text-muted-foreground" />
+                                  <span className="text-xs text-muted-foreground truncate">
+                                    {recruiter.company}
+                                  </span>
+                                </div>
+                              )}
+                              <p className="text-xs text-muted-foreground mt-1 truncate">
+                                {recruiter.email}
+                              </p>
+                            </div>
+                            {recruiter.domain && (
+                              <Badge variant="secondary" className="text-xs shrink-0">
+                                {recruiter.domain}
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          </div>
+        </main>
+      </div>
+    </>
+  );
+};
+
+export default Compose;

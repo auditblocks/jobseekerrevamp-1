@@ -1,0 +1,34 @@
+project_id = "ypmyzbtgossmizklszek"
+
+[functions.create-razorpay-order]
+verify_jwt = false
+
+[functions.verify-razorpay-payment]
+verify_jwt = false
+
+[functions.send-email-gmail]
+verify_jwt = false
+
+[functions.track-email-open]
+verify_jwt = false
+
+[functions.gmail-oauth-callback]
+verify_jwt = false
+
+[functions.generate-email-ai]
+verify_jwt = false
+
+[functions.ai-chat]
+verify_jwt = false
+
+[functions.generate-follow-up]
+verify_jwt = false
+
+[functions.send-email-resend]
+verify_jwt = false
+
+[functions.get-google-client-id]
+verify_jwt = false
+
+[functions.email-webhook]
+verify_jwt = false
