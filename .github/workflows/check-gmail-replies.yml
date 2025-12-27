@@ -1,0 +1,17 @@
+name: Check Gmail Replies
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'  # Every 10 minutes
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  check-gmail:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call Gmail Check Function
+        run: |
+          curl -X POST \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
+            https://ypmyzbtgossmizklszek.supabase.co/functions/v1/check-gmail-replies
+
