@@ -231,7 +231,7 @@ const Dashboard = () => {
             
             <div className="flex items-center gap-2">
               <NotificationBell />
-              <Button variant="accent">
+              <Button variant="accent" onClick={() => navigate("/settings")}>
                 <Sparkles className="w-4 h-4" />
                 Upgrade to Pro
               </Button>

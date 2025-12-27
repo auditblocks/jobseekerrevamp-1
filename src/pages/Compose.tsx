@@ -1,5 +1,5 @@
 import { Helmet } from "react-helmet-async";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,6 +7,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -78,6 +85,9 @@ const Compose = () => {
   const [isLoadingRecruiters, setIsLoadingRecruiters] = useState(true);
   const [emailLimit, setEmailLimit] = useState<EmailLimit | null>(null);
   const [isLoadingLimits, setIsLoadingLimits] = useState(true);
+  const [attachments, setAttachments] = useState<File[]>([]);
+  const [showTemplateDialog, setShowTemplateDialog] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Fetch recruiters and domains from database
   useEffect(() => {
@@ -316,6 +326,34 @@ const Compose = () => {
     setSelectedRecruiters((prev) =>
       prev.includes(id) ? prev.filter((r) => r !== id) : [...prev, id]
     );
+  };
+
+  const handleAddAttachment = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files) {
+      const newFiles = Array.from(files);
+      setAttachments((prev) => [...prev, ...newFiles]);
+      toast.success(`${newFiles.length} file(s) added`);
+    }
+  };
+
+  const handleRemoveAttachment = (index: number) => {
+    setAttachments((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleUseTemplate = () => {
+    setShowTemplateDialog(true);
+  };
+
+  const handleSelectTemplate = (template: { subject: string; body: string }) => {
+    setSubject(template.subject);
+    setBody(template.body);
+    setShowTemplateDialog(false);
+    toast.success("Template applied!");
   };
 
   const handleGenerateAI = async () => {
@@ -626,16 +664,44 @@ Best regards,
                           Attach Resume
                         </label>
                       </div>
-                      <Button variant="ghost" size="sm">
+                      <Button variant="ghost" size="sm" onClick={handleAddAttachment} type="button">
                         <Paperclip className="h-4 w-4 mr-2" />
                         Add Attachment
                       </Button>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        multiple
+                        className="hidden"
+                        onChange={handleFileChange}
+                        accept=".pdf,.doc,.docx,.txt"
+                      />
                     </div>
-                    <Button variant="outline" size="sm">
+                    <Button variant="outline" size="sm" onClick={handleUseTemplate} type="button">
                       <FileText className="h-4 w-4 mr-2" />
                       Use Template
                     </Button>
                   </div>
+                  {attachments.length > 0 && (
+                    <div className="pt-4 space-y-2">
+                      <label className="text-sm font-medium text-foreground">Attachments:</label>
+                      <div className="flex flex-wrap gap-2">
+                        {attachments.map((file, index) => (
+                          <Badge key={index} variant="secondary" className="flex items-center gap-2">
+                            <FileText className="h-3 w-3" />
+                            {file.name}
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveAttachment(index)}
+                              className="ml-1 hover:text-destructive"
+                            >
+                              ×
+                            </button>
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </motion.div>
@@ -754,6 +820,60 @@ Best regards,
           </div>
         </main>
       </div>
+
+      {/* Template Dialog */}
+      <Dialog open={showTemplateDialog} onOpenChange={setShowTemplateDialog}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Select a Template</DialogTitle>
+            <DialogDescription>
+              Choose a template to quickly fill in your email subject and body
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 mt-4">
+            {[
+              {
+                id: 1,
+                name: "Software Engineer Outreach",
+                subject: "Experienced Software Engineer - Open to Opportunities",
+                body: "Dear {{recruiterName}},\n\nI hope this email finds you well. My name is {{userName}}, and I am a software engineer with expertise in full-stack development, cloud technologies, and agile methodologies.\n\nI am reaching out to express my interest in potential opportunities at {{companyName}}. With over 5 years of experience in the industry, I have successfully delivered scalable applications and led cross-functional teams.\n\nI would welcome the opportunity to discuss how my skills and experience align with your team's needs. Please let me know if you would like to schedule a conversation.\n\nBest regards,\n{{userName}}",
+              },
+              {
+                id: 2,
+                name: "Data Science Position",
+                subject: "Data Scientist with ML Expertise",
+                body: "Hi {{recruiterName}},\n\nI'm reaching out regarding potential data science opportunities at {{companyName}}. As a data scientist with expertise in machine learning, statistical analysis, and data visualization, I'm excited about the possibility of contributing to your team.\n\nMy experience includes building predictive models, analyzing large datasets, and translating complex data insights into actionable business recommendations.\n\nI would love to learn more about your team's projects and how I might contribute. Thank you for your time and consideration.\n\nBest regards,\n{{userName}}",
+              },
+              {
+                id: 3,
+                name: "Follow-Up Template",
+                subject: "Following Up - {{jobTitle}} Position",
+                body: "Hi {{recruiterName}},\n\nI wanted to follow up on my previous email regarding the {{jobTitle}} position. I remain very interested in this opportunity and would appreciate any updates you might have.\n\nI'm confident that my background in [relevant skills] would make me a valuable addition to your team. I'm happy to provide any additional information or schedule a call at your convenience.\n\nThank you for your consideration.\n\nBest regards,\n{{userName}}",
+              },
+            ].map((template) => (
+              <Card
+                key={template.id}
+                className="cursor-pointer hover:border-accent transition-colors"
+                onClick={() => handleSelectTemplate(template)}
+              >
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <h4 className="font-semibold text-foreground mb-1">{template.name}</h4>
+                      <p className="text-sm text-muted-foreground mb-2">
+                        <strong>Subject:</strong> {template.subject}
+                      </p>
+                      <p className="text-xs text-muted-foreground line-clamp-2">
+                        {template.body.substring(0, 150)}...
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 };
