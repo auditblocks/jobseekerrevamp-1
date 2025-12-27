@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Mail, Lock, User, ArrowRight, Loader2, Eye, EyeOff, ArrowLeft } from "lucide-react";
+import { Chrome } from "lucide-react";
 import { Helmet } from "react-helmet-async";
 
 const Auth = () => {
@@ -30,15 +31,41 @@ const Auth = () => {
       }
     });
 
-    // Listen for auth changes
+    // Listen for auth changes (handles OAuth callbacks automatically)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (session) {
+      if (event === 'SIGNED_IN' && session) {
+        toast.success("Signed in successfully!");
         navigate("/dashboard");
       }
     });
 
     return () => subscription.unsubscribe();
   }, [navigate]);
+
+  const handleGoogleSignIn = async () => {
+    setLoading(true);
+    try {
+      const redirectUrl = `${window.location.origin}/dashboard`;
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: redirectUrl,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          },
+        },
+      });
+      
+      if (error) throw error;
+      // Note: User will be redirected to Google, then back to redirectUrl
+      // Loading state will be handled by auth state change
+    } catch (error: any) {
+      console.error("Google OAuth error:", error);
+      toast.error(error.message || "Failed to sign in with Google");
+      setLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -129,11 +156,46 @@ const Auth = () => {
               </p>
             </motion.div>
             
+            {/* Google Sign In Button */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.1 }}
+              className="mb-5"
+            >
+              <Button
+                type="button"
+                variant="outline"
+                size="xl"
+                className="w-full"
+                onClick={handleGoogleSignIn}
+                disabled={loading}
+              >
+                <Chrome className="w-5 h-5 mr-2" />
+                {loading ? "Connecting..." : `Continue with Google`}
+              </Button>
+            </motion.div>
+
+            {/* Divider */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.5, delay: 0.15 }}
+              className="relative my-6"
+            >
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-border" />
+              </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="px-4 bg-background text-muted-foreground">Or continue with email</span>
+              </div>
+            </motion.div>
+
             {/* Form */}
             <motion.form
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.1 }}
+              transition={{ duration: 0.5, delay: 0.2 }}
               onSubmit={handleSubmit}
               className="space-y-5"
             >
