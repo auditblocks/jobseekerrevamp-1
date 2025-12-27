@@ -126,6 +126,8 @@ serve(async (req) => {
             const headers = message.payload.headers;
             const fromHeader = headers.find((h) => h.name.toLowerCase() === "from");
             const subjectHeader = headers.find((h) => h.name.toLowerCase() === "subject");
+            const inReplyToHeader = headers.find((h) => h.name.toLowerCase() === "in-reply-to");
+            const referencesHeader = headers.find((h) => h.name.toLowerCase() === "references");
 
             if (!fromHeader || !subjectHeader) continue;
 
@@ -142,6 +144,32 @@ serve(async (req) => {
 
             // Skip if it's from the user themselves
             if (senderEmail === userEmail) continue;
+
+            // IMPORTANT: Only process emails if a conversation thread already exists
+            // This ensures we only show replies to emails sent through the app
+            const { data: existingThread } = await supabase
+              .from("conversation_threads")
+              .select("id, total_messages, recruiter_messages_count")
+              .eq("user_id", profile.id)
+              .eq("recruiter_email", senderEmail)
+              .single();
+
+            // Skip if no thread exists - this means the user never sent an email to this recruiter
+            if (!existingThread) {
+              console.log(`Skipping email from ${senderEmail} - no existing conversation thread`);
+              continue;
+            }
+
+            // Additional check: Verify this is actually a reply
+            // Check if subject contains "Re:" or if it's part of a Gmail thread
+            const isReply = subjectHeader.value.toLowerCase().startsWith("re:") || 
+                            inReplyToHeader || 
+                            referencesHeader;
+
+            if (!isReply) {
+              console.log(`Skipping email from ${senderEmail} - not a reply`);
+              continue;
+            }
 
             // Extract message body
             let bodyText = "";
@@ -174,64 +202,18 @@ serve(async (req) => {
 
             const bodyContent = bodyText || bodyHtml || message.snippet;
 
-            // Find or create conversation thread
-            let threadId: string;
-            const { data: existingThread } = await supabase
+            // Use existing thread (we already verified it exists above)
+            const threadId = existingThread.id;
+            
+            // Update thread
+            await supabase
               .from("conversation_threads")
-              .select("id, total_messages, recruiter_messages_count")
-              .eq("user_id", profile.id)
-              .eq("recruiter_email", senderEmail)
-              .single();
-
-            if (existingThread) {
-              threadId = existingThread.id;
-              // Update thread
-              await supabase
-                .from("conversation_threads")
-                .update({
-                  last_activity_at: new Date().toISOString(),
-                  last_recruiter_message_at: new Date().toISOString(),
-                  subject_line: subjectHeader.value,
-                })
-                .eq("id", threadId);
-            } else {
-              // Get recruiter info if available
-              const { data: recruiter } = await supabase
-                .from("recruiters")
-                .select("name, company")
-                .eq("email", senderEmail)
-                .single();
-
-              // Extract name from "Name <email>" format
-              const recruiterName = fromHeader.value.match(/^(.+?)\s*</)?.[1]?.trim() || recruiter?.name || null;
-
-              // Create new thread
-              const { data: newThread, error: threadError } = await supabase
-                .from("conversation_threads")
-                .insert({
-                  user_id: profile.id,
-                  recruiter_email: senderEmail,
-                  recruiter_name: recruiterName,
-                  company_name: recruiter?.company || null,
-                  subject_line: subjectHeader.value,
-                  status: "active",
-                  first_contact_at: new Date().toISOString(),
-                  last_activity_at: new Date().toISOString(),
-                  last_recruiter_message_at: new Date().toISOString(),
-                  total_messages: 0,
-                  user_messages_count: 0,
-                  recruiter_messages_count: 0,
-                })
-                .select()
-                .single();
-
-              if (threadError) {
-                console.error("Failed to create conversation thread:", threadError);
-                continue;
-              } else {
-                threadId = newThread.id;
-              }
-            }
+              .update({
+                last_activity_at: new Date().toISOString(),
+                last_recruiter_message_at: new Date().toISOString(),
+                subject_line: subjectHeader.value,
+              })
+              .eq("id", threadId);
 
             // Check if message already exists (avoid duplicates)
             const sentAt = message.internalDate 
@@ -252,7 +234,7 @@ serve(async (req) => {
             }
 
             // Create conversation message
-            const messageNumber = (existingThread?.total_messages || 0) + 1;
+            const messageNumber = (existingThread.total_messages || 0) + 1;
             const { error: messageError } = await supabase
               .from("conversation_messages")
               .insert({
@@ -278,7 +260,7 @@ serve(async (req) => {
                 .from("conversation_threads")
                 .update({
                   total_messages: messageNumber,
-                  recruiter_messages_count: (existingThread?.recruiter_messages_count || 0) + 1,
+                  recruiter_messages_count: (existingThread.recruiter_messages_count || 0) + 1,
                 })
                 .eq("id", threadId);
 
