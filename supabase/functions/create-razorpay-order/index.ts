@@ -17,10 +17,28 @@ serve(async (req) => {
   }
 
   try {
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const razorpayKeyId = Deno.env.get("RAZORPAY_KEY_ID")!;
-    const razorpayKeySecret = Deno.env.get("RAZORPAY_KEY_SECRET")!;
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    const razorpayKeyId = Deno.env.get("RAZORPAY_KEY_ID");
+    const razorpayKeySecret = Deno.env.get("RAZORPAY_KEY_SECRET");
+
+    if (!supabaseUrl || !supabaseServiceKey) {
+      throw new Error("Supabase configuration missing");
+    }
+
+    if (!razorpayKeyId || !razorpayKeySecret) {
+      console.error("Razorpay credentials not configured");
+      return new Response(
+        JSON.stringify({ 
+          error: "Payment gateway not configured. Please contact support.",
+          details: "RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET must be set in Supabase secrets"
+        }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
 
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {

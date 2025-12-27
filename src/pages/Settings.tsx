@@ -472,8 +472,17 @@ const Settings = () => {
         }
       );
 
-      if (orderError || !orderData?.order_id) {
-        throw new Error(orderError?.message || "Failed to create order");
+      if (orderError) {
+        console.error("Order creation error:", orderError);
+        const errorMessage = orderError.message || "Failed to create order";
+        if (errorMessage.includes("Payment gateway not configured")) {
+          throw new Error("Payment system is not configured. Please contact support.");
+        }
+        throw new Error(errorMessage);
+      }
+
+      if (!orderData?.order_id) {
+        throw new Error("Failed to create order: Invalid response from server");
       }
 
       // Open Razorpay checkout
