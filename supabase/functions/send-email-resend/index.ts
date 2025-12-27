@@ -87,6 +87,91 @@ serve(async (req) => {
         domain,
       });
 
+    // Get recruiter info if available
+    const { data: recruiter } = await supabase
+      .from("recruiters")
+      .select("name, company")
+      .eq("email", to)
+      .single();
+
+    // Create or get conversation thread
+    let threadId: string;
+    const { data: existingThread } = await supabase
+      .from("conversation_threads")
+      .select("id, total_messages, user_messages_count")
+      .eq("user_id", user.id)
+      .eq("recruiter_email", to)
+      .single();
+
+    if (existingThread) {
+      threadId = existingThread.id;
+      // Update thread
+      await supabase
+        .from("conversation_threads")
+        .update({
+          last_activity_at: new Date().toISOString(),
+          last_user_message_at: new Date().toISOString(),
+          subject_line: subject,
+        })
+        .eq("id", threadId);
+    } else {
+      // Create new thread
+      const { data: newThread, error: threadError } = await supabase
+        .from("conversation_threads")
+        .insert({
+          user_id: user.id,
+          recruiter_email: to,
+          recruiter_name: recruiter?.name || from_name || null,
+          company_name: recruiter?.company || null,
+          subject_line: subject,
+          status: "active",
+          first_contact_at: new Date().toISOString(),
+          last_activity_at: new Date().toISOString(),
+          last_user_message_at: new Date().toISOString(),
+          total_messages: 0,
+          user_messages_count: 0,
+          recruiter_messages_count: 0,
+        })
+        .select()
+        .single();
+
+      if (threadError) {
+        console.error("Failed to create conversation thread:", threadError);
+      } else {
+        threadId = newThread.id;
+      }
+    }
+
+    // Create conversation message
+    if (threadId) {
+      const messageNumber = (existingThread?.total_messages || 0) + 1;
+      const { error: messageError } = await supabase
+        .from("conversation_messages")
+        .insert({
+          thread_id: threadId,
+          sender_type: "user",
+          subject: subject,
+          body_preview: body.substring(0, 200),
+          body_full: body,
+          sent_at: new Date().toISOString(),
+          message_number: messageNumber,
+          status: "sent",
+        });
+
+      if (messageError) {
+        console.error("Failed to create conversation message:", messageError);
+      } else {
+        // Update thread message counts
+        await supabase
+          .from("conversation_threads")
+          .update({
+            total_messages: messageNumber,
+            user_messages_count: (existingThread?.user_messages_count || 0) + 1,
+          })
+          .eq("id", threadId);
+      }
+    }
+
     return new Response(
       JSON.stringify({
         success: true,

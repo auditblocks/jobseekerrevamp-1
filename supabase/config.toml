@@ -32,3 +32,9 @@ verify_jwt = false
 
 [functions.email-webhook]
 verify_jwt = false
+
+[functions.gmail-webhook]
+verify_jwt = false
+
+[functions.check-gmail-replies]
+verify_jwt = false
