@@ -73,6 +73,68 @@ serve(async (req) => {
       throw new Error("Failed to save Gmail connection");
     }
 
+    // Enable Gmail watch for push notifications
+    try {
+      const googleCloudProjectId = Deno.env.get("GOOGLE_CLOUD_PROJECT_ID") || "jobseeker-production";
+      const accessToken = tokens.access_token;
+
+      const watchResponse = await fetch(
+        `https://gmail.googleapis.com/gmail/v1/users/me/watch`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            topicName: `projects/${googleCloudProjectId}/topics/gmail-notifications`,
+            labelIds: ["INBOX"], // Watch for messages in inbox
+          }),
+        }
+      );
+
+      if (watchResponse.ok) {
+        const watchData = await watchResponse.json();
+        console.log("Gmail watch enabled:", watchData);
+        
+        // Calculate expiration time (Gmail watch expires after 7 days)
+        const expirationTime = new Date();
+        expirationTime.setDate(expirationTime.getDate() + 7);
+        
+        // Get current preferences to preserve existing data
+        const { data: currentProfile } = await supabase
+          .from("profiles")
+          .select("preferences")
+          .eq("id", user.id)
+          .single();
+        
+        const currentPreferences = currentProfile?.preferences || {};
+        
+        // Store expiration time in preferences JSONB field
+        await supabase
+          .from("profiles")
+          .update({
+            preferences: {
+              ...currentPreferences,
+              gmailWatchExpiresAt: expirationTime.toISOString(),
+            },
+          })
+          .eq("id", user.id);
+        
+        console.log(`Gmail watch will expire on: ${expirationTime.toISOString()}`);
+      } else {
+        const errorText = await watchResponse.text();
+        console.error("Failed to enable Gmail watch:", errorText);
+        // Don't fail the OAuth flow if watch setup fails
+        // The user can still use Gmail, just won't get push notifications
+        console.warn("Gmail watch setup failed, but OAuth connection succeeded. User can still use Gmail.");
+      }
+    } catch (error) {
+      console.error("Error setting up Gmail watch:", error);
+      // Don't fail the OAuth flow if watch setup fails
+      console.warn("Gmail watch setup failed, but OAuth connection succeeded. User can still use Gmail.");
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
