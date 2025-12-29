@@ -71,7 +71,9 @@ serve(async (req) => {
         });
 
         if (!tokenResponse.ok) {
-          console.error(`Failed to refresh token for user ${profile.id}`);
+          const errorText = await tokenResponse.text();
+          console.error(`Failed to refresh token for user ${profile.id}:`, errorText);
+          console.error(`Token response status: ${tokenResponse.status}`);
           errorCount++;
           continue;
         }
