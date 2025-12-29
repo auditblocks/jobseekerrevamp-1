@@ -54,9 +54,8 @@ const FooterSection = () => {
           <div>
             <h4 className="font-semibold text-primary-foreground mb-4">Legal</h4>
             <ul className="space-y-3">
-              <li><a href="#" className="text-primary-foreground/60 hover:text-accent transition-colors">Privacy Policy</a></li>
-              <li><a href="#" className="text-primary-foreground/60 hover:text-accent transition-colors">Terms of Service</a></li>
-              <li><a href="#" className="text-primary-foreground/60 hover:text-accent transition-colors">Cookie Policy</a></li>
+              <li><Link to="/privacy-policy" className="text-primary-foreground/60 hover:text-accent transition-colors">Privacy Policy</Link></li>
+              <li><Link to="/terms-of-service" className="text-primary-foreground/60 hover:text-accent transition-colors">Terms of Service</Link></li>
             </ul>
           </div>
         </div>

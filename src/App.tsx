@@ -17,6 +17,8 @@ import Recruiters from "./pages/Recruiters";
 import Analytics from "./pages/Analytics";
 import Settings from "./pages/Settings";
 import Notifications from "./pages/Notifications";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
+import TermsOfService from "./pages/TermsOfService";
 import NotFound from "./pages/NotFound";
 
 // Admin pages
@@ -52,6 +54,10 @@ const App = () => (
               <Route path="/analytics" element={<Analytics />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/notifications" element={<Notifications />} />
+              
+              {/* Legal Pages */}
+              <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+              <Route path="/terms-of-service" element={<TermsOfService />} />
               
               {/* Admin Routes */}
               <Route path="/admin" element={<AdminDashboard />} />
