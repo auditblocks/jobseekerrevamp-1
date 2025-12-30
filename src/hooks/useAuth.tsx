@@ -28,7 +28,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isSuperadmin, setIsSuperadmin] = useState(false);
 
   useEffect(() => {
-    // Set up auth state listener FIRST
+    // Handle OAuth callback - process hash tokens if present
+    const handleOAuthCallback = async () => {
+      const hashParams = new URLSearchParams(window.location.hash.substring(1));
+      const accessToken = hashParams.get('access_token');
+      
+      if (accessToken) {
+        // OAuth callback detected - get session to process hash tokens
+        try {
+          const { data: { session }, error } = await supabase.auth.getSession();
+          
+          if (error) {
+            console.error("OAuth callback error:", error);
+            return;
+          }
+          
+          if (session) {
+            // Clear the hash from URL
+            window.history.replaceState({}, document.title, window.location.pathname + window.location.search);
+          }
+        } catch (error) {
+          console.error("Error processing OAuth callback:", error);
+        }
+      }
+    };
+
+    // Process OAuth callback first
+    handleOAuthCallback();
+
+    // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         setSession(session);
@@ -47,7 +75,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     );
 
-    // THEN check for existing session
+    // Check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);

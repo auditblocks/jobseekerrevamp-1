@@ -24,17 +24,64 @@ const Auth = () => {
   });
 
   useEffect(() => {
-    // Check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
-        navigate("/dashboard");
+    // Handle OAuth callback - check for tokens in URL hash
+    const handleOAuthCallback = async () => {
+      const hashParams = new URLSearchParams(window.location.hash.substring(1));
+      const accessToken = hashParams.get('access_token');
+      const refreshToken = hashParams.get('refresh_token');
+      
+      if (accessToken) {
+        // OAuth callback detected - Supabase should handle this automatically
+        // but we'll explicitly get the session to ensure it's processed
+        setLoading(true);
+        
+        try {
+          // Get session (this will process the hash tokens)
+          const { data: { session }, error } = await supabase.auth.getSession();
+          
+          if (error) {
+            console.error("OAuth callback error:", error);
+            toast.error("Failed to complete sign in. Please try again.");
+            // Clear the hash
+            window.history.replaceState({}, document.title, window.location.pathname);
+            setLoading(false);
+            return;
+          }
+          
+          if (session) {
+            // Clear the hash from URL
+            window.history.replaceState({}, document.title, window.location.pathname);
+            toast.success("Signed in successfully!");
+            navigate("/dashboard");
+          }
+        } catch (error: any) {
+          console.error("OAuth callback processing error:", error);
+          toast.error("Failed to complete sign in. Please try again.");
+          // Clear the hash
+          window.history.replaceState({}, document.title, window.location.pathname);
+        } finally {
+          setLoading(false);
+        }
+        return;
       }
-    });
+
+      // Check for existing session (normal flow)
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (session) {
+          navigate("/dashboard");
+        }
+      });
+    };
+
+    handleOAuthCallback();
 
     // Listen for auth changes (handles OAuth callbacks automatically)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_IN' && session) {
-        toast.success("Signed in successfully!");
+        // Only show toast if not already navigating from OAuth callback
+        if (!window.location.hash.includes('access_token')) {
+          toast.success("Signed in successfully!");
+        }
         navigate("/dashboard");
       }
     });
@@ -45,6 +92,7 @@ const Auth = () => {
   const handleGoogleSignIn = async () => {
     setLoading(true);
     try {
+      // Redirect to dashboard after OAuth
       const redirectUrl = `${window.location.origin}/dashboard`;
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
@@ -59,7 +107,7 @@ const Auth = () => {
       
       if (error) throw error;
       // Note: User will be redirected to Google, then back to redirectUrl
-      // Loading state will be handled by auth state change
+      // Loading state will be handled by auth state change or OAuth callback handler
     } catch (error: any) {
       console.error("Google OAuth error:", error);
       toast.error(error.message || "Failed to sign in with Google");
