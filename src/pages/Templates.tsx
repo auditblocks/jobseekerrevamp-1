@@ -111,14 +111,14 @@ const Templates = () => {
       <div className="min-h-screen bg-background">
         {/* Header */}
         <header className="sticky top-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-xl">
-          <div className="container mx-auto px-4 py-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
+          <div className="container mx-auto px-3 sm:px-4 py-3 sm:py-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-2 sm:gap-4">
                 <Button variant="ghost" size="icon" onClick={() => navigate("/dashboard")}>
-                  <ArrowLeft className="h-5 w-5" />
+                  <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5" />
                 </Button>
                 <div>
-                  <h1 className="text-xl font-bold text-foreground">Email Templates</h1>
+                  <h1 className="text-lg sm:text-xl font-bold text-foreground">Email Templates</h1>
                   <p className="text-sm text-muted-foreground">Professional templates for outreach</p>
                 </div>
               </div>
@@ -130,7 +130,7 @@ const Templates = () => {
           </div>
         </header>
 
-        <main className="container mx-auto px-4 py-8">
+        <main className="container mx-auto px-3 sm:px-4 py-4 sm:py-8">
           {/* Search and Filters */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}

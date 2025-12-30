@@ -621,20 +621,20 @@ const Settings = () => {
 
       <div className="min-h-screen bg-background">
         <header className="sticky top-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-xl">
-          <div className="container mx-auto px-4 py-4">
-            <div className="flex items-center gap-4">
+          <div className="container mx-auto px-3 sm:px-4 py-3 sm:py-4">
+            <div className="flex items-center gap-2 sm:gap-4">
               <Button variant="ghost" size="icon" onClick={() => navigate("/dashboard")}>
-                <ArrowLeft className="h-5 w-5" />
+                <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5" />
               </Button>
               <div>
-                <h1 className="text-xl font-bold text-foreground">Settings</h1>
-                <p className="text-sm text-muted-foreground">Manage your account</p>
+                <h1 className="text-lg sm:text-xl font-bold text-foreground">Settings</h1>
+                <p className="text-xs sm:text-sm text-muted-foreground hidden sm:block">Manage your account</p>
               </div>
             </div>
           </div>
         </header>
 
-        <main className="container mx-auto px-4 py-8">
+        <main className="container mx-auto px-3 sm:px-4 py-4 sm:py-8">
           <Tabs defaultValue="profile" className="space-y-8">
             <TabsList className="bg-card/50 border border-border/50 p-1">
               <TabsTrigger value="profile" className="data-[state=active]:bg-accent data-[state=active]:text-accent-foreground">

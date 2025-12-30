@@ -111,42 +111,43 @@ const HeroSection = () => {
       </div>
       
       {/* Navigation */}
-      <nav className="relative z-10 flex items-center justify-between px-6 py-6 lg:px-12">
+      <nav className="relative z-10 flex items-center justify-between px-4 sm:px-6 py-4 sm:py-6 lg:px-12">
         <motion.div 
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.5 }}
           className="flex items-center gap-2"
         >
-          <div className="w-10 h-10 rounded-xl bg-accent flex items-center justify-center shadow-glow">
-            <Mail className="w-5 h-5 text-accent-foreground" />
+          <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-accent flex items-center justify-center shadow-glow">
+            <Mail className="w-4 h-4 sm:w-5 sm:h-5 text-accent-foreground" />
           </div>
-          <span className="text-xl font-bold text-primary-foreground">JobSeeker</span>
+          <span className="text-lg sm:text-xl font-bold text-primary-foreground">JobSeeker</span>
         </motion.div>
         
         <motion.div 
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.5 }}
-          className="flex items-center gap-4"
+          className="flex items-center gap-2 sm:gap-4"
         >
           <Link to="/auth">
-            <Button variant="ghost" className="text-primary-foreground/80 hover:text-primary-foreground hover:bg-primary-foreground/10">
+            <Button variant="ghost" size="sm" className="text-xs sm:text-sm text-primary-foreground/80 hover:text-primary-foreground hover:bg-primary-foreground/10">
               Sign In
             </Button>
           </Link>
           <Link to="/auth?mode=signup">
-            <Button variant="hero" size="lg">
-              Get Started
-              <ArrowRight className="w-4 h-4" />
+            <Button variant="hero" size="sm" className="text-xs sm:text-sm">
+              <span className="hidden sm:inline">Get Started</span>
+              <span className="sm:hidden">Start</span>
+              <ArrowRight className="w-3 h-3 sm:w-4 sm:h-4" />
             </Button>
           </Link>
         </motion.div>
       </nav>
       
       {/* Hero Content */}
-      <div className="relative z-10 container mx-auto px-6 pt-20 pb-32 lg:pt-32">
-        <div className="grid lg:grid-cols-2 gap-16 items-center">
+      <div className="relative z-10 container mx-auto px-4 sm:px-6 pt-12 sm:pt-20 pb-16 sm:pb-32 lg:pt-32">
+        <div className="grid lg:grid-cols-2 gap-8 sm:gap-16 items-center">
           {/* Left Content */}
           <div className="space-y-8">
             <motion.div

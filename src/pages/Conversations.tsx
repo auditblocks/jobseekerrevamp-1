@@ -274,23 +274,23 @@ const Conversations = () => {
       <div className="min-h-screen bg-background">
         {/* Header */}
         <header className="sticky top-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-xl">
-          <div className="container mx-auto px-4 py-4">
+          <div className="container mx-auto px-3 sm:px-4 py-3 sm:py-4">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2 sm:gap-4">
                 <Button variant="ghost" size="icon" onClick={() => navigate("/dashboard")}>
-                  <ArrowLeft className="h-5 w-5" />
+                  <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5" />
                 </Button>
                 <div>
-                  <h1 className="text-xl font-bold text-foreground">Conversations</h1>
-                  <p className="text-sm text-muted-foreground">Manage recruiter threads</p>
+                  <h1 className="text-lg sm:text-xl font-bold text-foreground">Conversations</h1>
+                  <p className="text-xs sm:text-sm text-muted-foreground hidden sm:block">Manage recruiter threads</p>
                 </div>
               </div>
             </div>
           </div>
         </header>
 
-        <main className="container mx-auto px-4 py-8">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <main className="container mx-auto px-3 sm:px-4 py-4 sm:py-8">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
             {/* Thread List */}
             <motion.div
               initial={{ opacity: 0, x: -20 }}

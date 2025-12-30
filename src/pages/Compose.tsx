@@ -492,22 +492,22 @@ Best regards,
       <div className="min-h-screen bg-background">
         {/* Header */}
         <header className="sticky top-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-xl">
-          <div className="container mx-auto px-4 py-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
+          <div className="container mx-auto px-3 sm:px-4 py-3 sm:py-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-2 sm:gap-4 w-full sm:w-auto">
                 <Button variant="ghost" size="icon" onClick={() => navigate("/dashboard")}>
-                  <ArrowLeft className="h-5 w-5" />
+                  <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5" />
                 </Button>
-                <div>
-                  <h1 className="text-xl font-bold text-foreground">Compose Email</h1>
-                  <p className="text-sm text-muted-foreground">Craft your perfect outreach</p>
+                <div className="flex-1 sm:flex-none">
+                  <h1 className="text-lg sm:text-xl font-bold text-foreground">Compose Email</h1>
+                  <p className="text-xs sm:text-sm text-muted-foreground hidden sm:block">Craft your perfect outreach</p>
                 </div>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto justify-end">
                 {emailLimit && (
                   <Badge 
                     variant="outline" 
-                    className={`${
+                    className={`text-xs ${
                       emailLimit.remaining <= 0 
                         ? "text-destructive border-destructive/30" 
                         : emailLimit.remaining <= 3 
@@ -515,31 +515,35 @@ Best regards,
                           : "text-success border-success/30"
                     }`}
                   >
-                    {emailLimit.remaining}/{emailLimit.dailyLimit} emails left today
+                    <span className="hidden sm:inline">{emailLimit.remaining}/{emailLimit.dailyLimit} emails left today</span>
+                    <span className="sm:hidden">{emailLimit.remaining}/{emailLimit.dailyLimit}</span>
                   </Badge>
                 )}
-                <Badge variant="outline" className="text-accent border-accent/30">
+                <Badge variant="outline" className="text-xs text-accent border-accent/30">
                   {selectedRecruiters.length} selected
                 </Badge>
                 <Button 
                   variant="hero" 
+                  size="sm"
+                  className="text-xs sm:text-sm"
                   onClick={handleSend} 
                   disabled={!isGmailConnected || isSending || (emailLimit?.remaining || 0) <= 0}
                 >
                   {isSending ? (
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2 animate-spin" />
                   ) : (
-                    <Send className="h-4 w-4 mr-2" />
+                    <Send className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
                   )}
-                  {isSending ? "Sending..." : "Send Email"}
+                  <span className="hidden sm:inline">{isSending ? "Sending..." : "Send Email"}</span>
+                  <span className="sm:hidden">{isSending ? "Sending" : "Send"}</span>
                 </Button>
               </div>
             </div>
           </div>
         </header>
 
-        <main className="container mx-auto px-4 py-8">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <main className="container mx-auto px-3 sm:px-4 py-4 sm:py-8">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-8">
             {/* Email Composer */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
@@ -724,27 +728,27 @@ Best regards,
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1 }}
             >
-              <Card className="border-border/50 bg-card/50 backdrop-blur sticky top-24">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Users className="h-5 w-5 text-accent" />
+              <Card className="border-border/50 bg-card/50 backdrop-blur lg:sticky lg:top-24">
+                <CardHeader className="p-4 sm:p-6">
+                  <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+                    <Users className="h-4 w-4 sm:h-5 sm:w-5 text-accent" />
                     Select Recipients
                   </CardTitle>
-                  <CardDescription>Choose recruiters to contact</CardDescription>
+                  <CardDescription className="text-xs sm:text-sm">Choose recruiters to contact</CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-4">
+                <CardContent className="space-y-3 sm:space-y-4 p-4 sm:p-6">
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
                       placeholder="Search recruiters..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      className="pl-10 bg-background/50"
+                      className="pl-10 bg-background/50 text-sm"
                     />
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex flex-col sm:flex-row gap-2">
                     <Select value={selectedDomain} onValueChange={setSelectedDomain}>
-                      <SelectTrigger className="flex-1">
+                      <SelectTrigger className="flex-1 text-sm">
                         <Filter className="h-3 w-3 mr-2" />
                         <SelectValue placeholder="All Domains" />
                       </SelectTrigger>
@@ -769,6 +773,7 @@ Best regards,
                       <Button
                         variant="ghost"
                         size="sm"
+                        className="text-xs sm:text-sm"
                         onClick={() => setSelectedRecruiters([])}
                       >
                         Unselect All
@@ -777,6 +782,7 @@ Best regards,
                       <Button
                         variant="ghost"
                         size="sm"
+                        className="text-xs sm:text-sm"
                         onClick={() => setSelectedRecruiters(filteredRecruiters.map((r) => r.id))}
                         disabled={filteredRecruiters.length === 0}
                       >
@@ -784,7 +790,7 @@ Best regards,
                       </Button>
                     )}
                   </div>
-                  <div className="space-y-2 max-h-[400px] overflow-y-auto">
+                  <div className="space-y-2 max-h-[300px] sm:max-h-[400px] overflow-y-auto">
                     {isLoadingRecruiters ? (
                       <div className="flex items-center justify-center py-8">
                         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />

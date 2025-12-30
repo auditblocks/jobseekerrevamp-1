@@ -232,71 +232,72 @@ const Dashboard = () => {
         {/* Main Content */}
         <main className="flex-1 lg:ml-64">
           {/* Top Bar */}
-          <header className="sticky top-0 z-30 flex items-center justify-between px-6 py-4 bg-background/80 backdrop-blur-xl border-b border-border">
-            <div className="flex items-center gap-4">
+          <header className="sticky top-0 z-30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 px-4 sm:px-6 py-3 sm:py-4 bg-background/80 backdrop-blur-xl border-b border-border">
+            <div className="flex items-center gap-3 sm:gap-4 w-full sm:w-auto">
               <button
                 onClick={() => setSidebarOpen(true)}
                 className="lg:hidden text-foreground"
               >
-                <Menu className="w-6 h-6" />
+                <Menu className="w-5 h-5 sm:w-6 sm:h-6" />
               </button>
-              <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
+              <h1 className="text-xl sm:text-2xl font-bold text-foreground">Dashboard</h1>
             </div>
             
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
               <NotificationBell />
-              <Button variant="accent" onClick={() => navigate("/settings")}>
-                <Sparkles className="w-4 h-4" />
-                Upgrade to Pro
+              <Button variant="accent" size="sm" className="text-xs sm:text-sm" onClick={() => navigate("/settings")}>
+                <Sparkles className="w-3 h-3 sm:w-4 sm:h-4" />
+                <span className="hidden sm:inline">Upgrade to Pro</span>
+                <span className="sm:hidden">Upgrade</span>
               </Button>
             </div>
           </header>
           
           {/* Content */}
-          <div className="p-6 space-y-8">
+          <div className="p-4 sm:p-6 space-y-6 sm:space-y-8">
             {/* Welcome */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5 }}
-              className="bg-gradient-hero rounded-2xl p-8 text-primary-foreground"
+              className="bg-gradient-hero rounded-xl sm:rounded-2xl p-4 sm:p-8 text-primary-foreground"
             >
-              <h2 className="text-2xl font-bold mb-2">
+              <h2 className="text-xl sm:text-2xl font-bold mb-2">
                 Welcome, {user?.user_metadata?.name || "there"}! 👋
               </h2>
-              <p className="text-primary-foreground/70 mb-6">
+              <p className="text-sm sm:text-base text-primary-foreground/70 mb-4 sm:mb-6">
                 Ready to supercharge your job search? Start by sending your first email to recruiters.
               </p>
-              <Button variant="hero" size="lg" onClick={() => navigate("/compose")}>
-                <Send className="w-5 h-5" />
+              <Button variant="hero" size="default" className="w-full sm:w-auto" onClick={() => navigate("/compose")}>
+                <Send className="w-4 h-4 sm:w-5 sm:h-5" />
                 Compose Email
               </Button>
             </motion.div>
             
             {/* Stats Grid */}
-            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
               {statCards.map((stat, index) => (
                 <motion.div
                   key={index}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.5, delay: index * 0.1 }}
-                  className="bg-card rounded-xl p-6 border border-border shadow-card"
+                  className="bg-card rounded-lg sm:rounded-xl p-4 sm:p-6 border border-border shadow-card"
                 >
-                  <div className="flex items-center justify-between mb-4">
-                    <div className={`w-12 h-12 rounded-xl ${stat.bg} flex items-center justify-center`}>
-                      <stat.icon className={`w-6 h-6 ${stat.color}`} />
+                  <div className="flex items-center justify-between mb-3 sm:mb-4">
+                    <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-lg sm:rounded-xl ${stat.bg} flex items-center justify-center`}>
+                      <stat.icon className={`w-5 h-5 sm:w-6 sm:h-6 ${stat.color}`} />
                     </div>
                   </div>
                   {statsLoading ? (
                     <>
-                      <Skeleton className="h-9 w-16 mb-1" />
-                      <Skeleton className="h-4 w-20" />
+                      <Skeleton className="h-7 sm:h-9 w-12 sm:w-16 mb-1" />
+                      <Skeleton className="h-3 sm:h-4 w-16 sm:w-20" />
                     </>
                   ) : (
                     <>
-                      <div className="text-3xl font-bold text-foreground mb-1">{stat.value}</div>
-                      <div className="text-sm text-muted-foreground">{stat.label}</div>
+                      <div className="text-2xl sm:text-3xl font-bold text-foreground mb-1">{stat.value}</div>
+                      <div className="text-xs sm:text-sm text-muted-foreground">{stat.label}</div>
                     </>
                   )}
                 </motion.div>
