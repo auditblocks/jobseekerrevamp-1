@@ -1,17 +1,12 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Bell, Check, ExternalLink } from "lucide-react";
+import { Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { formatDistanceToNow } from "date-fns";
+import { NotificationAlertDialog } from "@/components/ui/notification-alert-dialog";
 
 interface Notification {
   id: string;
@@ -27,7 +22,6 @@ export function NotificationBell() {
   const { user } = useAuth();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
-  const [open, setOpen] = useState(false);
 
   const unreadCount = notifications.filter((n) => !n.is_read).length;
 
@@ -108,103 +102,61 @@ export function NotificationBell() {
     }
   };
 
-  const getTypeStyles = (type: string) => {
-    switch (type) {
-      case "success":
-        return "border-l-green-500";
-      case "warning":
-        return "border-l-yellow-500";
-      case "promo":
-        return "border-l-purple-500";
-      default:
-        return "border-l-blue-500";
-    }
+  // Convert notifications to the format expected by NotificationAlertDialog
+  const convertNotifications = () => {
+    return notifications.map((notification) => {
+      // Extract initials from title or use first two letters
+      const initials = notification.title
+        .split(' ')
+        .map(word => word[0])
+        .join('')
+        .toUpperCase()
+        .slice(0, 2) || 'NA';
+
+      return {
+        id: notification.id,
+        sender: {
+          name: notification.title,
+          initials: initials,
+        },
+        message: notification.message,
+        time: formatDistanceToNow(new Date(notification.created_at), { addSuffix: true }),
+        read: notification.is_read,
+      };
+    });
   };
 
   if (!user) return null;
 
+  if (loading) {
+    return (
+      <Button variant="ghost" size="icon" className="relative" disabled>
+        <Bell className="h-5 w-5" />
+      </Button>
+    );
+  }
+
+  const bellTrigger = (
+    <Button variant="ghost" size="icon" className="relative">
+      <Bell className="h-5 w-5" />
+      {unreadCount > 0 && (
+        <Badge 
+          className="absolute -top-1 -right-1 h-5 w-5 p-0 flex items-center justify-center text-xs"
+          variant="destructive"
+        >
+          {unreadCount > 9 ? "9+" : unreadCount}
+        </Badge>
+      )}
+    </Button>
+  );
+
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button variant="ghost" size="icon" className="relative">
-          <Bell className="h-5 w-5" />
-          {unreadCount > 0 && (
-            <Badge 
-              className="absolute -top-1 -right-1 h-5 w-5 p-0 flex items-center justify-center text-xs"
-              variant="destructive"
-            >
-              {unreadCount > 9 ? "9+" : unreadCount}
-            </Badge>
-          )}
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-80 p-0" align="end">
-        <div className="flex items-center justify-between p-4 border-b">
-          <h4 className="font-semibold">Notifications</h4>
-          <div className="flex items-center gap-2">
-            {unreadCount > 0 && (
-              <Button variant="ghost" size="sm" onClick={markAllAsRead}>
-                <Check className="h-4 w-4 mr-1" />
-                Mark all read
-              </Button>
-            )}
-          </div>
-        </div>
-        <ScrollArea className="h-[300px]">
-          {loading ? (
-            <div className="p-4 text-center text-muted-foreground">Loading...</div>
-          ) : notifications.length === 0 ? (
-            <div className="p-4 text-center text-muted-foreground">
-              No notifications yet
-            </div>
-          ) : (
-            <div className="divide-y">
-              {notifications.map((notification) => (
-                <div
-                  key={notification.id}
-                  className={`p-4 hover:bg-muted/50 cursor-pointer border-l-4 ${getTypeStyles(notification.type)} ${
-                    !notification.is_read ? "bg-muted/30" : ""
-                  }`}
-                  onClick={() => !notification.is_read && markAsRead(notification.id)}
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex-1 min-w-0">
-                      <div className="font-medium text-sm flex items-center gap-2">
-                        {notification.title}
-                        {!notification.is_read && (
-                          <span className="h-2 w-2 rounded-full bg-primary" />
-                        )}
-                      </div>
-                      <p className="text-sm text-muted-foreground line-clamp-2 mt-1">
-                        {notification.message}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {formatDistanceToNow(new Date(notification.created_at), { addSuffix: true })}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </ScrollArea>
-        {notifications.length > 0 && (
-          <div className="p-3 border-t">
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              className="w-full"
-              onClick={() => {
-                setOpen(false);
-                navigate("/notifications");
-              }}
-            >
-              View all notifications
-              <ExternalLink className="h-3 w-3 ml-2" />
-            </Button>
-          </div>
-        )}
-      </PopoverContent>
-    </Popover>
+    <NotificationAlertDialog
+      notifications={convertNotifications()}
+      onMarkAsRead={markAsRead}
+      onMarkAllAsRead={markAllAsRead}
+      onViewAll={() => navigate("/notifications")}
+      trigger={bellTrigger}
+    />
   );
 }
