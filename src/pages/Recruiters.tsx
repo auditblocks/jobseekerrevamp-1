@@ -82,6 +82,13 @@ const Recruiters = () => {
     fetchData();
   }, []);
 
+  // Helper function to check if user can access recruiter based on tier
+  const canAccessRecruiter = (tier: string | null) => {
+    const tierOrder = ["FREE", "PRO", "PRO_MAX"];
+    const recruiterTier = tier || "FREE";
+    return tierOrder.indexOf(recruiterTier) <= tierOrder.indexOf(userTier);
+  };
+
   const filteredRecruiters = recruiters.filter((recruiter) => {
     const matchesSearch =
       recruiter.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -93,12 +100,6 @@ const Recruiters = () => {
     const matchesUserTier = selectedTier ? true : canAccessRecruiter(recruiter.tier);
     return matchesSearch && matchesDomain && matchesTier && matchesUserTier;
   });
-
-  const canAccessRecruiter = (tier: string | null) => {
-    const tierOrder = ["FREE", "PRO", "PRO_MAX"];
-    const recruiterTier = tier || "FREE";
-    return tierOrder.indexOf(recruiterTier) <= tierOrder.indexOf(userTier);
-  };
 
   const getQualityColor = (score: number | null) => {
     if (!score) return "text-muted-foreground";
