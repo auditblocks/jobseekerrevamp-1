@@ -1,9 +1,98 @@
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Mail, BarChart3, Users, Sparkles } from "lucide-react";
+import { ArrowRight, Mail, BarChart3, Users, Sparkles, Send, Eye, MessageSquare, Briefcase } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
 
 const HeroSection = () => {
+  const [landingStats, setLandingStats] = useState({
+    activeUsers: "10k+",
+    emailsSent: "500k+",
+    responseRate: "45%",
+  });
+  const [dashboardPreviewStats, setDashboardPreviewStats] = useState([
+    { label: "Sent", value: "248", icon: Mail },
+    { label: "Opened", value: "156", icon: BarChart3 },
+    { label: "Replies", value: "67", icon: Users },
+  ]);
+
+  useEffect(() => {
+    // Fetch dashboard config for landing page stats
+    const fetchLandingStats = async () => {
+      try {
+        const { data: dashboardConfigs } = await supabase
+          .from("dashboard_config" as any)
+          .select("*")
+          .eq("is_active", true)
+          .order("display_order", { ascending: true });
+
+        if (dashboardConfigs && dashboardConfigs.length > 0) {
+          // Map config to landing page stats
+          const configMap: Record<string, any> = {};
+          dashboardConfigs.forEach((config: any) => {
+            configMap[config.config_key] = config.config_value;
+          });
+
+          // Update landing page top stats if configured
+          if (configMap.active_users) {
+            setLandingStats(prev => ({
+              ...prev,
+              activeUsers: formatNumber(configMap.active_users.value),
+            }));
+          }
+          if (configMap.emails_sent) {
+            setLandingStats(prev => ({
+              ...prev,
+              emailsSent: formatNumber(configMap.emails_sent.value),
+            }));
+          }
+          if (configMap.response_rate) {
+            setLandingStats(prev => ({
+              ...prev,
+              responseRate: `${configMap.response_rate.value}%`,
+            }));
+          }
+
+          // Update dashboard preview stats
+          const iconMap: Record<string, any> = {
+            Send: Mail,
+            Eye: BarChart3,
+            MessageSquare: Users,
+            Briefcase: Briefcase,
+            Mail: Mail,
+            BarChart3: BarChart3,
+            Users: Users,
+          };
+
+          const previewStats = dashboardConfigs
+            .slice(0, 3)
+            .map((config: any) => {
+              const IconComponent = iconMap[config.config_value?.icon] || Mail;
+              return {
+                label: config.config_value?.label || "Stat",
+                value: config.config_value?.value?.toString() || "0",
+                icon: IconComponent,
+              };
+            });
+
+          if (previewStats.length > 0) {
+            setDashboardPreviewStats(previewStats);
+          }
+        }
+      } catch (error) {
+        console.log("Dashboard config not available, using default stats");
+      }
+    };
+
+    fetchLandingStats();
+  }, []);
+
+  const formatNumber = (num: number): string => {
+    if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M+`;
+    if (num >= 1000) return `${(num / 1000).toFixed(0)}k+`;
+    return num.toString();
+  };
   return (
     <section className="relative min-h-screen overflow-hidden bg-gradient-hero">
       {/* Animated Background Elements */}
@@ -120,17 +209,17 @@ const HeroSection = () => {
               className="flex items-center gap-8 pt-8 border-t border-primary-foreground/10"
             >
               <div>
-                <div className="text-3xl font-bold text-accent">10k+</div>
+                <div className="text-3xl font-bold text-accent">{landingStats.activeUsers}</div>
                 <div className="text-sm text-primary-foreground/60">Active Users</div>
               </div>
               <div className="w-px h-12 bg-primary-foreground/20" />
               <div>
-                <div className="text-3xl font-bold text-accent">500k+</div>
+                <div className="text-3xl font-bold text-accent">{landingStats.emailsSent}</div>
                 <div className="text-sm text-primary-foreground/60">Emails Sent</div>
               </div>
               <div className="w-px h-12 bg-primary-foreground/20" />
               <div>
-                <div className="text-3xl font-bold text-accent">45%</div>
+                <div className="text-3xl font-bold text-accent">{landingStats.responseRate}</div>
                 <div className="text-sm text-primary-foreground/60">Response Rate</div>
               </div>
             </motion.div>
@@ -191,11 +280,7 @@ const HeroSection = () => {
                   </div>
                   
                   <div className="grid grid-cols-3 gap-4">
-                    {[
-                      { label: "Sent", value: "248", icon: Mail },
-                      { label: "Opened", value: "156", icon: BarChart3 },
-                      { label: "Replies", value: "67", icon: Users },
-                    ].map((stat, index) => (
+                    {dashboardPreviewStats.map((stat, index) => (
                       <div key={index} className="bg-secondary/50 rounded-xl p-4 text-center">
                         <stat.icon className="w-5 h-5 mx-auto text-accent mb-2" />
                         <div className="text-2xl font-bold text-foreground">{stat.value}</div>

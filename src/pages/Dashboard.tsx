@@ -55,8 +55,6 @@ const Dashboard = () => {
     }
   }, [authLoading, user, navigate]);
 
-  const [configStats, setConfigStats] = useState<any[]>([]);
-
   useEffect(() => {
     const fetchStats = async () => {
       if (!user?.id) return;
@@ -64,36 +62,7 @@ const Dashboard = () => {
       try {
         setStatsLoading(true);
         
-        // Try to fetch dashboard configuration from admin (may not exist yet)
-        try {
-          const { data: dashboardConfigs } = await supabase
-            .from("dashboard_config" as any)
-            .select("*")
-            .eq("is_active", true)
-            .order("display_order", { ascending: true });
-
-          if (dashboardConfigs && dashboardConfigs.length > 0) {
-            setConfigStats(dashboardConfigs);
-            // Use configured dashboard stats
-            const configMap: Record<string, number> = {};
-            dashboardConfigs.forEach((config: any) => {
-              configMap[config.config_key] = config.config_value?.value || 0;
-            });
-
-            setStats({
-              emailsSent: configMap.emails_sent || 0,
-              openRate: configMap.emails_opened || 0,
-              responses: configMap.emails_replied || 0,
-              applications: configMap.applications || 0,
-            });
-            return;
-          }
-        } catch (configError) {
-          // Table might not exist yet, continue with real data
-          console.log("Dashboard config not available, using real data");
-        }
-
-        // Fallback to real data if no config
+        // Always fetch real user data from database
         const { data: emailData, error: emailError } = await supabase
           .from("email_tracking")
           .select("id, opened_at, replied_at")
@@ -158,24 +127,13 @@ const Dashboard = () => {
     Activity,
   };
 
-  // Use configured stats if available, otherwise use default
-  const statCards = configStats.length > 0
-    ? configStats.map((config: any) => {
-        const IconComponent = iconMap[config.config_value?.icon] || Send;
-        return {
-          label: config.config_value?.label || "Stat",
-          value: config.config_value?.value?.toString() || "0",
-          icon: IconComponent,
-          color: config.config_value?.color || "text-accent",
-          bg: config.config_value?.bg || "bg-accent/10",
-        };
-      })
-    : [
-        { label: "Emails Sent", value: stats.emailsSent.toString(), icon: Send, color: "text-accent", bg: "bg-accent/10" },
-        { label: "Open Rate", value: `${stats.openRate}%`, icon: Eye, color: "text-success", bg: "bg-success/10" },
-        { label: "Responses", value: stats.responses.toString(), icon: MessageSquare, color: "text-primary", bg: "bg-primary/10" },
-        { label: "Applications", value: stats.applications.toString(), icon: Briefcase, color: "text-warning", bg: "bg-warning/10" },
-      ];
+  // Always use real user data for dashboard stats
+  const statCards = [
+    { label: "Emails Sent", value: stats.emailsSent.toString(), icon: Send, color: "text-accent", bg: "bg-accent/10" },
+    { label: "Open Rate", value: `${stats.openRate}%`, icon: Eye, color: "text-success", bg: "bg-success/10" },
+    { label: "Responses", value: stats.responses.toString(), icon: MessageSquare, color: "text-primary", bg: "bg-primary/10" },
+    { label: "Applications", value: stats.applications.toString(), icon: Briefcase, color: "text-warning", bg: "bg-warning/10" },
+  ];
 
   const navItems = [
     { icon: Home, label: "Dashboard", path: "/dashboard" },

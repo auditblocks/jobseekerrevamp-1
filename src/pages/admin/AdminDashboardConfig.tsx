@@ -59,12 +59,12 @@ export default function AdminDashboardConfig() {
     try {
       setLoading(true);
       const { data, error } = await supabase
-        .from("dashboard_config")
+        .from("dashboard_config" as any)
         .select("*")
         .order("display_order", { ascending: true });
 
       if (error) throw error;
-      setConfigs(data || []);
+      setConfigs((data || []) as unknown as DashboardConfig[]);
     } catch (error: any) {
       console.error("Failed to fetch dashboard configs:", error);
       toast.error("Failed to load dashboard configuration");
@@ -121,7 +121,7 @@ export default function AdminDashboardConfig() {
       if (editingConfig) {
         // Update existing
         const { error } = await supabase
-          .from("dashboard_config")
+          .from("dashboard_config" as any)
           .update({
             config_value: configValue,
             display_order: formData.display_order,
@@ -133,7 +133,7 @@ export default function AdminDashboardConfig() {
         toast.success("Dashboard config updated successfully");
       } else {
         // Create new
-        const { error } = await supabase.from("dashboard_config").insert({
+        const { error } = await supabase.from("dashboard_config" as any).insert({
           config_key: formData.config_key.trim().toLowerCase().replace(/\s+/g, "_"),
           config_value: configValue,
           display_order: formData.display_order,
@@ -156,7 +156,7 @@ export default function AdminDashboardConfig() {
     if (!confirm("Are you sure you want to delete this dashboard configuration?")) return;
 
     try {
-      const { error } = await supabase.from("dashboard_config").delete().eq("id", id);
+      const { error } = await supabase.from("dashboard_config" as any).delete().eq("id", id);
       if (error) throw error;
       toast.success("Dashboard config deleted successfully");
       fetchConfigs();
@@ -169,7 +169,7 @@ export default function AdminDashboardConfig() {
   const handleToggleActive = async (config: DashboardConfig) => {
     try {
       const { error } = await supabase
-        .from("dashboard_config")
+        .from("dashboard_config" as any)
         .update({ is_active: !config.is_active })
         .eq("id", config.id);
 
@@ -222,7 +222,7 @@ export default function AdminDashboardConfig() {
           <div>
             <h1 className="text-3xl font-bold">Dashboard Configuration</h1>
             <p className="text-muted-foreground">
-              Configure the statistics displayed on the user dashboard
+              Configure the statistics displayed on the landing page (home page). User dashboard always shows real data from their account.
             </p>
           </div>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
@@ -238,7 +238,7 @@ export default function AdminDashboardConfig() {
                   {editingConfig ? "Edit Dashboard Stat" : "Add New Dashboard Stat"}
                 </DialogTitle>
                 <DialogDescription>
-                  Configure a statistic card that will appear on the user dashboard
+                  Configure a statistic card that will appear on the landing page (home page). These are marketing stats, not user-specific data.
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4 py-4">
