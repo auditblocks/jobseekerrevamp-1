@@ -113,14 +113,20 @@ serve(async (req) => {
     }
 
     const csvText = await csvResponse.text();
+    const csvSize = csvText.length;
+    console.log(`Fetched CSV: ${csvSize} bytes`);
     
     // Parse CSV with proper quote handling
     const rows = parseCSV(csvText);
     
-    // Check if CSV was truncated (Google Sheets might limit CSV exports to ~10,000 rows)
-    // Note: Google Sheets CSV export typically supports up to 10,000 rows
-    if (rows.length > 0) {
-      console.log(`Parsed ${rows.length} rows from CSV`);
+    // Google Sheets CSV export has a limit of ~1000 rows for large sheets
+    // Check if CSV might be truncated by looking for incomplete last row
+    console.log(`Parsed ${rows.length} rows from CSV (excluding header)`);
+    
+    // Warn if CSV seems truncated (Google Sheets limits CSV export to ~1000 rows)
+    if (rows.length >= 1000) {
+      console.warn(`⚠️ CSV export may be truncated. Google Sheets CSV export is limited to approximately 1000 rows.`);
+      console.warn(`If your sheet has more than 1000 rows, only the first 1000 will be imported.`);
     }
     
     if (rows.length === 0) {
@@ -133,6 +139,8 @@ serve(async (req) => {
     // Map CSV rows to recruiter data
     const recruiters: RecruiterRow[] = [];
     const errors: string[] = [];
+
+    console.log(`Processing ${rows.length - 1} data rows (excluding header)`);
 
     // Assume first row is header, skip it
     for (let i = 1; i < rows.length; i++) {
@@ -148,7 +156,11 @@ serve(async (req) => {
       const qualityScoreIdx = headerRow.indexOf("quality_score");
 
       if (emailIdx === -1 || !row[emailIdx]) {
-        errors.push(`Row ${i + 1}: Missing required email field`);
+        const errorMsg = `Row ${i + 1}: Missing required email field`;
+        errors.push(errorMsg);
+        if (errors.length <= 10) { // Log first 10 errors to avoid spam
+          console.warn(errorMsg);
+        }
         continue;
       }
 
@@ -157,13 +169,21 @@ serve(async (req) => {
       // Validate email format
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(email)) {
-        errors.push(`Row ${i + 1}: Invalid email format: ${email}`);
+        const errorMsg = `Row ${i + 1}: Invalid email format: ${email}`;
+        errors.push(errorMsg);
+        if (errors.length <= 10) {
+          console.warn(errorMsg);
+        }
         continue;
       }
 
       const name = nameIdx !== -1 && row[nameIdx] ? row[nameIdx].trim() : "";
       if (!name) {
-        errors.push(`Row ${i + 1}: Missing required name field`);
+        const errorMsg = `Row ${i + 1}: Missing required name field`;
+        errors.push(errorMsg);
+        if (errors.length <= 10) {
+          console.warn(errorMsg);
+        }
         continue;
       }
 
@@ -200,12 +220,18 @@ serve(async (req) => {
       });
     }
 
+    console.log(`Validated ${recruiters.length} recruiters from ${rows.length - 1} rows`);
+    if (errors.length > 0) {
+      console.warn(`Found ${errors.length} validation errors (showing first 10 in logs)`);
+    }
+
     if (recruiters.length === 0) {
+      console.error("No valid recruiters found after validation");
       return new Response(
         JSON.stringify({ 
           success: false,
           error: "No valid recruiters found",
-          errors 
+          errors: errors.slice(0, 50) // Return first 50 errors
         }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
@@ -214,20 +240,26 @@ serve(async (req) => {
     // Get existing emails in batch if skip_duplicates is enabled
     let existingEmails = new Set<string>();
     if (skip_duplicates && recruiters.length > 0) {
+      console.log(`Checking for duplicates among ${recruiters.length} recruiters...`);
       const emails = recruiters.map(r => r.email);
       // Fetch existing emails in batches (Supabase has a limit on query size)
       const batchSize = 1000;
       for (let i = 0; i < emails.length; i += batchSize) {
         const emailBatch = emails.slice(i, i + batchSize);
-        const { data: existing } = await supabase
+        const { data: existing, error: checkError } = await supabase
           .from("recruiters")
           .select("email")
           .in("email", emailBatch);
+        
+        if (checkError) {
+          console.error(`Error checking duplicates for batch ${i / batchSize + 1}:`, checkError);
+        }
         
         if (existing) {
           existing.forEach(e => existingEmails.add(e.email));
         }
       }
+      console.log(`Found ${existingEmails.size} existing recruiters (duplicates)`);
     }
 
     // Filter out duplicates before inserting
@@ -242,11 +274,17 @@ serve(async (req) => {
     const insertErrors: string[] = [];
     const BATCH_SIZE = 100; // Insert 100 at a time
 
+    console.log(`Inserting ${recruitersToInsert.length} recruiters in batches of ${BATCH_SIZE}...`);
+
     for (let i = 0; i < recruitersToInsert.length; i += BATCH_SIZE) {
       const batch = recruitersToInsert.slice(i, i + BATCH_SIZE);
+      const batchNum = Math.floor(i / BATCH_SIZE) + 1;
+      const totalBatches = Math.ceil(recruitersToInsert.length / BATCH_SIZE);
+      
+      console.log(`Processing batch ${batchNum}/${totalBatches} (${batch.length} recruiters)...`);
       
       try {
-        const { error: insertError } = await supabase
+        const { error: insertError, data: insertData } = await supabase
           .from("recruiters")
           .insert(
             batch.map(recruiter => ({
@@ -257,11 +295,14 @@ serve(async (req) => {
               tier: recruiter.tier || "FREE",
               quality_score: recruiter.quality_score || null,
             }))
-          );
+          )
+          .select();
 
         if (insertError) {
           // If batch insert fails, try individual inserts for this batch
-          console.warn(`Batch insert failed, trying individual inserts for batch ${i / BATCH_SIZE + 1}`);
+          console.warn(`Batch ${batchNum} insert failed:`, insertError.message);
+          console.warn(`Trying individual inserts for batch ${batchNum}...`);
+          
           for (const recruiter of batch) {
             try {
               const { error: singleError } = await supabase
@@ -278,24 +319,36 @@ serve(async (req) => {
               if (singleError) {
                 if (singleError.code === "23505") { // Unique constraint violation
                   // Already counted in skipped
+                  console.debug(`Skipped duplicate: ${recruiter.email}`);
                 } else {
-                  insertErrors.push(`${recruiter.email}: ${singleError.message}`);
+                  const errorMsg = `${recruiter.email}: ${singleError.message}`;
+                  insertErrors.push(errorMsg);
+                  if (insertErrors.length <= 10) {
+                    console.error(errorMsg);
+                  }
                 }
               } else {
                 inserted++;
               }
             } catch (err: any) {
-              insertErrors.push(`${recruiter.email}: ${err.message}`);
+              const errorMsg = `${recruiter.email}: ${err.message}`;
+              insertErrors.push(errorMsg);
+              if (insertErrors.length <= 10) {
+                console.error(errorMsg);
+              }
             }
           }
         } else {
           inserted += batch.length;
+          console.log(`Batch ${batchNum} inserted successfully: ${batch.length} recruiters`);
         }
       } catch (err: any) {
-        console.error(`Error inserting batch ${i / BATCH_SIZE + 1}:`, err);
-        insertErrors.push(`Batch ${i / BATCH_SIZE + 1}: ${err.message}`);
+        console.error(`Error inserting batch ${batchNum}:`, err);
+        insertErrors.push(`Batch ${batchNum}: ${err.message}`);
       }
     }
+
+    console.log(`Import complete: ${inserted} inserted, ${skipped} skipped, ${errors.length + insertErrors.length} errors`);
 
     // If nothing was inserted and nothing was skipped, it's an error
     if (inserted === 0 && skipped === 0 && recruiters.length > 0) {
@@ -319,19 +372,32 @@ serve(async (req) => {
       );
     }
 
+    const totalErrors = errors.length + insertErrors.length;
+    const warningMessage = rows.length >= 1000 
+      ? " ⚠️ Note: Google Sheets CSV export is limited to ~1000 rows. If your sheet has more rows, split it into multiple sheets."
+      : "";
+
     return new Response(
       JSON.stringify({
         success: true,
-        message: `Import completed: ${inserted} inserted, ${skipped} skipped`,
+        message: `Import completed: ${inserted} inserted, ${skipped} skipped${warningMessage}`,
         stats: {
           total_rows: rows.length - 1, // Exclude header
           valid_recruiters: recruiters.length,
           inserted,
           skipped,
-          errors: errors.length + insertErrors.length,
+          errors: totalErrors,
         },
-        errors: errors.length > 0 || insertErrors.length > 0 
-          ? [...errors, ...insertErrors] 
+        errors: totalErrors > 0 
+          ? {
+              validation_errors: errors.slice(0, 50), // First 50 validation errors
+              insert_errors: insertErrors.slice(0, 50), // First 50 insert errors
+              total_count: totalErrors,
+              message: totalErrors > 100 ? `Showing first 100 of ${totalErrors} errors. Check logs for details.` : undefined
+            }
+          : undefined,
+        warning: rows.length >= 1000 
+          ? "Google Sheets CSV export is limited to approximately 1000 rows. Only the first 1000 rows were imported."
           : undefined,
       }),
       {

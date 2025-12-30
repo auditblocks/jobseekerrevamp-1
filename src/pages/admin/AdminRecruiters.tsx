@@ -245,13 +245,39 @@ export default function AdminRecruiters() {
       // Check if response indicates success
       if (data && data.success !== undefined) {
         if (data.success) {
-          toast.success(
-            data.message || `Import completed: ${data.stats?.inserted || 0} inserted, ${data.stats?.skipped || 0} skipped`
-          );
+          const message = data.message || `Import completed: ${data.stats?.inserted || 0} inserted, ${data.stats?.skipped || 0} skipped`;
+          toast.success(message);
 
-          if (data.errors && data.errors.length > 0) {
-            console.warn("Import errors:", data.errors);
-            toast.warning(`${data.errors.length} errors occurred during import`);
+          // Show warning if CSV was truncated
+          if (data.warning) {
+            toast.warning(data.warning, { duration: 8000 });
+          }
+
+          // Show detailed error information
+          if (data.errors) {
+            const errorCount = typeof data.errors === 'number' 
+              ? data.errors 
+              : data.errors.total_count || 0;
+            
+            if (errorCount > 0) {
+              console.warn("Import errors:", data.errors);
+              
+              // Show detailed error message
+              let errorMessage = `${errorCount} error${errorCount !== 1 ? 's' : ''} occurred during import`;
+              if (data.errors.message) {
+                errorMessage += `. ${data.errors.message}`;
+              }
+              
+              toast.warning(errorMessage, { duration: 6000 });
+              
+              // Log first few errors for debugging
+              if (data.errors.validation_errors && data.errors.validation_errors.length > 0) {
+                console.warn("Validation errors (first 10):", data.errors.validation_errors.slice(0, 10));
+              }
+              if (data.errors.insert_errors && data.errors.insert_errors.length > 0) {
+                console.warn("Insert errors (first 10):", data.errors.insert_errors.slice(0, 10));
+              }
+            }
           }
 
           setIsBulkImportDialogOpen(false);
@@ -259,6 +285,9 @@ export default function AdminRecruiters() {
           fetchRecruiters();
         } else {
           toast.error(data.message || "Import failed");
+          if (data.errors) {
+            console.error("Import errors:", data.errors);
+          }
         }
       } else {
         // Unexpected response format
