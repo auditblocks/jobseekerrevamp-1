@@ -177,6 +177,7 @@ serve(async (req) => {
     if (recruiters.length === 0) {
       return new Response(
         JSON.stringify({ 
+          success: false,
           error: "No valid recruiters found",
           errors 
         }),
@@ -228,6 +229,28 @@ serve(async (req) => {
       } catch (err: any) {
         insertErrors.push(`${recruiter.email}: ${err.message}`);
       }
+    }
+
+    // If nothing was inserted and nothing was skipped, it's an error
+    if (inserted === 0 && skipped === 0 && recruiters.length > 0) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: "Failed to import any recruiters. All rows had errors.",
+          stats: {
+            total_rows: rows.length - 1,
+            valid_recruiters: recruiters.length,
+            inserted: 0,
+            skipped: 0,
+            errors: errors.length + insertErrors.length,
+          },
+          errors: [...errors, ...insertErrors],
+        }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
     }
 
     return new Response(
