@@ -81,8 +81,8 @@ export default function AdminRecruiters() {
       const { data, error } = await supabase
         .from("recruiters")
         .select("*")
-        .order("created_at", { ascending: false })
-        .limit(100);
+        .order("created_at", { ascending: false });
+        // Removed .limit(100) to show all recruiters
 
       if (error) throw error;
       setRecruiters(data || []);

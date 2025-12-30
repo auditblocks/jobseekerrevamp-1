@@ -89,7 +89,9 @@ const Recruiters = () => {
       (recruiter.company?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false);
     const matchesDomain = selectedDomain === "All" || recruiter.domain === selectedDomain;
     const matchesTier = !selectedTier || recruiter.tier === selectedTier;
-    return matchesSearch && matchesDomain && matchesTier;
+    // Filter by tier - only show recruiters user can access (unless they specifically filter by tier)
+    const matchesUserTier = selectedTier ? true : canAccessRecruiter(recruiter.tier);
+    return matchesSearch && matchesDomain && matchesTier && matchesUserTier;
   });
 
   const canAccessRecruiter = (tier: string | null) => {

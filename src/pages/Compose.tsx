@@ -49,6 +49,7 @@ interface Recruiter {
   email: string;
   company: string | null;
   domain: string | null;
+  tier: string | null;
 }
 
 interface Domain {
@@ -66,7 +67,7 @@ interface EmailLimit {
 
 const Compose = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
   const [selectedRecruiters, setSelectedRecruiters] = useState<string[]>([]);
@@ -95,7 +96,7 @@ const Compose = () => {
       setIsLoadingRecruiters(true);
       try {
         const [recruitersRes, domainsRes] = await Promise.all([
-          supabase.from("recruiters").select("id, name, email, company, domain").order("name"),
+          supabase.from("recruiters").select("id, name, email, company, domain, tier").order("name"),
           supabase.from("domains").select("id, name, display_name").eq("is_active", true).order("sort_order")
         ]);
 
@@ -313,13 +314,24 @@ const Compose = () => {
     }
   };
 
+  // Helper function to check if user can access recruiter based on tier
+  const canAccessRecruiter = (recruiterTier: string | null) => {
+    const userTier = profile?.subscription_tier || "FREE";
+    const tierOrder = ["FREE", "PRO", "PRO_MAX"];
+    const recruiterTierValue = recruiterTier || "FREE";
+    // User can access recruiters at their tier or below
+    return tierOrder.indexOf(recruiterTierValue) <= tierOrder.indexOf(userTier);
+  };
+
   const filteredRecruiters = recruiters.filter((r) => {
     const matchesSearch = 
       r.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       r.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (r.company?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false);
     const matchesDomain = selectedDomain === "all" || r.domain === selectedDomain;
-    return matchesSearch && matchesDomain;
+    // Filter by tier - only show recruiters user can access
+    const matchesTier = canAccessRecruiter(r.tier);
+    return matchesSearch && matchesDomain && matchesTier;
   });
 
   const toggleRecruiter = (id: string) => {
