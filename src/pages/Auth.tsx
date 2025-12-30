@@ -92,8 +92,10 @@ const Auth = () => {
   const handleGoogleSignIn = async () => {
     setLoading(true);
     try {
-      // Redirect to dashboard after OAuth
-      const redirectUrl = `${window.location.origin}/dashboard`;
+      // Use production URL from env, or fall back to current origin
+      const siteUrl = import.meta.env.VITE_SITE_URL || window.location.origin;
+      const redirectUrl = `${siteUrl}/dashboard`;
+      
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
