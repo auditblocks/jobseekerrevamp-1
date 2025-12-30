@@ -32,6 +32,7 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { PricingContainer, PricingPlan } from "@/components/ui/pricing-container";
 
 declare global {
   interface Window {
@@ -554,6 +555,50 @@ const Settings = () => {
     return `₹${price.toLocaleString()}`;
   };
 
+  const getAccentColor = (planName: string, index: number) => {
+    const name = planName.toLowerCase();
+    if (name.includes('free')) return 'bg-gray-500';
+    if (name.includes('pro max') || name.includes('pro_max')) return 'bg-purple-500';
+    if (name.includes('pro')) return 'bg-blue-500';
+    // Default colors based on index
+    const colors = ['bg-rose-500', 'bg-blue-500', 'bg-purple-500'];
+    return colors[index % colors.length];
+  };
+
+  // Convert subscription plans to pricing plans format for Settings
+  const convertToPricingPlans = (): PricingPlan[] => {
+    return plans.map((plan, index) => {
+      const monthlyPrice = plan.price;
+      // Calculate yearly price (assuming 30 days = 1 month, so 12 months = 360 days)
+      // If duration is 0 (forever) or price is 0, keep it as 0
+      const yearlyPrice = (plan.price === 0 || plan.duration_days === 0) 
+        ? 0 
+        : (plan.duration_days === 30 ? monthlyPrice * 12 : monthlyPrice * 12);
+      const isCurrent = profile.subscriptionTier === plan.id;
+      
+      return {
+        id: plan.id,
+        name: plan.display_name || plan.name,
+        monthlyPrice: monthlyPrice,
+        yearlyPrice: yearlyPrice > 0 ? Math.round(yearlyPrice * 0.8) : 0, // 20% discount for yearly
+        features: plan.features || [],
+        isPopular: plan.is_recommended || false,
+        accent: getAccentColor(plan.name, index),
+        isCurrent: isCurrent,
+        buttonText: isCurrent 
+          ? (plan.button_disabled_text || "Current Plan")
+          : (plan.button_text || "Upgrade"),
+        onButtonClick: () => {
+          if (!isCurrent && plan.price > 0) {
+            handleUpgradePlan(plan);
+          }
+        },
+        disabled: isCurrent || processingPayment === plan.id || plan.price === 0,
+        loading: processingPayment === plan.id,
+      };
+    });
+  };
+
   const formatFileSize = (bytes: number | null) => {
     if (!bytes) return "Unknown size";
     if (bytes < 1024) return `${bytes} B`;
@@ -934,68 +979,13 @@ const Settings = () => {
                     <Loader2 className="h-8 w-8 animate-spin text-accent" />
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    {plans.map((plan, index) => {
-                      const isCurrent = profile.subscriptionTier === plan.id;
-                      return (
-                        <Card
-                          key={plan.id}
-                          className={`border-border/50 bg-card/50 relative ${
-                            plan.is_recommended ? "ring-2 ring-accent" : ""
-                          } ${isCurrent ? "bg-accent/5" : ""}`}
-                        >
-                          {plan.is_recommended && (
-                            <Badge className="absolute -top-3 left-1/2 -translate-x-1/2 bg-accent text-accent-foreground">
-                              Recommended
-                            </Badge>
-                          )}
-                          <CardHeader>
-                            <div className="flex items-center gap-2">
-                              {getPlanIcon(index, plan.is_recommended)}
-                              <CardTitle>{plan.display_name || plan.name}</CardTitle>
-                            </div>
-                            <div className="flex items-baseline gap-2">
-                              <span className="text-3xl font-bold">{formatPrice(plan.price)}</span>
-                              {plan.billing_cycle_display && (
-                                <span className="text-muted-foreground">{plan.billing_cycle_display}</span>
-                              )}
-                            </div>
-                            {plan.old_price && (
-                              <span className="text-sm text-muted-foreground line-through">
-                                {formatPrice(plan.old_price)}
-                              </span>
-                            )}
-                          </CardHeader>
-                          <CardContent className="space-y-4">
-                            <ul className="space-y-2">
-                              {plan.features.map((feature, i) => (
-                                <li key={i} className="flex items-center gap-2 text-sm">
-                                  <Check className="h-4 w-4 text-success" />
-                                  {feature}
-                                </li>
-                              ))}
-                            </ul>
-                            <Button
-                              variant={isCurrent ? "outline" : "hero"}
-                              className="w-full"
-                              disabled={isCurrent || processingPayment === plan.id || plan.price === 0}
-                              onClick={() => !isCurrent && plan.price > 0 && handleUpgradePlan(plan)}
-                            >
-                              {processingPayment === plan.id ? (
-                                <>
-                                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                  Processing...
-                                </>
-                              ) : isCurrent ? (
-                                plan.button_disabled_text || "Current Plan"
-                              ) : (
-                                plan.button_text || "Upgrade"
-                              )}
-                            </Button>
-                          </CardContent>
-                        </Card>
-                      );
-                    })}
+                  <div className="bg-background rounded-lg p-4">
+                    <PricingContainer
+                      title="Subscription Plans"
+                      plans={convertToPricingPlans()}
+                      className="bg-transparent min-h-0"
+                      showYearlyToggle={true}
+                    />
                   </div>
                 )}
               </motion.div>
