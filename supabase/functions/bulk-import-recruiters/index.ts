@@ -142,49 +142,68 @@ serve(async (req) => {
 
     console.log(`Processing ${rows.length - 1} data rows (excluding header)`);
 
+    // Find column indices from header (case-insensitive)
+    const headerRow = rows[0].map((h: string) => h?.toLowerCase().trim() || "");
+    const nameIdx = headerRow.indexOf("name");
+    const emailIdx = headerRow.indexOf("email");
+    const companyIdx = headerRow.indexOf("company");
+    const domainIdx = headerRow.indexOf("domain");
+    const tierIdx = headerRow.indexOf("tier");
+    const qualityScoreIdx = headerRow.indexOf("quality_score");
+
+    // Check if required columns exist in header
+    if (emailIdx === -1) {
+      console.error("CSV Header columns:", headerRow);
+      console.error("Email column not found in CSV. Available columns:", headerRow.join(", "));
+      return new Response(
+        JSON.stringify({ 
+          success: false,
+          error: `CSV format error: 'email' column not found in header. Available columns: ${headerRow.join(", ")}. Please ensure your CSV has an 'email' column.`,
+          errors: [`Missing 'email' column in CSV header. Found columns: ${headerRow.join(", ")}`]
+        }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Name column is optional - we'll use email username as fallback
+    if (nameIdx === -1) {
+      console.warn("Name column not found in CSV. Will use email username as name for rows without name.");
+    }
+
     // Assume first row is header, skip it
     for (let i = 1; i < rows.length; i++) {
       const row = rows[i];
       
-      // Find column indices (case-insensitive)
-      const headerRow = rows[0].map((h: string) => h?.toLowerCase().trim() || "");
-      const nameIdx = headerRow.indexOf("name");
-      const emailIdx = headerRow.indexOf("email");
-      const companyIdx = headerRow.indexOf("company");
-      const domainIdx = headerRow.indexOf("domain");
-      const tierIdx = headerRow.indexOf("tier");
-      const qualityScoreIdx = headerRow.indexOf("quality_score");
-
-      if (emailIdx === -1 || !row[emailIdx]) {
-        const errorMsg = `Row ${i + 1}: Missing required email field`;
+      // Skip rows with blank email (required field)
+      if (!row[emailIdx] || !row[emailIdx].trim()) {
+        const errorMsg = `Row ${i + 1}: Skipped - missing email field`;
         errors.push(errorMsg);
         if (errors.length <= 10) { // Log first 10 errors to avoid spam
           console.warn(errorMsg);
         }
-        continue;
+        continue; // Skip this row and continue with next
       }
 
       const email = row[emailIdx].trim();
       
-      // Validate email format
+      // Validate email format - skip invalid emails
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(email)) {
-        const errorMsg = `Row ${i + 1}: Invalid email format: ${email}`;
+        const errorMsg = `Row ${i + 1}: Skipped - invalid email format: ${email}`;
         errors.push(errorMsg);
         if (errors.length <= 10) {
           console.warn(errorMsg);
         }
-        continue;
+        continue; // Skip this row and continue with next
       }
 
+      // Name is optional - use email as fallback if name is blank
       const name = nameIdx !== -1 && row[nameIdx] ? row[nameIdx].trim() : "";
-      if (!name) {
-        const errorMsg = `Row ${i + 1}: Missing required name field`;
-        errors.push(errorMsg);
-        if (errors.length <= 10) {
-          console.warn(errorMsg);
-        }
-        continue;
+      const finalName = name || email.split('@')[0] || "Recruiter"; // Use email username or default
+      
+      // Log if name was missing (for information, but don't skip)
+      if (!name && errors.length <= 10) {
+        console.info(`Row ${i + 1}: Name field is blank, using email username as name: ${finalName}`);
       }
 
       const company = companyIdx !== -1 && row[companyIdx] ? row[companyIdx].trim() : undefined;
@@ -211,7 +230,7 @@ serve(async (req) => {
       }
 
       recruiters.push({
-        name,
+        name: finalName,
         email,
         company,
         domain,
@@ -225,16 +244,33 @@ serve(async (req) => {
       console.warn(`Found ${errors.length} validation errors (showing first 10 in logs)`);
     }
 
+    // Only fail if absolutely no valid recruiters found
     if (recruiters.length === 0) {
       console.error("No valid recruiters found after validation");
+      const errorMessage = errors.length > 0
+        ? `No valid recruiters found. ${errors.length} row${errors.length !== 1 ? 's' : ''} skipped. Most common issue: ${errors[0] || 'Missing email field'}. Please check your CSV format - ensure 'email' column exists and has valid email addresses.`
+        : "No valid recruiters found. Please check your CSV format - ensure 'email' column exists and has valid email addresses.";
+      
       return new Response(
         JSON.stringify({ 
           success: false,
-          error: "No valid recruiters found",
-          errors: errors.slice(0, 50) // Return first 50 errors
+          error: errorMessage,
+          errors: errors.slice(0, 50), // Return first 50 errors
+          stats: {
+            total_rows: rows.length - 1,
+            valid_recruiters: 0,
+            skipped: errors.length,
+            errors: errors.length,
+          }
         }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
+    }
+
+    // Log summary of skipped rows
+    if (errors.length > 0) {
+      console.log(`Skipped ${errors.length} invalid row${errors.length !== 1 ? 's' : ''} out of ${rows.length - 1} total rows`);
+      console.log(`Proceeding with ${recruiters.length} valid recruiter${recruiters.length !== 1 ? 's' : ''}`);
     }
 
     // Get existing emails in batch if skip_duplicates is enabled
@@ -373,19 +409,25 @@ serve(async (req) => {
     }
 
     const totalErrors = errors.length + insertErrors.length;
-    const warningMessage = rows.length >= 1000 
-      ? " ⚠️ Note: Google Sheets CSV export is limited to ~1000 rows. If your sheet has more rows, split it into multiple sheets."
-      : "";
+    const skippedRows = errors.length; // Rows skipped during validation
+    
+    let warningMessage = "";
+    if (rows.length >= 1000) {
+      warningMessage = " ⚠️ Note: Google Sheets CSV export is limited to ~1000 rows. If your sheet has more rows, split it into multiple sheets.";
+    } else if (skippedRows > 0) {
+      warningMessage = ` ⚠️ Note: ${skippedRows} row${skippedRows !== 1 ? 's' : ''} were skipped due to missing email or invalid format.`;
+    }
 
     return new Response(
       JSON.stringify({
         success: true,
-        message: `Import completed: ${inserted} inserted, ${skipped} skipped${warningMessage}`,
+        message: `Import completed: ${inserted} inserted, ${skipped} duplicates skipped, ${skippedRows} invalid rows skipped${warningMessage}`,
         stats: {
           total_rows: rows.length - 1, // Exclude header
           valid_recruiters: recruiters.length,
           inserted,
-          skipped,
+          skipped, // Duplicates
+          skipped_invalid: skippedRows, // Invalid rows (blank/missing fields)
           errors: totalErrors,
         },
         errors: totalErrors > 0 
@@ -393,11 +435,13 @@ serve(async (req) => {
               validation_errors: errors.slice(0, 50), // First 50 validation errors
               insert_errors: insertErrors.slice(0, 50), // First 50 insert errors
               total_count: totalErrors,
-              message: totalErrors > 100 ? `Showing first 100 of ${totalErrors} errors. Check logs for details.` : undefined
+              message: totalErrors > 100 ? `Showing first 100 of ${totalErrors} errors. ${skippedRows} rows were skipped due to missing/invalid fields.` : `${skippedRows} rows were skipped due to missing/invalid fields.`
             }
           : undefined,
         warning: rows.length >= 1000 
           ? "Google Sheets CSV export is limited to approximately 1000 rows. Only the first 1000 rows were imported."
+          : skippedRows > 0
+          ? `${skippedRows} row${skippedRows !== 1 ? 's' : ''} were skipped due to missing email or invalid format. Valid rows were imported successfully.`
           : undefined,
       }),
       {

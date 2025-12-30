@@ -230,12 +230,65 @@ export default function AdminRecruiters() {
 
       if (error) {
         console.error("Function invocation error:", error);
-        throw new Error(error.message || "Failed to call import function");
+        
+        // Try to extract error message from error object
+        let errorMessage = "Failed to import recruiters";
+        
+        // Check if error has a message
+        if (error.message) {
+          errorMessage = error.message;
+        }
+        
+        // Check if error has context with error message
+        if (error.context && error.context.body) {
+          try {
+            const errorBody = typeof error.context.body === 'string' 
+              ? JSON.parse(error.context.body) 
+              : error.context.body;
+            
+            if (errorBody.error) {
+              errorMessage = errorBody.error;
+            }
+            if (errorBody.errors && Array.isArray(errorBody.errors)) {
+              const errorCount = errorBody.errors.length;
+              errorMessage += `. ${errorCount} validation error${errorCount !== 1 ? 's' : ''} found.`;
+              if (errorBody.errors.length > 0) {
+                console.error("First few errors:", errorBody.errors.slice(0, 5));
+                // Show first error as example
+                errorMessage += ` Example: ${errorBody.errors[0]}`;
+              }
+            }
+          } catch (e) {
+            // If parsing fails, use default message
+          }
+        }
+        
+        toast.error(errorMessage, { duration: 10000 });
+        return;
       }
 
       // Check if response contains an error
       if (data && data.error) {
-        toast.error(data.error);
+        let errorMessage = data.error;
+        
+        // Add error details if available
+        if (data.errors) {
+          if (Array.isArray(data.errors)) {
+            const errorCount = data.errors.length;
+            errorMessage += `. ${errorCount} error${errorCount !== 1 ? 's' : ''} found.`;
+            if (data.errors.length > 0) {
+              console.error("Errors:", data.errors.slice(0, 10));
+              errorMessage += ` First error: ${data.errors[0]}`;
+            }
+          } else if (data.errors.total_count) {
+            errorMessage += `. ${data.errors.total_count} error${data.errors.total_count !== 1 ? 's' : ''} found.`;
+            if (data.errors.validation_errors && data.errors.validation_errors.length > 0) {
+              errorMessage += ` Example: ${data.errors.validation_errors[0]}`;
+            }
+          }
+        }
+        
+        toast.error(errorMessage, { duration: 10000 });
         if (data.details) {
           console.error("Error details:", data.details);
         }
