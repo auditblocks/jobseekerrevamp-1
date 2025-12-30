@@ -161,7 +161,7 @@ export default function AdminRecruiters() {
     try {
       const { data: sessionData } = await supabase.auth.getSession();
       if (!sessionData?.session?.access_token) {
-        throw new Error("Not authenticated");
+        throw new Error("Not authenticated. Please sign in again.");
       }
 
       const { data, error } = await supabase.functions.invoke("bulk-import-recruiters", {
@@ -174,28 +174,47 @@ export default function AdminRecruiters() {
         },
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error("Function invocation error:", error);
+        throw new Error(error.message || "Failed to call import function");
+      }
 
-      if (data.error) {
+      // Check if response contains an error
+      if (data && data.error) {
         toast.error(data.error);
+        if (data.details) {
+          console.error("Error details:", data.details);
+        }
         return;
       }
 
-      toast.success(
-        `Import completed: ${data.stats.inserted} inserted, ${data.stats.skipped} skipped`
-      );
+      // Check if response indicates success
+      if (data && data.success !== undefined) {
+        if (data.success) {
+          toast.success(
+            data.message || `Import completed: ${data.stats?.inserted || 0} inserted, ${data.stats?.skipped || 0} skipped`
+          );
 
-      if (data.errors && data.errors.length > 0) {
-        console.warn("Import errors:", data.errors);
-        toast.warning(`${data.errors.length} errors occurred during import`);
+          if (data.errors && data.errors.length > 0) {
+            console.warn("Import errors:", data.errors);
+            toast.warning(`${data.errors.length} errors occurred during import`);
+          }
+
+          setIsBulkImportDialogOpen(false);
+          setBulkImportSheetUrl("");
+          fetchRecruiters();
+        } else {
+          toast.error(data.message || "Import failed");
+        }
+      } else {
+        // Unexpected response format
+        console.error("Unexpected response format:", data);
+        toast.error("Unexpected response from server");
       }
-
-      setIsBulkImportDialogOpen(false);
-      setBulkImportSheetUrl("");
-      fetchRecruiters();
     } catch (error: any) {
       console.error("Bulk import error:", error);
-      toast.error(error.message || "Failed to import recruiters");
+      const errorMessage = error.message || error.toString() || "Failed to import recruiters";
+      toast.error(errorMessage);
     } finally {
       setBulkImportLoading(false);
     }
