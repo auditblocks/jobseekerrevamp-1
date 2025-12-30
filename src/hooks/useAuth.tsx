@@ -96,6 +96,48 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .select("*")
       .eq("id", userId)
       .single();
+    
+    // Check if subscription has expired (on-demand check)
+    if (data && data.subscription_tier !== "FREE" && data.subscription_expires_at) {
+      const expiresAt = new Date(data.subscription_expires_at);
+      const now = new Date();
+      
+      if (expiresAt < now) {
+        // Store old tier for notification
+        const oldTier = data.subscription_tier;
+        
+        // Subscription expired - update to FREE tier immediately
+        const { error: updateError } = await supabase
+          .from("profiles")
+          .update({
+            subscription_tier: "FREE",
+            subscription_expires_at: null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", userId);
+
+        if (!updateError) {
+          // Update local profile data
+          data.subscription_tier = "FREE";
+          data.subscription_expires_at = null;
+          
+          // Create notification for expired subscription
+          await supabase
+            .from("user_notifications")
+            .insert({
+              user_id: userId,
+              title: "Subscription Expired",
+              message: `Your ${oldTier} subscription has expired. You've been downgraded to the FREE tier.`,
+              type: "warning",
+              metadata: {
+                subscription_tier: oldTier,
+                expired_at: data.subscription_expires_at,
+              },
+            });
+        }
+      }
+    }
+    
     setProfile(data);
   };
 

@@ -38,3 +38,9 @@ verify_jwt = false
 
 [functions.check-gmail-replies]
 verify_jwt = false
+
+[functions.check-subscription-expiry]
+verify_jwt = false
+
+[functions.bulk-import-recruiters]
+verify_jwt = false

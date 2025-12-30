@@ -29,8 +29,9 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
-import { Search, RefreshCw, UserSearch, Plus, Building2, Mail, Star } from "lucide-react";
+import { Search, RefreshCw, UserSearch, Plus, Building2, Mail, Star, Upload } from "lucide-react";
 import { toast } from "sonner";
+import { Switch } from "@/components/ui/switch";
 
 interface Recruiter {
   id: string;
@@ -57,6 +58,10 @@ export default function AdminRecruiters() {
   const [domainFilter, setDomainFilter] = useState("all");
   const [tierFilter, setTierFilter] = useState("all");
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isBulkImportDialogOpen, setIsBulkImportDialogOpen] = useState(false);
+  const [bulkImportLoading, setBulkImportLoading] = useState(false);
+  const [bulkImportSheetUrl, setBulkImportSheetUrl] = useState("");
+  const [bulkImportSkipDuplicates, setBulkImportSkipDuplicates] = useState(true);
   const [newRecruiter, setNewRecruiter] = useState({
     name: "",
     email: "",
@@ -146,6 +151,56 @@ export default function AdminRecruiters() {
     }
   };
 
+  const handleBulkImport = async () => {
+    if (!bulkImportSheetUrl.trim()) {
+      toast.error("Please enter a Google Sheets URL");
+      return;
+    }
+
+    setBulkImportLoading(true);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (!sessionData?.session?.access_token) {
+        throw new Error("Not authenticated");
+      }
+
+      const { data, error } = await supabase.functions.invoke("bulk-import-recruiters", {
+        body: {
+          sheet_url: bulkImportSheetUrl.trim(),
+          skip_duplicates: bulkImportSkipDuplicates,
+        },
+        headers: {
+          Authorization: `Bearer ${sessionData.session.access_token}`,
+        },
+      });
+
+      if (error) throw error;
+
+      if (data.error) {
+        toast.error(data.error);
+        return;
+      }
+
+      toast.success(
+        `Import completed: ${data.stats.inserted} inserted, ${data.stats.skipped} skipped`
+      );
+
+      if (data.errors && data.errors.length > 0) {
+        console.warn("Import errors:", data.errors);
+        toast.warning(`${data.errors.length} errors occurred during import`);
+      }
+
+      setIsBulkImportDialogOpen(false);
+      setBulkImportSheetUrl("");
+      fetchRecruiters();
+    } catch (error: any) {
+      console.error("Bulk import error:", error);
+      toast.error(error.message || "Failed to import recruiters");
+    } finally {
+      setBulkImportLoading(false);
+    }
+  };
+
   const filteredRecruiters = recruiters.filter((recruiter) => {
     const matchesSearch =
       recruiter.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -184,6 +239,75 @@ export default function AdminRecruiters() {
               <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
               Refresh
             </Button>
+            <Dialog open={isBulkImportDialogOpen} onOpenChange={setIsBulkImportDialogOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <Upload className="h-4 w-4 mr-2" />
+                  Bulk Import
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-2xl">
+                <DialogHeader>
+                  <DialogTitle>Bulk Import Recruiters from Google Sheets</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  <div className="space-y-2">
+                    <Label>Google Sheets URL *</Label>
+                    <Input
+                      value={bulkImportSheetUrl}
+                      onChange={(e) => setBulkImportSheetUrl(e.target.value)}
+                      placeholder="https://docs.google.com/spreadsheets/d/..."
+                    />
+                    <p className="text-sm text-muted-foreground">
+                      Make sure the sheet is publicly accessible or shared with view permissions
+                    </p>
+                  </div>
+                  <div className="flex items-center justify-between space-x-2">
+                    <div className="space-y-0.5">
+                      <Label>Skip Duplicates</Label>
+                      <p className="text-sm text-muted-foreground">
+                        Skip recruiters with existing email addresses
+                      </p>
+                    </div>
+                    <Switch
+                      checked={bulkImportSkipDuplicates}
+                      onCheckedChange={setBulkImportSkipDuplicates}
+                    />
+                  </div>
+                  <div className="rounded-lg border p-4 bg-muted/50">
+                    <p className="text-sm font-semibold mb-2">Required Columns:</p>
+                    <ul className="text-sm space-y-1 list-disc list-inside text-muted-foreground">
+                      <li><strong>name</strong> - Recruiter name</li>
+                      <li><strong>email</strong> - Email address (must be unique)</li>
+                    </ul>
+                    <p className="text-sm font-semibold mt-3 mb-2">Optional Columns:</p>
+                    <ul className="text-sm space-y-1 list-disc list-inside text-muted-foreground">
+                      <li><strong>company</strong> - Company name</li>
+                      <li><strong>domain</strong> - Job domain</li>
+                      <li><strong>tier</strong> - FREE, PRO, or PRO_MAX (defaults to FREE)</li>
+                      <li><strong>quality_score</strong> - Number between 0-100</li>
+                    </ul>
+                  </div>
+                  <Button
+                    onClick={handleBulkImport}
+                    disabled={!bulkImportSheetUrl.trim() || bulkImportLoading}
+                    className="w-full"
+                  >
+                    {bulkImportLoading ? (
+                      <>
+                        <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                        Importing...
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="h-4 w-4 mr-2" />
+                        Import Recruiters
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
             <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
               <DialogTrigger asChild>
                 <Button size="sm">
