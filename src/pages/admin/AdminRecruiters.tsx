@@ -90,14 +90,38 @@ export default function AdminRecruiters() {
   const fetchRecruiters = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from("recruiters")
-        .select("*")
-        .order("created_at", { ascending: false });
-        // Removed .limit(100) to show all recruiters
+      // Supabase has a default limit of 1000 rows, so we need to fetch in batches
+      let allRecruiters: Recruiter[] = [];
+      let from = 0;
+      const batchSize = 1000;
+      let hasMore = true;
 
-      if (error) throw error;
-      setRecruiters(data || []);
+      while (hasMore) {
+        const { data, error, count } = await supabase
+          .from("recruiters")
+          .select("*", { count: "exact" })
+          .order("created_at", { ascending: false })
+          .range(from, from + batchSize - 1);
+
+        if (error) throw error;
+
+        if (data && data.length > 0) {
+          allRecruiters = [...allRecruiters, ...data];
+          from += batchSize;
+          hasMore = data.length === batchSize; // Continue if we got a full batch
+        } else {
+          hasMore = false;
+        }
+
+        // Safety check to prevent infinite loops
+        if (from > 100000) {
+          console.warn("Reached safety limit while fetching recruiters");
+          break;
+        }
+      }
+
+      console.log(`Fetched ${allRecruiters.length} recruiters total`);
+      setRecruiters(allRecruiters);
     } catch (error: any) {
       console.error("Failed to fetch recruiters:", error);
       toast.error("Failed to fetch recruiters");
