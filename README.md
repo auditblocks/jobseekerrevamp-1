@@ -1,10 +1,17 @@
-# Welcome to your Lovable project
+# JobSeeker - AI-Powered Job Outreach Platform
 
-## Project info
+**Production URL**: https://startworking.in
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+## 📚 Documentation
 
-## How can I edit this code?
+- **[MASTER_GUIDE.md](./MASTER_GUIDE.md)** - Complete setup, configuration, and troubleshooting guide
+- **[EDGE_FUNCTIONS_EXPORT.md](./EDGE_FUNCTIONS_EXPORT.md)** - Edge functions documentation and code
+- **[DATABASE_BACKUP.sql](./DATABASE_BACKUP.sql)** - Complete database schema and backup
+- **[RLS_POLICIES.sql](./RLS_POLICIES.sql)** - Row Level Security policies
+
+## Quick Start
+
+### Local Development
 
 There are several ways of editing your application.
 
@@ -50,24 +57,32 @@ npm run dev
 - Click on "New codespace" to launch a new Codespace environment.
 - Edit files directly within the Codespace and commit and push your changes once you're done.
 
-## What technologies are used for this project?
+## Tech Stack
 
-This project is built with:
+- **Frontend**: React, TypeScript, Vite, Tailwind CSS, shadcn-ui
+- **Backend**: Supabase (PostgreSQL, Edge Functions, Auth, Storage)
+- **Email**: Gmail API, Resend API
+- **Payment**: Razorpay
+- **Deployment**: Netlify
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+## Project Structure
 
-## How can I deploy this project?
+```
+├── src/                    # Frontend React application
+├── supabase/
+│   ├── functions/          # Edge functions (Deno)
+│   └── migrations/         # Database migrations
+├── public/                 # Static assets
+├── MASTER_GUIDE.md         # Complete setup guide
+├── DATABASE_BACKUP.sql     # Database backup
+├── RLS_POLICIES.sql        # Security policies
+└── EDGE_FUNCTIONS_EXPORT.md # Edge functions docs
+```
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+## Deployment
 
-## Can I connect a custom domain to my Lovable project?
+The project is deployed on Netlify. See [MASTER_GUIDE.md](./MASTER_GUIDE.md) for domain configuration and deployment details.
 
-Yes, you can!
+## Support
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+For setup, configuration, and troubleshooting, see **[MASTER_GUIDE.md](./MASTER_GUIDE.md)**.
