@@ -29,9 +29,18 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
-import { Search, RefreshCw, UserSearch, Plus, Building2, Mail, Star, Upload } from "lucide-react";
+import { Search, RefreshCw, UserSearch, Plus, Building2, Mail, Star, Upload, ChevronLeft, ChevronRight, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Switch } from "@/components/ui/switch";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+  PaginationEllipsis,
+} from "@/components/ui/pagination";
 
 interface Recruiter {
   id: string;
@@ -57,6 +66,7 @@ export default function AdminRecruiters() {
   const [searchQuery, setSearchQuery] = useState("");
   const [domainFilter, setDomainFilter] = useState("all");
   const [tierFilter, setTierFilter] = useState("all");
+  const [currentPage, setCurrentPage] = useState(1);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isBulkImportDialogOpen, setIsBulkImportDialogOpen] = useState(false);
   const [bulkImportLoading, setBulkImportLoading] = useState(false);
@@ -69,6 +79,8 @@ export default function AdminRecruiters() {
     domain: "",
     tier: "FREE",
   });
+
+  const RECRUITERS_PER_PAGE = 100;
 
   useEffect(() => {
     fetchRecruiters();
@@ -151,6 +163,48 @@ export default function AdminRecruiters() {
     }
   };
 
+  const deleteAllRecruiters = async () => {
+    const confirmMessage = `Are you sure you want to delete ALL ${recruiters.length} recruiters? This action cannot be undone!`;
+    if (!confirm(confirmMessage)) return;
+
+    const doubleConfirm = prompt(`Type "DELETE ALL" to confirm deletion of all ${recruiters.length} recruiters:`);
+    if (doubleConfirm !== "DELETE ALL") {
+      toast.info("Deletion cancelled");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // Delete all recruiters by selecting all IDs and deleting them
+      const recruiterIds = recruiters.map(r => r.id);
+      
+      if (recruiterIds.length === 0) {
+        toast.info("No recruiters to delete");
+        return;
+      }
+
+      // Delete in batches to avoid query size limits
+      const batchSize = 100;
+      for (let i = 0; i < recruiterIds.length; i += batchSize) {
+        const batch = recruiterIds.slice(i, i + batchSize);
+        const { error } = await supabase
+          .from("recruiters")
+          .delete()
+          .in("id", batch);
+        
+        if (error) throw error;
+      }
+      
+      toast.success(`All ${recruiters.length} recruiters deleted successfully`);
+      fetchRecruiters();
+    } catch (error: any) {
+      console.error("Failed to delete all recruiters:", error);
+      toast.error(error.message || "Failed to delete all recruiters");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleBulkImport = async () => {
     if (!bulkImportSheetUrl.trim()) {
       toast.error("Please enter a Google Sheets URL");
@@ -230,6 +284,17 @@ export default function AdminRecruiters() {
     return matchesSearch && matchesDomain && matchesTier;
   });
 
+  // Pagination calculations
+  const totalPages = Math.ceil(filteredRecruiters.length / RECRUITERS_PER_PAGE);
+  const startIndex = (currentPage - 1) * RECRUITERS_PER_PAGE;
+  const endIndex = startIndex + RECRUITERS_PER_PAGE;
+  const paginatedRecruiters = filteredRecruiters.slice(startIndex, endIndex);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, domainFilter, tierFilter]);
+
   const getTierColor = (tier: string | null) => {
     switch (tier) {
       case "PRO_MAX":
@@ -257,6 +322,15 @@ export default function AdminRecruiters() {
             <Button onClick={fetchRecruiters} variant="outline" size="sm">
               <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
               Refresh
+            </Button>
+            <Button 
+              onClick={deleteAllRecruiters} 
+              variant="destructive" 
+              size="sm"
+              disabled={loading || recruiters.length === 0}
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Delete All
             </Button>
             <Dialog open={isBulkImportDialogOpen} onOpenChange={setIsBulkImportDialogOpen}>
               <DialogTrigger asChild>
@@ -487,7 +561,7 @@ export default function AdminRecruiters() {
                       </TableCell>
                     </TableRow>
                   ) : (
-                    filteredRecruiters.map((recruiter) => (
+                    paginatedRecruiters.map((recruiter) => (
                       <TableRow key={recruiter.id}>
                         <TableCell>
                           <div>
@@ -561,6 +635,58 @@ export default function AdminRecruiters() {
                 </TableBody>
               </Table>
             </div>
+            
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="mt-4 flex items-center justify-between">
+                <div className="text-sm text-muted-foreground">
+                  Showing {startIndex + 1} to {Math.min(endIndex, filteredRecruiters.length)} of {filteredRecruiters.length} recruiters
+                </div>
+                <Pagination>
+                  <PaginationContent>
+                    <PaginationItem>
+                      <PaginationPrevious
+                        onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                        className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                      />
+                    </PaginationItem>
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
+                      // Show first page, last page, current page, and pages around current
+                      if (
+                        page === 1 ||
+                        page === totalPages ||
+                        (page >= currentPage - 1 && page <= currentPage + 1)
+                      ) {
+                        return (
+                          <PaginationItem key={page}>
+                            <PaginationLink
+                              onClick={() => setCurrentPage(page)}
+                              isActive={currentPage === page}
+                              className="cursor-pointer"
+                            >
+                              {page}
+                            </PaginationLink>
+                          </PaginationItem>
+                        );
+                      } else if (page === currentPage - 2 || page === currentPage + 2) {
+                        return (
+                          <PaginationItem key={page}>
+                            <PaginationEllipsis />
+                          </PaginationItem>
+                        );
+                      }
+                      return null;
+                    })}
+                    <PaginationItem>
+                      <PaginationNext
+                        onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                        className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                      />
+                    </PaginationItem>
+                  </PaginationContent>
+                </Pagination>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

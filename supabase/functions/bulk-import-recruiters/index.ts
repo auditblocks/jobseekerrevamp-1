@@ -99,13 +99,15 @@ serve(async (req) => {
     }
 
     const sheetId = sheetIdMatch[1];
-    const csvUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv`;
+    // Try to get all rows - Google Sheets CSV export might have limits
+    // Use gid=0 to get the first sheet, or you can specify a specific sheet
+    const csvUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=0`;
 
     // Fetch CSV data
     const csvResponse = await fetch(csvUrl);
     if (!csvResponse.ok) {
       return new Response(
-        JSON.stringify({ error: `Failed to fetch sheet: ${csvResponse.statusText}` }),
+        JSON.stringify({ error: `Failed to fetch sheet: ${csvResponse.statusText}. Make sure the sheet is publicly accessible.` }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -114,6 +116,12 @@ serve(async (req) => {
     
     // Parse CSV with proper quote handling
     const rows = parseCSV(csvText);
+    
+    // Check if CSV was truncated (Google Sheets might limit CSV exports to ~10,000 rows)
+    // Note: Google Sheets CSV export typically supports up to 10,000 rows
+    if (rows.length > 0) {
+      console.log(`Parsed ${rows.length} rows from CSV`);
+    }
     
     if (rows.length === 0) {
       return new Response(
@@ -203,49 +211,89 @@ serve(async (req) => {
       );
     }
 
-    // Insert recruiters
-    let inserted = 0;
-    let skipped = 0;
-    const insertErrors: string[] = [];
-
-    for (const recruiter of recruiters) {
-      try {
-        if (skip_duplicates) {
-          // Check if email already exists
-          const { data: existing } = await supabase
-            .from("recruiters")
-            .select("id")
-            .eq("email", recruiter.email)
-            .maybeSingle();
-
-          if (existing) {
-            skipped++;
-            continue;
-          }
+    // Get existing emails in batch if skip_duplicates is enabled
+    let existingEmails = new Set<string>();
+    if (skip_duplicates && recruiters.length > 0) {
+      const emails = recruiters.map(r => r.email);
+      // Fetch existing emails in batches (Supabase has a limit on query size)
+      const batchSize = 1000;
+      for (let i = 0; i < emails.length; i += batchSize) {
+        const emailBatch = emails.slice(i, i + batchSize);
+        const { data: existing } = await supabase
+          .from("recruiters")
+          .select("email")
+          .in("email", emailBatch);
+        
+        if (existing) {
+          existing.forEach(e => existingEmails.add(e.email));
         }
+      }
+    }
 
+    // Filter out duplicates before inserting
+    const recruitersToInsert = skip_duplicates
+      ? recruiters.filter(r => !existingEmails.has(r.email))
+      : recruiters;
+    
+    const skipped = skip_duplicates ? recruiters.length - recruitersToInsert.length : 0;
+
+    // Insert recruiters in batches for better performance
+    let inserted = 0;
+    const insertErrors: string[] = [];
+    const BATCH_SIZE = 100; // Insert 100 at a time
+
+    for (let i = 0; i < recruitersToInsert.length; i += BATCH_SIZE) {
+      const batch = recruitersToInsert.slice(i, i + BATCH_SIZE);
+      
+      try {
         const { error: insertError } = await supabase
           .from("recruiters")
-          .insert({
-            name: recruiter.name,
-            email: recruiter.email,
-            company: recruiter.company || null,
-            domain: recruiter.domain || null,
-            tier: recruiter.tier || "FREE",
-            quality_score: recruiter.quality_score || null,
-          });
+          .insert(
+            batch.map(recruiter => ({
+              name: recruiter.name,
+              email: recruiter.email,
+              company: recruiter.company || null,
+              domain: recruiter.domain || null,
+              tier: recruiter.tier || "FREE",
+              quality_score: recruiter.quality_score || null,
+            }))
+          );
 
         if (insertError) {
-          if (insertError.code === "23505") { // Unique constraint violation
-            skipped++;
-          } else {
-            insertErrors.push(`${recruiter.email}: ${insertError.message}`);
+          // If batch insert fails, try individual inserts for this batch
+          console.warn(`Batch insert failed, trying individual inserts for batch ${i / BATCH_SIZE + 1}`);
+          for (const recruiter of batch) {
+            try {
+              const { error: singleError } = await supabase
+                .from("recruiters")
+                .insert({
+                  name: recruiter.name,
+                  email: recruiter.email,
+                  company: recruiter.company || null,
+                  domain: recruiter.domain || null,
+                  tier: recruiter.tier || "FREE",
+                  quality_score: recruiter.quality_score || null,
+                });
+
+              if (singleError) {
+                if (singleError.code === "23505") { // Unique constraint violation
+                  // Already counted in skipped
+                } else {
+                  insertErrors.push(`${recruiter.email}: ${singleError.message}`);
+                }
+              } else {
+                inserted++;
+              }
+            } catch (err: any) {
+              insertErrors.push(`${recruiter.email}: ${err.message}`);
+            }
           }
         } else {
-          inserted++;
+          inserted += batch.length;
         }
       } catch (err: any) {
-        insertErrors.push(`${recruiter.email}: ${err.message}`);
+        console.error(`Error inserting batch ${i / BATCH_SIZE + 1}:`, err);
+        insertErrors.push(`Batch ${i / BATCH_SIZE + 1}: ${err.message}`);
       }
     }
 

@@ -765,13 +765,24 @@ Best regards,
                         )}
                       </SelectContent>
                     </Select>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setSelectedRecruiters(filteredRecruiters.map((r) => r.id))}
-                    >
-                      Select All
-                    </Button>
+                    {selectedRecruiters.length === filteredRecruiters.length && filteredRecruiters.length > 0 ? (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setSelectedRecruiters([])}
+                      >
+                        Unselect All
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setSelectedRecruiters(filteredRecruiters.map((r) => r.id))}
+                        disabled={filteredRecruiters.length === 0}
+                      >
+                        Select All
+                      </Button>
+                    )}
                   </div>
                   <div className="space-y-2 max-h-[400px] overflow-y-auto">
                     {isLoadingRecruiters ? (

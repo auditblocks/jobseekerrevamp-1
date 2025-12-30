@@ -4,12 +4,12 @@
 
 ### Client ID
 ```
-your-google-client-id.apps.googleusercontent.com
+YOUR_CLIENT_ID_HERE.apps.googleusercontent.com
 ```
 
 ### Client Secret
 ```
-GOCSPX-your-client-secret-here
+YOUR_CLIENT_SECRET_HERE
 ```
 
 ---
@@ -39,7 +39,7 @@ supabase secrets list | grep GOOGLE
 **Location**: Project root → `.env`
 
 **Variable Set**:
-- `VITE_GOOGLE_CLIENT_ID=your-google-client-id.apps.googleusercontent.com`
+- `VITE_GOOGLE_CLIENT_ID=YOUR_CLIENT_ID_HERE.apps.googleusercontent.com`
 
 **Used By**:
 - `src/pages/Compose.tsx` (line 188)
@@ -109,7 +109,7 @@ supabase secrets list | grep GOOGLE
 cat .env
 
 # Should show:
-# VITE_GOOGLE_CLIENT_ID=your-google-client-id.apps.googleusercontent.com
+# VITE_GOOGLE_CLIENT_ID=YOUR_CLIENT_ID_HERE.apps.googleusercontent.com
 ```
 
 ---
