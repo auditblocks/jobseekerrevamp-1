@@ -20,7 +20,8 @@ import {
   FileText,
   Sparkles,
   Shield,
-  Eye
+  Eye,
+  Activity
 } from "lucide-react";
 import { toast } from "sonner";
 import { Helmet } from "react-helmet-async";
@@ -54,6 +55,8 @@ const Dashboard = () => {
     }
   }, [authLoading, user, navigate]);
 
+  const [configStats, setConfigStats] = useState<any[]>([]);
+
   useEffect(() => {
     const fetchStats = async () => {
       if (!user?.id) return;
@@ -61,7 +64,36 @@ const Dashboard = () => {
       try {
         setStatsLoading(true);
         
-        // Fetch email tracking stats
+        // Try to fetch dashboard configuration from admin (may not exist yet)
+        try {
+          const { data: dashboardConfigs } = await supabase
+            .from("dashboard_config" as any)
+            .select("*")
+            .eq("is_active", true)
+            .order("display_order", { ascending: true });
+
+          if (dashboardConfigs && dashboardConfigs.length > 0) {
+            setConfigStats(dashboardConfigs);
+            // Use configured dashboard stats
+            const configMap: Record<string, number> = {};
+            dashboardConfigs.forEach((config: any) => {
+              configMap[config.config_key] = config.config_value?.value || 0;
+            });
+
+            setStats({
+              emailsSent: configMap.emails_sent || 0,
+              openRate: configMap.emails_opened || 0,
+              responses: configMap.emails_replied || 0,
+              applications: configMap.applications || 0,
+            });
+            return;
+          }
+        } catch (configError) {
+          // Table might not exist yet, continue with real data
+          console.log("Dashboard config not available, using real data");
+        }
+
+        // Fallback to real data if no config
         const { data: emailData, error: emailError } = await supabase
           .from("email_tracking")
           .select("id, opened_at, replied_at")
@@ -69,7 +101,6 @@ const Dashboard = () => {
 
         if (emailError) throw emailError;
 
-        // Fetch job applications count
         const { count: applicationsCount, error: appError } = await supabase
           .from("job_applications")
           .select("id", { count: "exact", head: true })
@@ -114,12 +145,37 @@ const Dashboard = () => {
     );
   }
 
-  const statCards = [
-    { label: "Emails Sent", value: stats.emailsSent.toString(), icon: Send, color: "text-accent", bg: "bg-accent/10" },
-    { label: "Open Rate", value: `${stats.openRate}%`, icon: Eye, color: "text-success", bg: "bg-success/10" },
-    { label: "Responses", value: stats.responses.toString(), icon: MessageSquare, color: "text-primary", bg: "bg-primary/10" },
-    { label: "Applications", value: stats.applications.toString(), icon: Briefcase, color: "text-warning", bg: "bg-warning/10" },
-  ];
+  // Map icon names to actual icon components
+  const iconMap: Record<string, any> = {
+    Send,
+    Eye,
+    MessageSquare,
+    Briefcase,
+    Mail,
+    BarChart3,
+    Users,
+    TrendingUp,
+    Activity,
+  };
+
+  // Use configured stats if available, otherwise use default
+  const statCards = configStats.length > 0
+    ? configStats.map((config: any) => {
+        const IconComponent = iconMap[config.config_value?.icon] || Send;
+        return {
+          label: config.config_value?.label || "Stat",
+          value: config.config_value?.value?.toString() || "0",
+          icon: IconComponent,
+          color: config.config_value?.color || "text-accent",
+          bg: config.config_value?.bg || "bg-accent/10",
+        };
+      })
+    : [
+        { label: "Emails Sent", value: stats.emailsSent.toString(), icon: Send, color: "text-accent", bg: "bg-accent/10" },
+        { label: "Open Rate", value: `${stats.openRate}%`, icon: Eye, color: "text-success", bg: "bg-success/10" },
+        { label: "Responses", value: stats.responses.toString(), icon: MessageSquare, color: "text-primary", bg: "bg-primary/10" },
+        { label: "Applications", value: stats.applications.toString(), icon: Briefcase, color: "text-warning", bg: "bg-warning/10" },
+      ];
 
   const navItems = [
     { icon: Home, label: "Dashboard", path: "/dashboard" },
@@ -141,7 +197,7 @@ const Dashboard = () => {
         <meta name="description" content="Manage your job search, send emails to recruiters, and track your applications." />
       </Helmet>
       
-      <div className="min-h-screen bg-background flex">
+      <div className="min-h-screen bg-background flex" style={{ isolation: 'auto' }}>
         {/* Sidebar */}
         <aside className={`fixed inset-y-0 left-0 z-50 w-64 bg-sidebar transform transition-transform duration-300 lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
           <div className="flex flex-col h-full">

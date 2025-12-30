@@ -8,7 +8,8 @@ import {
   CreditCard,
   Bell,
   FileText,
-  ArrowLeft
+  ArrowLeft,
+  Sliders
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
@@ -40,6 +41,7 @@ const managementItems = [
   { title: "Subscriptions", url: "/admin/subscriptions", icon: CreditCard },
   { title: "Notifications", url: "/admin/notifications", icon: Bell },
   { title: "Requests", url: "/admin/requests", icon: FileText },
+  { title: "Dashboard Config", url: "/admin/dashboard-config", icon: Sliders },
 ];
 
 export function AdminSidebar() {

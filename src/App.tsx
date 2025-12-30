@@ -30,6 +30,7 @@ import AdminDomains from "./pages/admin/AdminDomains";
 import AdminSubscriptions from "./pages/admin/AdminSubscriptions";
 import AdminNotifications from "./pages/admin/AdminNotifications";
 import AdminRequests from "./pages/admin/AdminRequests";
+import AdminDashboardConfig from "./pages/admin/AdminDashboardConfig";
 
 const queryClient = new QueryClient();
 
@@ -39,6 +40,7 @@ const App = () => (
       <TooltipProvider>
         <AuthProvider>
           <Toaster />
+          {/* Sonner renders in a portal to body, ensuring it's above all content */}
           <Sonner />
           <BrowserRouter>
             <Routes>
@@ -68,6 +70,7 @@ const App = () => (
               <Route path="/admin/subscriptions" element={<AdminSubscriptions />} />
               <Route path="/admin/notifications" element={<AdminNotifications />} />
               <Route path="/admin/requests" element={<AdminRequests />} />
+              <Route path="/admin/dashboard-config" element={<AdminDashboardConfig />} />
               
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />

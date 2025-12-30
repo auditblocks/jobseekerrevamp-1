@@ -213,11 +213,90 @@
   @apply bg-muted-foreground/50;
 }
 
-/* Ensure toast notifications appear above all content */
+/* Ensure toast notifications appear above all content - Highest priority */
+/* Sonner renders in a portal to document.body, so we need to target it there */
+body > [data-sonner-toaster],
+html > body > [data-sonner-toaster],
 [data-sonner-toaster] {
-  z-index: 9999 !important;
+  z-index: 2147483647 !important; /* Maximum z-index value */
+  position: fixed !important;
+  pointer-events: none !important; /* Allow clicks through container */
 }
 
+/* Individual toasts should capture pointer events */
 [data-sonner-toast] {
-  z-index: 9999 !important;
+  z-index: 2147483647 !important;
+  position: relative !important;
+  pointer-events: auto !important; /* Re-enable pointer events on toasts */
+  background-color: hsl(var(--card)) !important;
+  color: hsl(var(--foreground)) !important;
+  opacity: 1 !important;
+  backdrop-filter: blur(8px) !important;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.2) !important;
+}
+
+/* Ensure toast text is visible */
+[data-sonner-toast] * {
+  color: hsl(var(--foreground)) !important;
+  opacity: 1 !important;
+}
+
+[data-sonner-toast] [data-title] {
+  color: hsl(var(--foreground)) !important;
+  font-weight: 600 !important;
+}
+
+[data-sonner-toast] [data-description] {
+  color: hsl(var(--foreground)) !important;
+  opacity: 0.9 !important;
+}
+
+/* Ensure toaster container is isolated from parent stacking contexts */
+.sonner-toaster-container,
+[data-sonner-toaster] {
+  isolation: isolate !important;
+  transform: none !important; /* Prevent transform from creating stacking context */
+  opacity: 1 !important; /* Prevent opacity from creating stacking context */
+}
+
+/* Override any conflicting styles from dashboard */
+.min-h-screen ~ [data-sonner-toaster],
+.fixed ~ [data-sonner-toaster],
+aside ~ [data-sonner-toaster] {
+  z-index: 2147483647 !important;
+}
+
+/* Force toast visibility - override any parent styles */
+[data-sonner-toaster] [data-sonner-toast] {
+  background: hsl(var(--card)) !important;
+  background-color: hsl(var(--card)) !important;
+  color: hsl(var(--foreground)) !important;
+  border: 1px solid hsl(var(--border)) !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  display: flex !important;
+}
+
+/* Ensure toast content is visible */
+[data-sonner-toaster] [data-sonner-toast] [data-content] {
+  color: hsl(var(--foreground)) !important;
+}
+
+/* Force icon and text visibility */
+[data-sonner-toaster] [data-sonner-toast] svg,
+[data-sonner-toaster] [data-sonner-toast] [data-icon] {
+  color: hsl(var(--foreground)) !important;
+  opacity: 1 !important;
+}
+
+/* Dark mode specific fixes */
+.dark [data-sonner-toast] {
+  background: hsl(var(--card)) !important;
+  color: hsl(var(--foreground)) !important;
+}
+
+/* Light mode specific fixes */
+:not(.dark) [data-sonner-toast] {
+  background: hsl(var(--card)) !important;
+  color: hsl(var(--foreground)) !important;
 }
