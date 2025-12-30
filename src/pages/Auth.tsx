@@ -51,7 +51,7 @@ const Auth = () => {
           if (session) {
             // Clear the hash from URL
             window.history.replaceState({}, document.title, window.location.pathname);
-            toast.success("Signed in successfully!");
+            toast.success("Welcome back");
             navigate("/dashboard");
           }
         } catch (error: any) {
@@ -80,7 +80,7 @@ const Auth = () => {
       if (event === 'SIGNED_IN' && session) {
         // Only show toast if not already navigating from OAuth callback
         if (!window.location.hash.includes('access_token')) {
-          toast.success("Signed in successfully!");
+          toast.success("Welcome back");
         }
         navigate("/dashboard");
       }

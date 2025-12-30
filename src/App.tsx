@@ -19,6 +19,7 @@ import Settings from "./pages/Settings";
 import Notifications from "./pages/Notifications";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsOfService from "./pages/TermsOfService";
+import About from "./pages/About";
 import NotFound from "./pages/NotFound";
 
 // Admin pages
@@ -57,7 +58,8 @@ const App = () => (
               <Route path="/settings" element={<Settings />} />
               <Route path="/notifications" element={<Notifications />} />
               
-              {/* Legal Pages */}
+              {/* Legal & Info Pages */}
+              <Route path="/about" element={<About />} />
               <Route path="/privacy-policy" element={<PrivacyPolicy />} />
               <Route path="/terms-of-service" element={<TermsOfService />} />
               

@@ -44,7 +44,7 @@ const FooterSection = () => {
           <div>
             <h4 className="font-semibold text-primary-foreground mb-4">Company</h4>
             <ul className="space-y-3">
-              <li><a href="#" className="text-primary-foreground/60 hover:text-accent transition-colors">About</a></li>
+              <li><Link to="/about" className="text-primary-foreground/60 hover:text-accent transition-colors">About</Link></li>
               <li><a href="#" className="text-primary-foreground/60 hover:text-accent transition-colors">Blog</a></li>
               <li><a href="#" className="text-primary-foreground/60 hover:text-accent transition-colors">Careers</a></li>
               <li><a href="#" className="text-primary-foreground/60 hover:text-accent transition-colors">Contact</a></li>
