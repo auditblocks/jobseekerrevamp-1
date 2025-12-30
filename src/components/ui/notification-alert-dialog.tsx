@@ -159,9 +159,9 @@ export function NotificationAlertDialog({
             >
                 <div
                     className={cn(
-                        "fixed top-0 right-0 h-full shadow-lg transition-transform duration-300 ease-in-out transform w-full max-w-md",
-                        "bg-card border-l border-border",
-                        showAllNotifications ? "translate-x-0" : "translate-x-full",
+                        "fixed top-0 left-0 h-full shadow-lg transition-transform duration-300 ease-in-out transform w-full max-w-md",
+                        "bg-card border-r border-border",
+                        showAllNotifications ? "translate-x-0" : "-translate-x-full",
                     )}
                 >
                     <div className="flex flex-col h-full">
