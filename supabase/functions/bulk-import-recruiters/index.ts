@@ -49,12 +49,30 @@ serve(async (req) => {
       );
     }
 
-    // Check if user is superadmin
-    const { data: isAdmin, error: adminCheckError } = await supabase.rpc("is_superadmin");
+    // Check if user is superadmin by checking user_roles and profiles tables
+    const { data: roleData } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", user.id)
+      .eq("role", "admin")
+      .maybeSingle();
+
+    const { data: profileData } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    const hasAdminRole = !!roleData;
+    const hasSuperadminProfile = profileData?.role === 'superadmin';
     
-    if (adminCheckError || !isAdmin) {
+    if (!hasAdminRole && !hasSuperadminProfile) {
+      console.error(`User ${user.id} (${user.email}) attempted bulk import but is not an admin`);
       return new Response(
-        JSON.stringify({ error: "Forbidden: Admin access required" }),
+        JSON.stringify({ 
+          error: "Forbidden: Admin access required",
+          details: "You must be an admin to perform bulk imports"
+        }),
         { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
