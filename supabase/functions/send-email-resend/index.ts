@@ -52,8 +52,12 @@ serve(async (req) => {
     const emailBodyWithTracking = `${body}
 <img src="${trackingPixelUrl}" width="1" height="1" style="display:none;" alt="" />`;
 
+    // Use verified domain email address (startworking.in) instead of onboarding@resend.dev
+    const defaultFromEmail = "noreply@startworking.in";
+    const fromAddress = `${from_name || "JobSeeker"} <${defaultFromEmail}>`;
+    
     const emailResponse = await resend.emails.send({
-      from: `${from_name || "JobSeeker"} <onboarding@resend.dev>`,
+      from: fromAddress,
       to: [to],
       subject,
       html: emailBodyWithTracking,

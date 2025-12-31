@@ -290,9 +290,15 @@ serve(async (req) => {
         emailBody = emailBody.replace(/\{\{user_email\}\}/g, recipient.email);
 
         // Send email via Resend
+        // Use verified domain email address (startworking.in) instead of onboarding@resend.dev
+        const defaultFromEmail = "noreply@startworking.in";
+        const fromAddress = from_email || `${from_name || campaign.from_name || "JobSeeker"} <${defaultFromEmail}>`;
+        
         console.log(`Calling Resend API for ${recipient.email}`);
+        console.log(`From address: ${fromAddress}`);
+        
         const emailResponse = await resend.emails.send({
-          from: from_email || `${from_name || campaign.from_name || "JobSeeker"} <onboarding@resend.dev>`,
+          from: fromAddress,
           to: [recipient.email],
           subject: campaign.subject,
           html: emailBody,
