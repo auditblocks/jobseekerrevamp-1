@@ -165,6 +165,7 @@ serve(async (req) => {
 
     console.log("Step 10: Fetching recipient user details");
     // Fetch recipient user details
+    console.log("Fetching recipients with IDs:", recipient_ids);
     const { data: recipients, error: recipientsError } = await supabase
       .from("profiles")
       .select("id, email, name")
@@ -172,6 +173,7 @@ serve(async (req) => {
 
     if (recipientsError) {
       console.error("Error fetching recipients:", recipientsError);
+      console.error("Recipient IDs that caused error:", recipient_ids);
       throw new Error("Failed to fetch recipients: " + recipientsError.message);
     }
 
@@ -179,7 +181,16 @@ serve(async (req) => {
       console.error("No recipients found for IDs:", recipient_ids);
       throw new Error("No valid recipients found");
     }
+    
     console.log("Recipients found:", recipients.length);
+    console.log("Recipient details:", recipients.map(r => ({ id: r.id, email: r.email })));
+    
+    // Validate that all recipient IDs have valid UUIDs
+    const invalidRecipients = recipients.filter(r => !uuidRegex.test(r.id));
+    if (invalidRecipients.length > 0) {
+      console.error("Recipients with invalid UUIDs:", invalidRecipients);
+      throw new Error("Some recipients have invalid UUIDs");
+    }
 
     console.log("Step 11: Updating campaign status to sending");
     // Update campaign status to sending

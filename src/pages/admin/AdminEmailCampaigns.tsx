@@ -175,11 +175,26 @@ export default function AdminEmailCampaigns() {
         throw new Error("Not authenticated. Please sign in again.");
       }
 
+      // Validate UUIDs before sending
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      const invalidUserIds = selectedUsers.filter(id => !uuidRegex.test(id));
+      
+      if (invalidUserIds.length > 0) {
+        console.error("Invalid user IDs found:", invalidUserIds);
+        throw new Error(`Invalid user IDs: ${invalidUserIds.length} user(s) have invalid UUID format`);
+      }
+
+      if (!uuidRegex.test(campaign.id)) {
+        console.error("Invalid campaign ID:", campaign.id);
+        throw new Error("Invalid campaign ID format");
+      }
+
       // Send campaign
       console.log("Calling send-email-campaign function:", {
         campaign_id: campaign.id,
         recipient_count: selectedUsers.length,
         from_name: fromName,
+        recipient_ids: selectedUsers,
       });
 
       const { data: sendData, error: sendError } = await (supabase.functions as any).invoke("send-email-campaign", {
@@ -197,6 +212,8 @@ export default function AdminEmailCampaigns() {
 
       if (sendError) {
         console.error("Send campaign error details:", sendError);
+        console.error("Error message:", sendError.message);
+        console.error("Error context:", sendError.context);
         throw sendError;
       }
 
