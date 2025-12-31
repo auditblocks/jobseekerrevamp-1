@@ -298,7 +298,24 @@ serve(async (req) => {
           html: emailBody,
           attachments: attachmentFiles.length > 0 ? attachmentFiles : undefined,
         });
-        console.log(`Resend response for ${recipient.email}:`, emailResponse);
+        console.log(`Resend response for ${recipient.email}:`, JSON.stringify(emailResponse, null, 2));
+        
+        // Validate Resend response
+        if (!emailResponse || (emailResponse as any).error) {
+          console.error("Resend API error:", (emailResponse as any)?.error);
+          throw new Error(`Failed to send email via Resend: ${(emailResponse as any)?.error?.message || "Unknown error"}`);
+        }
+        
+        const resendEmailId = (emailResponse as any)?.id || (emailResponse as any)?.data?.id;
+        console.log(`Resend email ID for ${recipient.email}:`, resendEmailId);
+        
+        // Only store Resend email ID if it's a valid UUID
+        let validResendEmailId: string | null = null;
+        if (resendEmailId && uuidRegex.test(resendEmailId)) {
+          validResendEmailId = resendEmailId;
+        } else if (resendEmailId) {
+          console.warn(`Invalid Resend email ID format (not a UUID): ${resendEmailId}`);
+        }
 
         // Create recipient record
         await supabase
