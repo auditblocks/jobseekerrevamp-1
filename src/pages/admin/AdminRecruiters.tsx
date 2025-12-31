@@ -418,13 +418,13 @@ export default function AdminRecruiters() {
         <title>Recruiter Management | Admin</title>
       </Helmet>
 
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
+      <div className="space-y-4 sm:space-y-6">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <div>
-            <h1 className="text-3xl font-bold">Recruiter Management</h1>
-            <p className="text-muted-foreground">Manage recruiter database</p>
+            <h1 className="text-2xl sm:text-3xl font-bold">Recruiter Management</h1>
+            <p className="text-sm sm:text-base text-muted-foreground">Manage recruiter database</p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2 w-full sm:w-auto">
             <Button onClick={fetchRecruiters} variant="outline" size="sm">
               <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
               Refresh
@@ -634,23 +634,23 @@ export default function AdminRecruiters() {
 
         {/* Recruiters Table */}
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <UserSearch className="h-5 w-5" />
+          <CardHeader className="p-4 sm:p-6">
+            <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+              <UserSearch className="h-4 w-4 sm:h-5 sm:w-5" />
               Recruiters ({filteredRecruiters.length})
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="rounded-md border">
+          <CardContent className="p-0 sm:p-6">
+            <div className="rounded-md border overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Recruiter</TableHead>
-                    <TableHead>Company</TableHead>
-                    <TableHead>Domain</TableHead>
-                    <TableHead>Tier</TableHead>
-                    <TableHead>Quality</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                    <TableHead className="min-w-[200px]">Recruiter</TableHead>
+                    <TableHead className="min-w-[120px]">Company</TableHead>
+                    <TableHead className="min-w-[100px]">Domain</TableHead>
+                    <TableHead className="min-w-[100px]">Tier</TableHead>
+                    <TableHead className="min-w-[100px]">Quality</TableHead>
+                    <TableHead className="text-right min-w-[120px]">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>

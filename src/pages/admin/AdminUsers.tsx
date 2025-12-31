@@ -115,33 +115,33 @@ export default function AdminUsers() {
         <title>User Management | Admin</title>
       </Helmet>
 
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
+      <div className="space-y-4 sm:space-y-6">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <div>
-            <h1 className="text-3xl font-bold">User Management</h1>
-            <p className="text-muted-foreground">Manage all registered users</p>
+            <h1 className="text-2xl sm:text-3xl font-bold">User Management</h1>
+            <p className="text-sm sm:text-base text-muted-foreground">Manage all registered users</p>
           </div>
-          <Button onClick={fetchUsers} variant="outline" size="sm">
-            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
+          <Button onClick={fetchUsers} variant="outline" size="sm" className="w-full sm:w-auto">
+            <RefreshCw className={`h-3 w-3 sm:h-4 sm:w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
             Refresh
           </Button>
         </div>
 
         {/* Filters */}
         <Card>
-          <CardContent className="p-4">
-            <div className="flex flex-col sm:flex-row gap-4">
+          <CardContent className="p-3 sm:p-4">
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   placeholder="Search by name or email..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9"
+                  className="pl-9 text-sm"
                 />
               </div>
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-[150px]">
+                <SelectTrigger className="w-full sm:w-[150px] text-sm">
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -153,7 +153,7 @@ export default function AdminUsers() {
                 </SelectContent>
               </Select>
               <Select value={tierFilter} onValueChange={setTierFilter}>
-                <SelectTrigger className="w-[150px]">
+                <SelectTrigger className="w-full sm:w-[150px] text-sm">
                   <SelectValue placeholder="Tier" />
                 </SelectTrigger>
                 <SelectContent>
@@ -169,23 +169,23 @@ export default function AdminUsers() {
 
         {/* Users Table */}
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <User className="h-5 w-5" />
+          <CardHeader className="p-4 sm:p-6">
+            <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+              <User className="h-4 w-4 sm:h-5 sm:w-5" />
               Users ({filteredUsers.length})
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="rounded-md border">
+          <CardContent className="p-0 sm:p-6">
+            <div className="rounded-md border overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>User</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Subscription</TableHead>
-                    <TableHead>Joined</TableHead>
-                    <TableHead>Last Active</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                    <TableHead className="min-w-[200px]">User</TableHead>
+                    <TableHead className="min-w-[100px]">Status</TableHead>
+                    <TableHead className="min-w-[120px]">Subscription</TableHead>
+                    <TableHead className="min-w-[120px]">Joined</TableHead>
+                    <TableHead className="min-w-[120px]">Last Active</TableHead>
+                    <TableHead className="text-right min-w-[120px]">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>

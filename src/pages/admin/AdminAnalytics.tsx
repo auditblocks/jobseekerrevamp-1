@@ -144,28 +144,28 @@ export default function AdminAnalytics() {
         <title>Analytics | Admin</title>
       </Helmet>
 
-      <div className="space-y-6">
+      <div className="space-y-4 sm:space-y-6">
         <div>
-          <h1 className="text-3xl font-bold">Platform Analytics</h1>
-          <p className="text-muted-foreground">Email performance and engagement metrics</p>
+          <h1 className="text-2xl sm:text-3xl font-bold">Platform Analytics</h1>
+          <p className="text-sm sm:text-base text-muted-foreground">Email performance and engagement metrics</p>
         </div>
 
         {/* Stats Grid */}
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           {statCards.map((stat) => (
             <Card key={stat.title}>
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium">{stat.title}</CardTitle>
-                <stat.icon className={`h-4 w-4 ${stat.color}`} />
+              <CardHeader className="flex flex-row items-center justify-between pb-2 p-4 sm:p-6">
+                <CardTitle className="text-xs sm:text-sm font-medium">{stat.title}</CardTitle>
+                <stat.icon className={`h-3 w-3 sm:h-4 sm:w-4 ${stat.color}`} />
               </CardHeader>
-              <CardContent>
+              <CardContent className="p-4 sm:p-6 pt-0">
                 {loading ? (
-                  <Skeleton className="h-8 w-20" />
+                  <Skeleton className="h-7 sm:h-8 w-16 sm:w-20" />
                 ) : (
                   <>
-                    <div className="text-2xl font-bold">{stat.value.toLocaleString()}</div>
+                    <div className="text-xl sm:text-2xl font-bold">{stat.value.toLocaleString()}</div>
                     {stat.subtitle && (
-                      <p className="text-xs text-muted-foreground">{stat.subtitle}</p>
+                      <p className="text-xs text-muted-foreground mt-1">{stat.subtitle}</p>
                     )}
                   </>
                 )}
@@ -175,7 +175,7 @@ export default function AdminAnalytics() {
         </div>
 
         {/* Charts Row */}
-        <div className="grid gap-6 md:grid-cols-2">
+        <div className="grid gap-4 sm:gap-6 lg:grid-cols-2">
           {/* Daily Email Activity */}
           <Card>
             <CardHeader>
