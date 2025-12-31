@@ -176,7 +176,13 @@ export default function AdminEmailCampaigns() {
       }
 
       // Send campaign
-      const { error: sendError } = await (supabase.functions as any).invoke("send-email-campaign", {
+      console.log("Calling send-email-campaign function:", {
+        campaign_id: campaign.id,
+        recipient_count: selectedUsers.length,
+        from_name: fromName,
+      });
+
+      const { data: sendData, error: sendError } = await (supabase.functions as any).invoke("send-email-campaign", {
         body: {
           campaign_id: campaign.id,
           recipient_ids: selectedUsers,
@@ -187,7 +193,12 @@ export default function AdminEmailCampaigns() {
         },
       });
 
-      if (sendError) throw sendError;
+      console.log("Send campaign response:", { sendData, sendError });
+
+      if (sendError) {
+        console.error("Send campaign error details:", sendError);
+        throw sendError;
+      }
 
       toast.success("Campaign sent successfully!");
       setShowCreateDialog(false);

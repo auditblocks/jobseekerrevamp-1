@@ -33,6 +33,10 @@ function wrapLinksWithTracking(html: string, clickTrackingId: string, supabaseUr
 }
 
 serve(async (req) => {
+  console.log("=== send-email-campaign function called ===");
+  console.log("Method:", req.method);
+  console.log("URL:", req.url);
+
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -40,16 +44,23 @@ serve(async (req) => {
   let requestCampaignId: string | undefined;
 
   try {
+    console.log("Step 1: Checking RESEND_API_KEY");
     const resendApiKey = Deno.env.get("RESEND_API_KEY");
     if (!resendApiKey) {
+      console.error("RESEND_API_KEY not configured");
       throw new Error("RESEND_API_KEY not configured");
     }
+    console.log("RESEND_API_KEY found");
 
+    console.log("Step 2: Getting Supabase credentials");
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    console.log("Supabase URL:", supabaseUrl);
 
+    console.log("Step 3: Checking authorization header");
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
+      console.error("No authorization header found");
       return new Response(
         JSON.stringify({ error: "No authorization header" }),
         {
@@ -58,20 +69,25 @@ serve(async (req) => {
         }
       );
     }
+    console.log("Authorization header found");
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     
+    console.log("Step 4: Verifying user token");
     const token = authHeader.replace("Bearer ", "");
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     if (authError || !user) {
+      console.error("Auth error:", authError);
+      console.error("User:", user);
       return new Response(
-        JSON.stringify({ error: "Unauthorized" }),
+        JSON.stringify({ error: "Unauthorized", details: authError?.message }),
         {
           status: 401,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         }
       );
     }
+    console.log("User authenticated:", user.id, user.email);
 
     // Check if user is admin - check both user_roles and profiles
     const { data: roleData } = await supabase
@@ -103,10 +119,13 @@ serve(async (req) => {
     const { campaign_id, recipient_ids, from_name, from_email } = requestBody;
     requestCampaignId = campaign_id; // Store for error handling
 
+    console.log("Step 7: Validating request");
     if (!campaign_id || !recipient_ids || recipient_ids.length === 0) {
+      console.error("Validation failed:", { campaign_id, recipient_ids });
       throw new Error("campaign_id and recipient_ids are required");
     }
 
+    console.log("Step 8: Fetching campaign details");
     // Fetch campaign details
     const { data: campaign, error: campaignError } = await supabase
       .from("email_campaigns")
@@ -115,27 +134,45 @@ serve(async (req) => {
       .single();
 
     if (campaignError || !campaign) {
+      console.error("Campaign fetch error:", campaignError);
+      console.error("Campaign data:", campaign);
       throw new Error("Campaign not found");
     }
+    console.log("Campaign found:", campaign.subject);
 
+    console.log("Step 9: Fetching attachments");
     // Fetch attachments
-    const { data: attachments } = await supabase
+    const { data: attachments, error: attachmentsError } = await supabase
       .from("email_campaign_attachments")
       .select("*")
       .eq("campaign_id", campaign_id);
 
+    if (attachmentsError) {
+      console.error("Error fetching attachments:", attachmentsError);
+    }
+    console.log("Attachments found:", attachments?.length || 0);
+
+    console.log("Step 10: Fetching recipient user details");
     // Fetch recipient user details
     const { data: recipients, error: recipientsError } = await supabase
       .from("profiles")
       .select("id, email, name")
       .in("id", recipient_ids);
 
-    if (recipientsError || !recipients || recipients.length === 0) {
-      throw new Error("No valid recipients found");
+    if (recipientsError) {
+      console.error("Error fetching recipients:", recipientsError);
+      throw new Error("Failed to fetch recipients: " + recipientsError.message);
     }
 
+    if (!recipients || recipients.length === 0) {
+      console.error("No recipients found for IDs:", recipient_ids);
+      throw new Error("No valid recipients found");
+    }
+    console.log("Recipients found:", recipients.length);
+
+    console.log("Step 11: Updating campaign status to sending");
     // Update campaign status to sending
-    await supabase
+    const { error: updateError } = await supabase
       .from("email_campaigns")
       .update({
         status: "sending",
@@ -144,9 +181,15 @@ serve(async (req) => {
       })
       .eq("id", campaign_id);
 
+    if (updateError) {
+      console.error("Error updating campaign status:", updateError);
+    }
+
+    console.log("Step 12: Initializing Resend client");
     const resend = new Resend(resendApiKey);
     let sentCount = 0;
     let failedCount = 0;
+    console.log("Starting to send emails to", recipients.length, "recipients");
 
     // Download attachments if any
     const attachmentFiles: any[] = [];
@@ -182,11 +225,16 @@ serve(async (req) => {
     }
 
     // Send emails to each recipient
-    for (const recipient of recipients) {
+    console.log("Step 13: Starting email sending loop");
+    for (let i = 0; i < recipients.length; i++) {
+      const recipient = recipients[i];
+      console.log(`Sending email ${i + 1}/${recipients.length} to ${recipient.email}`);
+      
       try {
         // Generate tracking IDs
         const trackingPixelId = crypto.randomUUID();
         const clickTrackingId = crypto.randomUUID();
+        console.log(`Generated tracking IDs for ${recipient.email}`);
 
         // Add tracking pixel to email body
         const trackingPixelUrl = `${supabaseUrl}/functions/v1/track-email-open?id=${trackingPixelId}`;
@@ -203,6 +251,7 @@ serve(async (req) => {
         emailBody = emailBody.replace(/\{\{user_email\}\}/g, recipient.email);
 
         // Send email via Resend
+        console.log(`Calling Resend API for ${recipient.email}`);
         const emailResponse = await resend.emails.send({
           from: from_email || `${from_name || campaign.from_name || "JobSeeker"} <onboarding@resend.dev>`,
           to: [recipient.email],
@@ -210,6 +259,7 @@ serve(async (req) => {
           html: emailBody,
           attachments: attachmentFiles.length > 0 ? attachmentFiles : undefined,
         });
+        console.log(`Resend response for ${recipient.email}:`, emailResponse);
 
         // Create recipient record
         await supabase
@@ -283,31 +333,51 @@ serve(async (req) => {
       }
     );
   } catch (error: any) {
-    console.error("Error sending campaign:", error);
+    console.error("=== ERROR in send-email-campaign ===");
+    console.error("Error type:", error?.constructor?.name);
+    console.error("Error message:", error?.message);
+    console.error("Error stack:", error?.stack);
+    console.error("Request campaign ID:", requestCampaignId);
     
     // Update campaign status to failed if campaign_id exists
     try {
       if (requestCampaignId) {
+        console.log("Updating campaign status to failed");
         const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
         const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
         const supabase = createClient(supabaseUrl, supabaseServiceKey);
         
-        await supabase
+        const { error: updateError } = await supabase
           .from("email_campaigns")
           .update({
             status: "failed",
-            error_message: error.message,
+            error_message: error?.message || "Unknown error",
           })
           .eq("id", requestCampaignId);
+
+        if (updateError) {
+          console.error("Failed to update campaign status:", updateError);
+        } else {
+          console.log("Campaign status updated to failed");
+        }
       }
     } catch (updateError) {
       console.error("Failed to update campaign status:", updateError);
     }
 
+    const errorResponse = {
+      error: error?.message || "Unknown error occurred",
+      details: error?.stack,
+      campaign_id: requestCampaignId,
+    };
+
+    console.error("Returning error response:", errorResponse);
+
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify(errorResponse),
       {
-        status: 400,
+        status: error?.message?.includes("Unauthorized") ? 401 : 
+                error?.message?.includes("Forbidden") ? 403 : 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       }
     );
