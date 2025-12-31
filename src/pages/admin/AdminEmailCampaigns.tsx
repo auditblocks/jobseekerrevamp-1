@@ -107,8 +107,8 @@ export default function AdminEmailCampaigns() {
   const fetchCampaigns = async () => {
     try {
       setLoading(true);
-      const { data, error } = await (supabase
-        .from("email_campaigns") as any)
+      const { data, error } = await (supabase as any)
+        .from("email_campaigns")
         .select("*")
         .order("created_at", { ascending: false });
 
@@ -139,8 +139,8 @@ export default function AdminEmailCampaigns() {
       if (!user) throw new Error("Not authenticated");
 
       // Create campaign
-      const { data: campaign, error: campaignError } = await (supabase
-        .from("email_campaigns") as any)
+      const { data: campaign, error: campaignError } = await (supabase as any)
+        .from("email_campaigns")
         .insert({
           subject: campaignSubject,
           html_body: campaignBody,
@@ -164,8 +164,8 @@ export default function AdminEmailCampaigns() {
           mime_type: att.type,
         }));
 
-        await (supabase
-          .from("email_campaign_attachments") as any)
+        await (supabase as any)
+          .from("email_campaign_attachments")
           .insert(attachmentRecords);
       }
 
