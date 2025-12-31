@@ -573,8 +573,8 @@ Best regards,
                     <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
                       <div className="flex-1">
                         <p className="text-sm text-muted-foreground">
-                          We'll use your Gmail to send personalized emails on your behalf. 
-                          Your credentials are stored securely and you can disconnect anytime.
+                          Connect your Gmail account to enable email sending through our platform. 
+                          Your account is connected securely via Gmail and you can disconnect anytime.
                         </p>
                       </div>
                       <Button 
