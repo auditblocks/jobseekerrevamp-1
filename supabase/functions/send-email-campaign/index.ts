@@ -136,6 +136,23 @@ serve(async (req) => {
       throw new Error("campaign_id and recipient_ids are required");
     }
 
+    // Validate UUID format
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    
+    if (!uuidRegex.test(campaign_id)) {
+      console.error("Invalid campaign_id format:", campaign_id);
+      throw new Error("Invalid campaign_id: must be a valid UUID");
+    }
+
+    // Validate all recipient IDs are valid UUIDs
+    const invalidRecipientIds = recipient_ids.filter((id: string) => !uuidRegex.test(id));
+    if (invalidRecipientIds.length > 0) {
+      console.error("Invalid recipient_ids:", invalidRecipientIds);
+      throw new Error(`Invalid recipient_ids: ${invalidRecipientIds.length} invalid UUID(s) found. Invalid IDs: ${invalidRecipientIds.join(", ")}`);
+    }
+    
+    console.log("UUID validation passed");
+
     console.log("Step 8: Fetching campaign details");
     // Fetch campaign details
     const { data: campaign, error: campaignError } = await supabase
