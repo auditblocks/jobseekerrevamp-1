@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { HelmetProvider } from "react-helmet-async";
 import { AuthProvider } from "@/hooks/useAuth";
+import { ActivityTracker } from "@/components/ActivityTracker";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
@@ -32,6 +33,7 @@ import AdminSubscriptions from "./pages/admin/AdminSubscriptions";
 import AdminNotifications from "./pages/admin/AdminNotifications";
 import AdminRequests from "./pages/admin/AdminRequests";
 import AdminDashboardConfig from "./pages/admin/AdminDashboardConfig";
+import AdminUserActivity from "./pages/admin/AdminUserActivity";
 
 const queryClient = new QueryClient();
 
@@ -44,6 +46,7 @@ const App = () => (
           {/* Sonner renders in a portal to body, ensuring it's above all content */}
           <Sonner />
           <BrowserRouter>
+            <ActivityTracker />
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/auth" element={<Auth />} />
@@ -73,6 +76,7 @@ const App = () => (
               <Route path="/admin/notifications" element={<AdminNotifications />} />
               <Route path="/admin/requests" element={<AdminRequests />} />
               <Route path="/admin/dashboard-config" element={<AdminDashboardConfig />} />
+              <Route path="/admin/user-activity" element={<AdminUserActivity />} />
               
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />

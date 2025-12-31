@@ -9,7 +9,8 @@ import {
   Bell,
   FileText,
   ArrowLeft,
-  Sliders
+  Sliders,
+  Activity
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
@@ -34,6 +35,7 @@ const mainItems = [
   { title: "Users", url: "/admin/users", icon: Users },
   { title: "Recruiters", url: "/admin/recruiters", icon: UserSearch },
   { title: "Analytics", url: "/admin/analytics", icon: BarChart3 },
+  { title: "User Activity", url: "/admin/user-activity", icon: Activity },
 ];
 
 const managementItems = [

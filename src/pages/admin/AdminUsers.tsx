@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { AdminLayout } from "@/components/admin/AdminLayout";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +14,13 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -21,7 +28,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
-import { Search, RefreshCw, User, Mail, Calendar, Crown } from "lucide-react";
+import { Search, RefreshCw, User, Mail, Calendar, Crown, Activity } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
@@ -42,6 +49,11 @@ export default function AdminUsers() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [tierFilter, setTierFilter] = useState("all");
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [userActivity, setUserActivity] = useState<any[]>([]);
+  const [userSessions, setUserSessions] = useState<any[]>([]);
+  const [loadingActivity, setLoadingActivity] = useState(false);
+  const [isActivityDialogOpen, setIsActivityDialogOpen] = useState(false);
 
   useEffect(() => {
     fetchUsers();
@@ -107,6 +119,39 @@ export default function AdminUsers() {
       default:
         return "bg-gray-500/10 text-gray-500 border-gray-500/20";
     }
+  };
+
+  const fetchUserActivity = async (userId: string) => {
+    setLoadingActivity(true);
+    try {
+      const [activityRes, sessionsRes] = await Promise.all([
+        (supabase.rpc as any)("admin_get_user_activity", { 
+          p_user_id: userId, 
+          p_limit: 50 
+        }),
+        (supabase.rpc as any)("admin_get_user_sessions", { 
+          p_user_id: userId, 
+          p_limit: 20 
+        }),
+      ]);
+
+      if (activityRes.error) throw activityRes.error;
+      if (sessionsRes.error) throw sessionsRes.error;
+
+      setUserActivity((activityRes.data || []) as any[]);
+      setUserSessions((sessionsRes.data || []) as any[]);
+    } catch (error: any) {
+      console.error("Error fetching user activity:", error);
+      toast.error("Failed to fetch user activity");
+    } finally {
+      setLoadingActivity(false);
+    }
+  };
+
+  const handleViewActivity = (userId: string) => {
+    setSelectedUserId(userId);
+    setIsActivityDialogOpen(true);
+    fetchUserActivity(userId);
   };
 
   return (
@@ -249,20 +294,30 @@ export default function AdminUsers() {
                           )}
                         </TableCell>
                         <TableCell className="text-right">
-                          <Select
-                            value={user.status}
-                            onValueChange={(value) => updateUserStatus(user.id, value)}
-                          >
-                            <SelectTrigger className="w-[100px] h-8">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="active">Active</SelectItem>
-                              <SelectItem value="inactive">Inactive</SelectItem>
-                              <SelectItem value="suspended">Suspend</SelectItem>
-                              <SelectItem value="banned">Ban</SelectItem>
-                            </SelectContent>
-                          </Select>
+                          <div className="flex items-center justify-end gap-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleViewActivity(user.id)}
+                              className="h-8"
+                            >
+                              <Activity className="h-3 w-3 sm:h-4 sm:w-4" />
+                            </Button>
+                            <Select
+                              value={user.status}
+                              onValueChange={(value) => updateUserStatus(user.id, value)}
+                            >
+                              <SelectTrigger className="w-[100px] h-8">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="active">Active</SelectItem>
+                                <SelectItem value="inactive">Inactive</SelectItem>
+                                <SelectItem value="suspended">Suspend</SelectItem>
+                                <SelectItem value="banned">Ban</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))
@@ -272,6 +327,129 @@ export default function AdminUsers() {
             </div>
           </CardContent>
         </Card>
+
+        {/* User Activity Dialog */}
+        <Dialog open={isActivityDialogOpen} onOpenChange={setIsActivityDialogOpen}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>User Activity</DialogTitle>
+              <DialogDescription>
+                {users.find(u => u.id === selectedUserId)?.name} ({users.find(u => u.id === selectedUserId)?.email})
+              </DialogDescription>
+            </DialogHeader>
+
+            {loadingActivity ? (
+              <div className="flex items-center justify-center py-12">
+                <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {/* Activity Log */}
+                <Card>
+                  <CardHeader className="p-4 sm:p-6">
+                    <CardTitle className="text-base sm:text-lg">Recent Activity</CardTitle>
+                    <CardDescription className="text-xs sm:text-sm">Last 50 events</CardDescription>
+                  </CardHeader>
+                  <CardContent className="p-4 sm:p-6 pt-0">
+                    <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                      {userActivity.length === 0 ? (
+                        <div className="text-center py-8 text-muted-foreground text-sm">
+                          No activity recorded
+                        </div>
+                      ) : (
+                        userActivity.map((activity: any) => (
+                          <div
+                            key={activity.id}
+                            className="flex items-start gap-3 p-2 sm:p-3 rounded-lg border border-border/50 hover:bg-accent/5 transition-colors"
+                          >
+                            <Activity className="h-4 w-4 mt-0.5" />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="font-medium text-xs sm:text-sm capitalize">
+                                  {activity.event_type?.replace("_", " ") || "Event"}
+                                </span>
+                                <Badge variant="outline" className="text-xs">
+                                  {activity.page_path || "—"}
+                                </Badge>
+                              </div>
+                              {activity.page_title && (
+                                <div className="text-xs sm:text-sm text-muted-foreground mb-1">
+                                  {activity.page_title}
+                                </div>
+                              )}
+                              <div className="text-xs text-muted-foreground">
+                                {format(new Date(activity.created_at), "MMM d, yyyy 'at' h:mm:ss a")}
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Session History */}
+                <Card>
+                  <CardHeader className="p-4 sm:p-6">
+                    <CardTitle className="text-base sm:text-lg">Session History</CardTitle>
+                    <CardDescription className="text-xs sm:text-sm">Last 20 sessions</CardDescription>
+                  </CardHeader>
+                  <CardContent className="p-4 sm:p-6 pt-0">
+                    <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                      {userSessions.length === 0 ? (
+                        <div className="text-center py-8 text-muted-foreground text-sm">
+                          No session history
+                        </div>
+                      ) : (
+                        userSessions.map((session: any) => (
+                          <div
+                            key={session.id}
+                            className="p-2 sm:p-3 rounded-lg border border-border/50 hover:bg-accent/5 transition-colors"
+                          >
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex items-center gap-2">
+                                <Badge variant={session.is_active ? "default" : "outline"} className="text-xs">
+                                  {session.is_active ? "Active" : "Ended"}
+                                </Badge>
+                                <span className="text-xs sm:text-sm text-muted-foreground">
+                                  {format(new Date(session.started_at), "MMM d, yyyy 'at' h:mm a")}
+                                </span>
+                              </div>
+                              {session.duration_seconds && (
+                                <span className="text-xs sm:text-sm text-muted-foreground">
+                                  {Math.floor(session.duration_seconds / 60)}m
+                                </span>
+                              )}
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs sm:text-sm">
+                              <div>
+                                <span className="text-muted-foreground">Device: </span>
+                                <span className="capitalize">{session.device_type || "—"}</span>
+                                {session.browser && <span> / {session.browser}</span>}
+                              </div>
+                              {session.exit_reason && (
+                                <div>
+                                  <span className="text-muted-foreground">Exit: </span>
+                                  <span className="capitalize">{session.exit_reason}</span>
+                                </div>
+                              )}
+                              {session.current_page && (
+                                <div className="sm:col-span-2">
+                                  <span className="text-muted-foreground">Last Page: </span>
+                                  <span>{session.current_page_title || session.current_page}</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     </AdminLayout>
   );
