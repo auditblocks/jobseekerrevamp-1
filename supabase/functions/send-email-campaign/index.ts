@@ -329,7 +329,7 @@ serve(async (req) => {
             sent_at: new Date().toISOString(),
             tracking_pixel_id: trackingPixelId,
             click_tracking_id: clickTrackingId,
-            resend_email_id: (emailResponse as any).id || null,
+            resend_email_id: validResendEmailId,
           });
 
         // Update campaign counters
