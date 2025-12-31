@@ -89,23 +89,34 @@ serve(async (req) => {
     }
     console.log("User authenticated:", user.id, user.email);
 
+    console.log("Step 5: Checking admin access");
     // Check if user is admin - check both user_roles and profiles
-    const { data: roleData } = await supabase
+    const { data: roleData, error: roleError } = await supabase
       .from("user_roles")
       .select("role")
       .eq("user_id", user.id)
       .eq("role", "admin")
       .maybeSingle();
 
-    const { data: profile } = await supabase
+    if (roleError) {
+      console.error("Error checking user_roles:", roleError);
+    }
+
+    const { data: profile, error: profileError } = await supabase
       .from("profiles")
       .select("role")
       .eq("id", user.id)
       .single();
 
+    if (profileError) {
+      console.error("Error checking profiles:", profileError);
+    }
+
     const isAdmin = !!roleData || profile?.role === "superadmin";
+    console.log("Is admin:", isAdmin, "roleData:", roleData, "profile role:", profile?.role);
     
     if (!isAdmin) {
+      console.error("User is not an admin");
       return new Response(
         JSON.stringify({ error: "Unauthorized: Admin access required" }),
         {
