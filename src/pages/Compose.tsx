@@ -95,16 +95,43 @@ const Compose = () => {
     const fetchData = async () => {
       setIsLoadingRecruiters(true);
       try {
-        const [recruitersRes, domainsRes] = await Promise.all([
-          supabase.from("recruiters").select("id, name, email, company, domain, tier").order("name"),
-          supabase.from("domains").select("id, name, display_name").eq("is_active", true).order("sort_order")
-        ]);
+        // Fetch domains
+        const domainsRes = await supabase
+          .from("domains")
+          .select("id, name, display_name")
+          .eq("is_active", true)
+          .order("sort_order");
 
-        if (recruitersRes.error) throw recruitersRes.error;
         if (domainsRes.error) throw domainsRes.error;
-        
-        setRecruiters(recruitersRes.data || []);
         setDomains(domainsRes.data || []);
+
+        // Fetch all recruiters in batches (Supabase has a 1000 row limit per query)
+        let allRecruiters: Recruiter[] = [];
+        let from = 0;
+        const batchSize = 1000;
+        let hasMore = true;
+
+        while (hasMore) {
+          const { data: batchData, error: recruitersError } = await supabase
+            .from("recruiters")
+            .select("id, name, email, company, domain, tier")
+            .order("name")
+            .range(from, from + batchSize - 1);
+
+          if (recruitersError) throw recruitersError;
+
+          if (batchData && batchData.length > 0) {
+            allRecruiters = [...allRecruiters, ...batchData];
+            from += batchSize;
+            // If we got less than batchSize, we've reached the end
+            hasMore = batchData.length === batchSize;
+          } else {
+            hasMore = false;
+          }
+        }
+
+        console.log(`Fetched ${allRecruiters.length} total recruiters`);
+        setRecruiters(allRecruiters);
       } catch (error) {
         console.error("Error fetching data:", error);
         toast.error("Failed to load data");
