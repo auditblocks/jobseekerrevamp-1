@@ -75,6 +75,7 @@ interface Campaign {
   started_at: string | null;
   completed_at: string | null;
   created_by: string;
+  from_name?: string | null;
 }
 
 interface User {
