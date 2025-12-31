@@ -51,7 +51,9 @@ import {
   XCircle,
   Clock,
   TrendingUp,
-  Users
+  Users,
+  Edit,
+  Trash2
 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
@@ -87,8 +89,10 @@ export default function AdminEmailCampaigns() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
   const [selectedCampaign, setSelectedCampaign] = useState<Campaign | null>(null);
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
+  const [editingCampaignId, setEditingCampaignId] = useState<string | null>(null);
   
   // Campaign form state
   const [campaignSubject, setCampaignSubject] = useState("");
@@ -246,6 +250,166 @@ export default function AdminEmailCampaigns() {
     setShowDetailsDialog(true);
   };
 
+  const handleEditDraft = async (campaign: Campaign) => {
+    if (campaign.status !== "draft") {
+      toast.error("Only draft campaigns can be edited");
+      return;
+    }
+
+    try {
+      // Load campaign data
+      setCampaignSubject(campaign.subject);
+      setCampaignBody(campaign.html_body);
+      setFromName(campaign.from_name || "JobSeeker");
+      setEditingCampaignId(campaign.id);
+
+      // Load attachments for this campaign
+      const { data: campaignAttachments } = await (supabase as any)
+        .from("email_campaign_attachments")
+        .select("*")
+        .eq("campaign_id", campaign.id);
+
+      if (campaignAttachments) {
+        setAttachments(campaignAttachments.map((att: any) => ({
+          name: att.file_name,
+          url: att.file_url,
+          size: att.file_size,
+          type: att.mime_type,
+        })));
+      }
+
+      // Load recipients for this campaign
+      const { data: recipients } = await (supabase as any)
+        .from("email_campaign_recipients")
+        .select("user_id")
+        .eq("campaign_id", campaign.id);
+
+      if (recipients) {
+        setSelectedUsers(recipients.map((r: any) => r.user_id));
+      }
+
+      setShowEditDialog(true);
+    } catch (error: any) {
+      console.error("Error loading campaign for edit:", error);
+      toast.error("Failed to load campaign data");
+    }
+  };
+
+  const handleUpdateDraft = async () => {
+    if (!editingCampaignId) return;
+
+    if (!campaignSubject || !campaignBody) {
+      toast.error("Please fill in subject and email body");
+      return;
+    }
+
+    setIsSending(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      // Update campaign
+      const { error: updateError } = await (supabase as any)
+        .from("email_campaigns")
+        .update({
+          subject: campaignSubject,
+          html_body: campaignBody,
+          from_name: fromName,
+          total_recipients: selectedUsers.length,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", editingCampaignId);
+
+      if (updateError) throw updateError;
+
+      // Delete old attachments and insert new ones
+      await (supabase as any)
+        .from("email_campaign_attachments")
+        .delete()
+        .eq("campaign_id", editingCampaignId);
+
+      if (attachments.length > 0) {
+        const attachmentRecords = attachments.map(att => ({
+          campaign_id: editingCampaignId,
+          file_name: att.name,
+          file_url: att.url,
+          file_size: att.size,
+          mime_type: att.type,
+        }));
+
+        await (supabase as any)
+          .from("email_campaign_attachments")
+          .insert(attachmentRecords);
+      }
+
+      // Delete old recipients and insert new ones
+      await (supabase as any)
+        .from("email_campaign_recipients")
+        .delete()
+        .eq("campaign_id", editingCampaignId);
+
+      if (selectedUsers.length > 0) {
+        // Fetch user details for recipients
+        const { data: userDetails } = await supabase
+          .from("profiles")
+          .select("id, email, name")
+          .in("id", selectedUsers);
+
+        if (userDetails) {
+          const recipientRecords = userDetails.map(user => ({
+            campaign_id: editingCampaignId,
+            user_id: user.id,
+            user_email: user.email,
+            user_name: user.name,
+            status: "pending",
+          }));
+
+          await (supabase as any)
+            .from("email_campaign_recipients")
+            .insert(recipientRecords);
+        }
+      }
+
+      toast.success("Draft campaign updated successfully!");
+      setShowEditDialog(false);
+      resetForm();
+      setEditingCampaignId(null);
+      fetchCampaigns();
+    } catch (error: any) {
+      console.error("Error updating campaign:", error);
+      toast.error(error.message || "Failed to update campaign");
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  const handleDeleteDraft = async (campaign: Campaign) => {
+    if (campaign.status !== "draft") {
+      toast.error("Only draft campaigns can be deleted");
+      return;
+    }
+
+    if (!confirm(`Are you sure you want to delete the campaign "${campaign.subject}"? This action cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      // Delete campaign (cascade will delete recipients and attachments)
+      const { error } = await (supabase as any)
+        .from("email_campaigns")
+        .delete()
+        .eq("id", campaign.id);
+
+      if (error) throw error;
+
+      toast.success("Campaign deleted successfully");
+      fetchCampaigns();
+    } catch (error: any) {
+      console.error("Error deleting campaign:", error);
+      toast.error("Failed to delete campaign");
+    }
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case "completed":
@@ -390,14 +554,39 @@ export default function AdminEmailCampaigns() {
                           {format(new Date(campaign.created_at), "MMM d, yyyy")}
                         </TableCell>
                         <TableCell className="text-right">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleViewDetails(campaign)}
-                          >
-                            <Eye className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
-                            <span className="hidden sm:inline">View</span>
-                          </Button>
+                          <div className="flex items-center justify-end gap-1 sm:gap-2">
+                            {campaign.status === "draft" && (
+                              <>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleEditDraft(campaign)}
+                                  className="h-8 px-2 sm:px-3"
+                                >
+                                  <Edit className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                                  <span className="hidden sm:inline">Edit</span>
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleDeleteDraft(campaign)}
+                                  className="h-8 px-2 sm:px-3 text-red-500 hover:text-red-600"
+                                >
+                                  <Trash2 className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                                  <span className="hidden sm:inline">Delete</span>
+                                </Button>
+                              </>
+                            )}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleViewDetails(campaign)}
+                              className="h-8 px-2 sm:px-3"
+                            >
+                              <Eye className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                              <span className="hidden sm:inline">View</span>
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))
