@@ -205,13 +205,17 @@ Configure in Supabase Dashboard → Settings → Edge Functions → Secrets:
 - `GOOGLE_CLIENT_SECRET` - Google OAuth client secret
 - `RAZORPAY_KEY_ID` - Razorpay API key
 - `RAZORPAY_KEY_SECRET` - Razorpay API secret
-- `RESEND_API_KEY` - Resend API key (optional, for email fallback)
+- `RESEND_API_KEY` - Resend API key (required for email campaigns and Resend email sending)
+  - **Value**: `re_gRSNr18j_AeJaWoRysvGLLhZxX9x4y5Qc`
+  - **Setup**: Add in Supabase Dashboard → Settings → Edge Functions → Secrets
 - `LOVABLE_API_KEY` - AI API key (for email generation)
 
 ### Function List
 
 - `send-email-gmail` - Send emails via Gmail API
 - `send-email-resend` - Send emails via Resend (fallback)
+- `send-email-campaign` - Send email campaigns to multiple users via Resend (admin only)
+- `track-email-click` - Track email link clicks for campaigns
 - `gmail-oauth-callback` - Handle Gmail OAuth callback
 - `gmail-webhook` - Receive Gmail push notifications
 - `check-gmail-replies` - Poll Gmail for replies
@@ -224,6 +228,50 @@ Configure in Supabase Dashboard → Settings → Edge Functions → Secrets:
 - `get-google-client-id` - Get OAuth client ID
 
 **See `EDGE_FUNCTIONS_EXPORT.md` for complete function code.**
+
+---
+
+## Resend API Setup
+
+### API Key Configuration
+
+**Resend API Key:**
+- **Key**: `re_gRSNr18j_AeJaWoRysvGLLhZxX9x4y5Qc`
+- **Location**: Supabase Dashboard → Settings → Edge Functions → Secrets
+- **Secret Name**: `RESEND_API_KEY`
+
+### Setup Steps
+
+1. **Add to Supabase Secrets:**
+   - Go to Supabase Dashboard → Settings → Edge Functions → Secrets
+   - Click "Add Secret"
+   - Name: `RESEND_API_KEY`
+   - Value: `re_gRSNr18j_AeJaWoRysvGLLhZxX9x4y5Qc`
+   - Click "Save"
+
+2. **Redeploy Edge Functions:**
+   ```bash
+   supabase functions deploy send-email-resend
+   supabase functions deploy send-email-campaign
+   ```
+
+3. **Verify Setup:**
+   - Test sending an email campaign from admin portal
+   - Check edge function logs for any errors
+
+### Functions Using Resend
+
+- `send-email-resend` - Individual email sending
+- `send-email-campaign` - Bulk email campaigns (admin only)
+
+### Storage Bucket Setup
+
+For email campaign attachments:
+
+1. Go to Supabase Dashboard → Storage
+2. Create bucket: `email-campaign-attachments`
+3. Set to public or configure RLS policies
+4. Bucket is used for storing campaign attachment files
 
 ---
 
