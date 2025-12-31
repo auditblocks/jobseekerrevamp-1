@@ -169,12 +169,21 @@ export default function AdminEmailCampaigns() {
           .insert(attachmentRecords);
       }
 
+      // Get session token for authentication
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (!sessionData?.session?.access_token) {
+        throw new Error("Not authenticated. Please sign in again.");
+      }
+
       // Send campaign
       const { error: sendError } = await (supabase.functions as any).invoke("send-email-campaign", {
         body: {
           campaign_id: campaign.id,
           recipient_ids: selectedUsers,
           from_name: fromName,
+        },
+        headers: {
+          Authorization: `Bearer ${sessionData.session.access_token}`,
         },
       });
 
