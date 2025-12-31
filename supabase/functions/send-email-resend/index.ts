@@ -52,15 +52,28 @@ serve(async (req) => {
     const emailBodyWithTracking = `${body}
 <img src="${trackingPixelUrl}" width="1" height="1" style="display:none;" alt="" />`;
 
-    // Use verified domain email address (startworking.in) instead of onboarding@resend.dev
-    const defaultFromEmail = "noreply@startworking.in";
+    // Use verified domain email address (startworking.in) - using a more friendly address
+    const defaultFromEmail = "hello@startworking.in"; // Changed from noreply to hello (less spammy)
     const fromAddress = `${from_name || "JobSeeker"} <${defaultFromEmail}>`;
+    const replyToEmail = "support@startworking.in"; // Add reply-to address
+    
+    // Add unsubscribe link (for individual emails, link to settings)
+    const unsubscribeUrl = `${supabaseUrl.replace('/functions/v1', '')}/settings`;
+    const unsubscribeLink = `<div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #e0e0e0; font-size: 12px; color: #666;">
+      <p>If you no longer wish to receive these emails, you can <a href="${unsubscribeUrl}" style="color: #666;">update your preferences</a>.</p>
+    </div>`;
+    const emailBodyWithUnsubscribe = emailBodyWithTracking + unsubscribeLink;
     
     const emailResponse = await resend.emails.send({
       from: fromAddress,
       to: [to],
       subject,
-      html: emailBodyWithTracking,
+      html: emailBodyWithUnsubscribe,
+      reply_to: replyToEmail, // Add reply-to header
+      headers: {
+        "List-Unsubscribe": `<${unsubscribeUrl}>`,
+        "List-Unsubscribe-Post": "List-Unsubscribe=One-Click", // One-click unsubscribe
+      },
     });
 
     console.log("Email sent via Resend:", emailResponse);

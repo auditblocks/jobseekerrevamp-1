@@ -197,8 +197,8 @@ export default function AdminEmailCampaigns() {
         recipient_ids: selectedUsers,
       });
 
-      // Use verified domain email address
-      const fromEmail = "noreply@startworking.in";
+      // Use verified domain email address (using hello instead of noreply for better deliverability)
+      const fromEmail = "hello@startworking.in";
       
       const { data: sendData, error: sendError } = await (supabase.functions as any).invoke("send-email-campaign", {
         body: {

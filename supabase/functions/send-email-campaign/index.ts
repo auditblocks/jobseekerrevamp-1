@@ -289,10 +289,18 @@ serve(async (req) => {
         emailBody = emailBody.replace(/\{\{user_name\}\}/g, recipient.name || recipient.email);
         emailBody = emailBody.replace(/\{\{user_email\}\}/g, recipient.email);
 
+        // Add unsubscribe link to email body
+        const unsubscribeUrl = `${supabaseUrl.replace('/functions/v1', '')}/unsubscribe?user_id=${recipient.id}&campaign_id=${campaign_id}`;
+        const unsubscribeLink = `<div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #e0e0e0; font-size: 12px; color: #666;">
+          <p>If you no longer wish to receive these emails, you can <a href="${unsubscribeUrl}" style="color: #666;">unsubscribe here</a>.</p>
+        </div>`;
+        emailBody += unsubscribeLink;
+
         // Send email via Resend
-        // Use verified domain email address (startworking.in) instead of onboarding@resend.dev
-        const defaultFromEmail = "noreply@startworking.in";
+        // Use verified domain email address (startworking.in) - using a more friendly address
+        const defaultFromEmail = "hello@startworking.in"; // Changed from noreply to hello (less spammy)
         const fromAddress = from_email || `${from_name || campaign.from_name || "JobSeeker"} <${defaultFromEmail}>`;
+        const replyToEmail = "support@startworking.in"; // Add reply-to address
         
         console.log(`Calling Resend API for ${recipient.email}`);
         console.log(`From address: ${fromAddress}`);
@@ -302,6 +310,12 @@ serve(async (req) => {
           to: [recipient.email],
           subject: campaign.subject,
           html: emailBody,
+          reply_to: replyToEmail, // Add reply-to header
+          headers: {
+            "List-Unsubscribe": `<${unsubscribeUrl}>`,
+            "List-Unsubscribe-Post": "List-Unsubscribe=One-Click", // One-click unsubscribe
+            "X-Entity-Ref-ID": `${campaign_id}-${recipient.id}`, // Unique identifier for tracking
+          },
           attachments: attachmentFiles.length > 0 ? attachmentFiles : undefined,
         });
         console.log(`Resend response for ${recipient.email}:`, JSON.stringify(emailResponse, null, 2));
