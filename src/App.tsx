@@ -34,6 +34,7 @@ import AdminNotifications from "./pages/admin/AdminNotifications";
 import AdminRequests from "./pages/admin/AdminRequests";
 import AdminDashboardConfig from "./pages/admin/AdminDashboardConfig";
 import AdminUserActivity from "./pages/admin/AdminUserActivity";
+import AdminEmailCampaigns from "./pages/admin/AdminEmailCampaigns";
 
 const queryClient = new QueryClient();
 
@@ -77,6 +78,7 @@ const App = () => (
               <Route path="/admin/requests" element={<AdminRequests />} />
               <Route path="/admin/dashboard-config" element={<AdminDashboardConfig />} />
               <Route path="/admin/user-activity" element={<AdminUserActivity />} />
+              <Route path="/admin/email-campaigns" element={<AdminEmailCampaigns />} />
               
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />

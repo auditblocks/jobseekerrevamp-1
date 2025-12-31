@@ -10,7 +10,8 @@ import {
   FileText,
   ArrowLeft,
   Sliders,
-  Activity
+  Activity,
+  Mail
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
@@ -39,6 +40,7 @@ const mainItems = [
 ];
 
 const managementItems = [
+  { title: "Email Campaigns", url: "/admin/email-campaigns", icon: Mail },
   { title: "Domains", url: "/admin/domains", icon: Globe },
   { title: "Subscriptions", url: "/admin/subscriptions", icon: CreditCard },
   { title: "Notifications", url: "/admin/notifications", icon: Bell },

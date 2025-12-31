@@ -105,30 +105,64 @@ serve(async (req) => {
     }
 
     if (Object.keys(updateData).length > 0) {
-      // For open events, only update if not already opened
-      if (eventType === "open") {
-        const { error } = await supabase
-          .from("email_tracking")
-          .update(updateData)
-          .eq("tracking_pixel_id", trackingId)
-          .is("opened_at", null);
+      // Check if this is a campaign recipient tracking
+      const { data: campaignRecipient } = await supabase
+        .from("email_campaign_recipients")
+        .select("id, campaign_id, opened_at")
+        .eq("tracking_pixel_id", trackingId)
+        .maybeSingle();
 
-        if (error) {
-          console.error("Failed to update open tracking:", error);
-        } else {
-          console.log("Open tracking updated successfully");
+      if (campaignRecipient && eventType === "open" && !campaignRecipient.opened_at) {
+        // Update campaign recipient
+        await supabase
+          .from("email_campaign_recipients")
+          .update({
+            status: "opened",
+            opened_at: now,
+          })
+          .eq("id", campaignRecipient.id);
+
+        // Update campaign opened count
+        const { data: campaign } = await supabase
+          .from("email_campaigns")
+          .select("opened_count")
+          .eq("id", campaignRecipient.campaign_id)
+          .single();
+
+        if (campaign) {
+          await supabase
+            .from("email_campaigns")
+            .update({
+              opened_count: (campaign.opened_count || 0) + 1,
+            })
+            .eq("id", campaignRecipient.campaign_id);
         }
-      } else {
-        // For other events, always update
-        const { error } = await supabase
-          .from("email_tracking")
-          .update(updateData)
-          .eq("tracking_pixel_id", trackingId);
+      } else if (!campaignRecipient) {
+        // For open events, only update if not already opened
+        if (eventType === "open") {
+          const { error } = await supabase
+            .from("email_tracking")
+            .update(updateData)
+            .eq("tracking_pixel_id", trackingId)
+            .is("opened_at", null);
 
-        if (error) {
-          console.error(`Failed to update ${eventType} tracking:`, error);
+          if (error) {
+            console.error("Failed to update open tracking:", error);
+          } else {
+            console.log("Open tracking updated successfully");
+          }
         } else {
-          console.log(`${eventType} tracking updated successfully`);
+          // For other events, always update
+          const { error } = await supabase
+            .from("email_tracking")
+            .update(updateData)
+            .eq("tracking_pixel_id", trackingId);
+
+          if (error) {
+            console.error(`Failed to update ${eventType} tracking:`, error);
+          } else {
+            console.log(`${eventType} tracking updated successfully`);
+          }
         }
       }
 
