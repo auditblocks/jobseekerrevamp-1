@@ -659,7 +659,10 @@ export default function AdminEmailCampaigns() {
             </div>
 
             <DialogFooter>
-              <Button variant="outline" onClick={() => setShowCreateDialog(false)}>
+              <Button variant="outline" onClick={() => {
+                setShowCreateDialog(false);
+                resetForm();
+              }}>
                 Cancel
               </Button>
               <Button onClick={handleCreateCampaign} disabled={isSending}>
@@ -671,7 +674,96 @@ export default function AdminEmailCampaigns() {
                 ) : (
                   <>
                     <Send className="h-4 w-4 mr-2" />
-                    Send Campaign
+                    Create & Send
+                  </>
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Edit Campaign Dialog */}
+        <Dialog open={showEditDialog} onOpenChange={(open) => {
+          setShowEditDialog(open);
+          if (!open) {
+            resetForm();
+            setEditingCampaignId(null);
+          }
+        }}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Edit Draft Campaign</DialogTitle>
+              <DialogDescription>Update your draft campaign before sending</DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-subject">Subject</Label>
+                <Input
+                  id="edit-subject"
+                  value={campaignSubject}
+                  onChange={(e) => setCampaignSubject(e.target.value)}
+                  placeholder="Email subject"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-from-name">From Name</Label>
+                <Input
+                  id="edit-from-name"
+                  value={fromName}
+                  onChange={(e) => setFromName(e.target.value)}
+                  placeholder="JobSeeker"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-body">Email Body (HTML)</Label>
+                <Textarea
+                  id="edit-body"
+                  value={campaignBody}
+                  onChange={(e) => setCampaignBody(e.target.value)}
+                  placeholder="Enter HTML email content. Use {{user_name}} and {{user_email}} for personalization."
+                  rows={10}
+                  className="font-mono text-sm"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Select Recipients ({selectedUsers.length} selected)</Label>
+                <CampaignUserSelector
+                  selectedUsers={selectedUsers}
+                  onUsersChange={setSelectedUsers}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Attachments ({attachments.length} files)</Label>
+                <CampaignAttachmentUpload
+                  attachments={attachments}
+                  onAttachmentsChange={setAttachments}
+                />
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => {
+                setShowEditDialog(false);
+                resetForm();
+                setEditingCampaignId(null);
+              }}>
+                Cancel
+              </Button>
+              <Button onClick={handleUpdateDraft} disabled={isSending}>
+                {isSending ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Updating...
+                  </>
+                ) : (
+                  <>
+                    <Edit className="h-4 w-4 mr-2" />
+                    Update Draft
                   </>
                 )}
               </Button>
