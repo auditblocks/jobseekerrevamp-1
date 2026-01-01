@@ -350,6 +350,26 @@ const Compose = () => {
     return tierOrder.indexOf(recruiterTierValue) <= tierOrder.indexOf(userTier);
   };
 
+  // Handle recruiter selection from URL parameter
+  useEffect(() => {
+    const recruiterId = searchParams.get("recruiter");
+    if (recruiterId && recruiters.length > 0 && !isLoadingRecruiters) {
+      // Check if recruiter exists and user can access it
+      const recruiter = recruiters.find(r => r.id === recruiterId);
+      if (recruiter && canAccessRecruiter(recruiter.tier)) {
+        // Select the recruiter if not already selected
+        if (!selectedRecruiters.includes(recruiterId)) {
+          setSelectedRecruiters([recruiterId]);
+          // Clear the URL parameter after selecting
+          navigate("/compose", { replace: true });
+        }
+      } else if (recruiter) {
+        toast.error("You don't have access to this recruiter. Please upgrade your plan.");
+        navigate("/compose", { replace: true });
+      }
+    }
+  }, [searchParams, recruiters, selectedRecruiters, navigate, isLoadingRecruiters]);
+
   const filteredRecruiters = recruiters.filter((r) => {
     const matchesSearch = 
       r.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
