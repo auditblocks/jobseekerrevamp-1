@@ -29,7 +29,7 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
-import { Search, RefreshCw, UserSearch, Plus, Building2, Mail, Star, Upload, ChevronLeft, ChevronRight, Trash2 } from "lucide-react";
+import { Search, RefreshCw, UserSearch, Plus, Building2, Mail, Star, Upload, ChevronLeft, ChevronRight, Trash2, Download } from "lucide-react";
 import { toast } from "sonner";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -390,6 +390,79 @@ export default function AdminRecruiters() {
     return matchesSearch && matchesDomain && matchesTier;
   });
 
+  const exportToCSV = () => {
+    try {
+      // Use filtered recruiters for export (respects current filters)
+      const dataToExport = filteredRecruiters.length > 0 ? filteredRecruiters : recruiters;
+      
+      if (dataToExport.length === 0) {
+        toast.error("No recruiters to export");
+        return;
+      }
+
+      // Define CSV headers
+      const headers = [
+        "Name",
+        "Email",
+        "Company",
+        "Domain",
+        "Tier",
+        "Quality Score",
+        "Response Rate",
+        "Created At"
+      ];
+
+      // Convert recruiters to CSV rows
+      const csvRows = [
+        headers.join(","),
+        ...dataToExport.map((recruiter) => {
+          // Escape commas and quotes in CSV values
+          const escapeCSV = (value: any) => {
+            if (value === null || value === undefined) return "";
+            const stringValue = String(value);
+            // If value contains comma, quote, or newline, wrap in quotes and escape quotes
+            if (stringValue.includes(",") || stringValue.includes('"') || stringValue.includes("\n")) {
+              return `"${stringValue.replace(/"/g, '""')}"`;
+            }
+            return stringValue;
+          };
+
+          return [
+            escapeCSV(recruiter.name),
+            escapeCSV(recruiter.email),
+            escapeCSV(recruiter.company),
+            escapeCSV(recruiter.domain),
+            escapeCSV(recruiter.tier),
+            escapeCSV(recruiter.quality_score),
+            escapeCSV(recruiter.response_rate),
+            escapeCSV((recruiter as any).created_at ? new Date((recruiter as any).created_at).toLocaleDateString() : ""),
+          ].join(",");
+        }),
+      ];
+
+      // Create CSV content
+      const csvContent = csvRows.join("\n");
+
+      // Create blob and download
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const link = document.createElement("a");
+      const url = URL.createObjectURL(blob);
+      
+      link.setAttribute("href", url);
+      link.setAttribute("download", `recruiters_export_${new Date().toISOString().split("T")[0]}.csv`);
+      link.style.visibility = "hidden";
+      
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      toast.success(`Exported ${dataToExport.length} recruiters to CSV`);
+    } catch (error: any) {
+      console.error("Failed to export CSV:", error);
+      toast.error("Failed to export CSV: " + error.message);
+    }
+  };
+
   // Pagination calculations
   const totalPages = Math.ceil(filteredRecruiters.length / RECRUITERS_PER_PAGE);
   const startIndex = (currentPage - 1) * RECRUITERS_PER_PAGE;
@@ -428,6 +501,15 @@ export default function AdminRecruiters() {
             <Button onClick={fetchRecruiters} variant="outline" size="sm">
               <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
               Refresh
+            </Button>
+            <Button 
+              onClick={exportToCSV} 
+              variant="outline" 
+              size="sm"
+              disabled={loading || (filteredRecruiters.length === 0 && recruiters.length === 0)}
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Export CSV
             </Button>
             <Button 
               onClick={deleteAllRecruiters} 
