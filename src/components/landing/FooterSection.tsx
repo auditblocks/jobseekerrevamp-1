@@ -47,7 +47,7 @@ const FooterSection = () => {
               <li><Link to="/about" className="text-primary-foreground/60 hover:text-accent transition-colors">About</Link></li>
               <li><a href="#" className="text-primary-foreground/60 hover:text-accent transition-colors">Blog</a></li>
               <li><a href="#" className="text-primary-foreground/60 hover:text-accent transition-colors">Careers</a></li>
-              <li><a href="#" className="text-primary-foreground/60 hover:text-accent transition-colors">Contact</a></li>
+              <li><Link to="/contact" className="text-primary-foreground/60 hover:text-accent transition-colors">Contact</Link></li>
             </ul>
           </div>
           
