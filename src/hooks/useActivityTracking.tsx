@@ -126,6 +126,57 @@ export function useActivityTracking() {
     }
   };
 
+  // Track click event
+  const trackClickEvent = async (
+    elementId: string | null,
+    elementType: string | null,
+    elementText: string | null,
+    metadata?: Record<string, any>
+  ) => {
+    if (!user?.id || !sessionId) return;
+
+    try {
+      await supabase.from("user_activity_events").insert({
+        user_id: user.id,
+        session_id: sessionId,
+        event_type: "button_click",
+        page_path: location.pathname,
+        page_title: document.title,
+        element_id: elementId,
+        element_type: elementType,
+        element_text: elementText,
+        metadata: metadata || {},
+      });
+    } catch (error) {
+      console.error("Error tracking click event:", error);
+    }
+  };
+
+  // Track form submission
+  const trackFormSubmit = async (
+    formId: string | null,
+    formName: string | null,
+    metadata?: Record<string, any>
+  ) => {
+    if (!user?.id || !sessionId) return;
+
+    try {
+      await supabase.from("user_activity_events").insert({
+        user_id: user.id,
+        session_id: sessionId,
+        event_type: "form_submit",
+        page_path: location.pathname,
+        page_title: document.title,
+        element_id: formId,
+        element_type: "form",
+        element_text: formName,
+        metadata: metadata || {},
+      });
+    } catch (error) {
+      console.error("Error tracking form submit:", error);
+    }
+  };
+
   // Update activity heartbeat
   const updateActivity = async () => {
     if (!user?.id || !sessionId || !isActiveRef.current) return;
@@ -210,17 +261,72 @@ export function useActivityTracking() {
 
   // Set up activity listeners
   useEffect(() => {
-    if (!user?.id) return;
+    if (!user?.id || !sessionId) return;
 
     const handleActivity = () => {
       markActive();
     };
 
     // Listen for various user activities
-    const events = ["mousedown", "mousemove", "keypress", "scroll", "touchstart", "click"];
+    const events = ["mousedown", "mousemove", "keypress", "scroll", "touchstart"];
     events.forEach((event) => {
       window.addEventListener(event, handleActivity, { passive: true });
     });
+
+    // Track button clicks with event delegation
+    const handleClick = (e: MouseEvent) => {
+      markActive();
+      const target = e.target as HTMLElement;
+      if (!target) return;
+
+      // Track button clicks
+      if (target.tagName === "BUTTON" || target.closest("button")) {
+        const button = target.tagName === "BUTTON" ? target : target.closest("button");
+        if (button) {
+          const buttonId = button.id || button.getAttribute("data-id") || null;
+          const buttonText = button.textContent?.trim() || null;
+          trackClickEvent(buttonId, "button", buttonText, {
+            className: button.className,
+            ariaLabel: button.getAttribute("aria-label"),
+          });
+        }
+      }
+
+      // Track link clicks
+      if (target.tagName === "A" || target.closest("a")) {
+        const link = target.tagName === "A" ? target : target.closest("a");
+        if (link) {
+          const linkId = link.id || link.getAttribute("data-id") || null;
+          const linkText = link.textContent?.trim() || null;
+          const href = (link as HTMLAnchorElement).href || null;
+          trackClickEvent(linkId, "link", linkText, {
+            href,
+            className: link.className,
+          });
+        }
+      }
+    };
+
+    window.addEventListener("click", handleClick, { passive: true });
+
+    // Track form submissions
+    const handleFormSubmit = (e: SubmitEvent) => {
+      const form = e.target as HTMLFormElement;
+      if (!form) return;
+
+      const formId = form.id || form.getAttribute("data-id") || null;
+      const formName = form.name || form.getAttribute("name") || null;
+      const formData = new FormData(form);
+      const fieldCount = Array.from(formData.keys()).length;
+
+      trackFormSubmit(formId, formName, {
+        fieldCount,
+        action: form.action,
+        method: form.method,
+      });
+    };
+
+    document.addEventListener("submit", handleFormSubmit, { passive: true });
 
     // Page visibility API
     const handleVisibilityChange = () => {
@@ -235,9 +341,11 @@ export function useActivityTracking() {
       events.forEach((event) => {
         window.removeEventListener(event, handleActivity);
       });
+      window.removeEventListener("click", handleClick);
+      document.removeEventListener("submit", handleFormSubmit);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [user?.id]);
+  }, [user?.id, sessionId]);
 
   // Set up heartbeat (update every 30 seconds)
   useEffect(() => {
@@ -282,7 +390,7 @@ export function useActivityTracking() {
     };
   }, [sessionId]);
 
-  // Expose endSession for logout
-  return { endSession, sessionId };
+  // Expose functions for external use
+  return { endSession, sessionId, trackClickEvent, trackFormSubmit };
 }
 

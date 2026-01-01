@@ -101,11 +101,13 @@ export default function AdminUserActivity() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "online" | "offline">("all");
   const [deviceFilter, setDeviceFilter] = useState<string>("all");
+  const [tierFilter, setTierFilter] = useState<string>("all");
   const [selectedUser, setSelectedUser] = useState<ActiveSession | null>(null);
   const [userActivity, setUserActivity] = useState<UserActivity[]>([]);
   const [userSessions, setUserSessions] = useState<UserSession[]>([]);
   const [loadingDetails, setLoadingDetails] = useState(false);
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
 
   useEffect(() => {
     fetchData();
@@ -156,6 +158,7 @@ export default function AdminUserActivity() {
       }
 
       setSessions((sessionsData as ActiveSession[]) || []);
+      setLastUpdated(new Date());
     } catch (error) {
       console.error("Error fetching data:", error);
       toast.error("Failed to fetch user activity data");
@@ -210,8 +213,12 @@ export default function AdminUserActivity() {
     const matchesDevice = 
       deviceFilter === "all" || 
       session.device_type === deviceFilter;
+    
+    const matchesTier = 
+      tierFilter === "all" || 
+      session.subscription_tier === tierFilter;
 
-    return matchesSearch && matchesStatus && matchesDevice;
+    return matchesSearch && matchesStatus && matchesDevice && matchesTier;
   });
 
   const deviceMix = sessions.reduce((acc, session) => {
@@ -258,7 +265,14 @@ export default function AdminUserActivity() {
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <div>
             <h1 className="text-2xl sm:text-3xl font-bold">User Activity</h1>
-            <p className="text-sm sm:text-base text-muted-foreground">Monitor user activity in real-time</p>
+            <p className="text-sm sm:text-base text-muted-foreground">
+              Monitor user activity in real-time
+              {lastUpdated && (
+                <span className="ml-2 text-xs">
+                  • Last updated: {formatDistanceToNow(lastUpdated, { addSuffix: true })}
+                </span>
+              )}
+            </p>
           </div>
           <Button onClick={fetchData} variant="outline" size="sm" disabled={loading}>
             <RefreshCw className={`h-3 w-3 sm:h-4 sm:w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
@@ -353,6 +367,17 @@ export default function AdminUserActivity() {
                   <SelectItem value="desktop">Desktop</SelectItem>
                   <SelectItem value="mobile">Mobile</SelectItem>
                   <SelectItem value="tablet">Tablet</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={tierFilter} onValueChange={setTierFilter}>
+                <SelectTrigger className="w-full sm:w-[150px] text-sm">
+                  <SelectValue placeholder="Tier" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Tiers</SelectItem>
+                  <SelectItem value="FREE">Free</SelectItem>
+                  <SelectItem value="PRO">Pro</SelectItem>
+                  <SelectItem value="PRO_MAX">Pro Max</SelectItem>
                 </SelectContent>
               </Select>
             </div>
