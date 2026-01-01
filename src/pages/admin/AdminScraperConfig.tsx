@@ -17,6 +17,14 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -63,6 +71,21 @@ interface ScrapingLog {
   records_added: number;
   records_skipped: number;
   errors: string[] | null;
+  metadata?: {
+    scraped_recruiters?: Array<{
+      name: string;
+      email: string;
+      company: string | null;
+      domain: string | null;
+      tier: string;
+      quality_score: number;
+      source_url: string | null;
+      added: boolean;
+    }>;
+    countries?: string[];
+    queries?: string[];
+    max_results?: number;
+  };
 }
 
 const COUNTRY_OPTIONS = [
@@ -83,6 +106,8 @@ export default function AdminScraperConfig() {
   const [scraping, setScraping] = useState(false);
   const [newQuery, setNewQuery] = useState("");
   const [selectedCountry, setSelectedCountry] = useState("");
+  const [selectedLog, setSelectedLog] = useState<ScrapingLog | null>(null);
+  const [reportDialogOpen, setReportDialogOpen] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -469,12 +494,13 @@ export default function AdminScraperConfig() {
                       <TableHead>Added</TableHead>
                       <TableHead>Skipped</TableHead>
                       <TableHead>Duration</TableHead>
+                      <TableHead>Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {logs.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                        <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                           No scraping logs yet
                         </TableCell>
                       </TableRow>
@@ -493,6 +519,22 @@ export default function AdminScraperConfig() {
                               ? `${Math.round((new Date(log.completed_at).getTime() - new Date(log.started_at).getTime()) / 1000)}s`
                               : '-'}
                           </TableCell>
+                          <TableCell>
+                            {log.metadata?.scraped_recruiters && log.metadata.scraped_recruiters.length > 0 ? (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  setSelectedLog(log);
+                                  setReportDialogOpen(true);
+                                }}
+                              >
+                                View Report
+                              </Button>
+                            ) : (
+                              <span className="text-muted-foreground text-sm">No data</span>
+                            )}
+                          </TableCell>
                         </TableRow>
                       ))
                     )}
@@ -502,6 +544,107 @@ export default function AdminScraperConfig() {
             </Card>
           </TabsContent>
         </Tabs>
+
+        {/* Detailed Report Dialog */}
+        <Dialog open={reportDialogOpen} onOpenChange={setReportDialogOpen}>
+          <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Scraping Report</DialogTitle>
+              <DialogDescription>
+                Detailed view of scraped recruiters from {selectedLog?.started_at 
+                  ? format(new Date(selectedLog.started_at), 'MMM d, yyyy HH:mm')
+                  : 'this scraping job'}
+              </DialogDescription>
+            </DialogHeader>
+            
+            {selectedLog?.metadata?.scraped_recruiters ? (
+              <div className="space-y-4">
+                <div className="grid grid-cols-4 gap-4 p-4 bg-muted/50 rounded-lg">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Total Found</p>
+                    <p className="text-2xl font-bold">{selectedLog.records_found || 0}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Added</p>
+                    <p className="text-2xl font-bold text-green-600">{selectedLog.records_added || 0}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Skipped</p>
+                    <p className="text-2xl font-bold text-muted-foreground">{selectedLog.records_skipped || 0}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Countries</p>
+                    <p className="text-sm font-medium">
+                      {selectedLog.metadata.countries?.join(", ") || "N/A"}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="border rounded-lg">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Name</TableHead>
+                        <TableHead>Email</TableHead>
+                        <TableHead>Company</TableHead>
+                        <TableHead>Domain</TableHead>
+                        <TableHead>Tier</TableHead>
+                        <TableHead>Quality Score</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Source</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {selectedLog.metadata.scraped_recruiters.map((recruiter, idx) => (
+                        <TableRow key={idx}>
+                          <TableCell className="font-medium">{recruiter.name}</TableCell>
+                          <TableCell>{recruiter.email}</TableCell>
+                          <TableCell>{recruiter.company || "-"}</TableCell>
+                          <TableCell>{recruiter.domain || "-"}</TableCell>
+                          <TableCell>
+                            <Badge variant={recruiter.tier === "PRO_MAX" ? "default" : recruiter.tier === "PRO" ? "secondary" : "outline"}>
+                              {recruiter.tier}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>{recruiter.quality_score}</TableCell>
+                          <TableCell>
+                            {recruiter.added ? (
+                              <Badge variant="outline" className="bg-green-500/10 text-green-500 border-green-500/20">
+                                Added
+                              </Badge>
+                            ) : (
+                              <Badge variant="outline" className="bg-yellow-500/10 text-yellow-500 border-yellow-500/20">
+                                Skipped
+                              </Badge>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {recruiter.source_url ? (
+                              <a 
+                                href={recruiter.source_url} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="text-accent hover:underline text-sm truncate max-w-[200px] block"
+                              >
+                                {recruiter.source_url}
+                              </a>
+                            ) : (
+                              "-"
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                No detailed data available for this scraping job
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     </AdminLayout>
   );

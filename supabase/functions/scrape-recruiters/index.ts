@@ -20,6 +20,7 @@ interface RecruiterData {
   domain?: string;
   tier: string;
   quality_score: number;
+  source_url?: string;
 }
 
 // Random tier assignment with weighted distribution
@@ -73,14 +74,17 @@ async function extractRecruitersFromFirecrawl(
     ])
   ];
 
-  // Limit queries to avoid excessive API calls
-  const queriesToProcess = allQueries.slice(0, 10);
+  // Process more queries to get better results
+  // Calculate how many results per query we need
+  const resultsPerQuery = Math.ceil(maxResults / Math.max(allQueries.length, 1));
+  const queriesToProcess = allQueries.slice(0, Math.min(allQueries.length, 50)); // Process up to 50 queries
 
   for (const query of queriesToProcess) {
     if (recruiters.length >= maxResults) break;
 
     try {
-      // Use Firecrawl search API
+      // Use Firecrawl search API with higher limit
+      const searchLimit = Math.min(50, maxResults - recruiters.length); // Increased from 10 to 50
       const searchResponse = await fetch("https://api.firecrawl.dev/v1/search", {
         method: "POST",
         headers: {
@@ -89,7 +93,7 @@ async function extractRecruitersFromFirecrawl(
         },
         body: JSON.stringify({
           query: query,
-          limit: Math.min(10, maxResults - recruiters.length),
+          limit: searchLimit,
         }),
       });
 
@@ -99,94 +103,120 @@ async function extractRecruitersFromFirecrawl(
       }
 
       const searchData = await searchResponse.json();
-      const results = searchData.data || [];
+      const results = searchData.data || searchData.results || [];
 
-      for (const result of results) {
+      // Batch process results more efficiently
+      const batchSize = 5;
+      for (let i = 0; i < results.length; i += batchSize) {
         if (recruiters.length >= maxResults) break;
 
-        try {
-          // Scrape the URL to get full content
-          const scrapeResponse = await fetch("https://api.firecrawl.dev/v1/scrape", {
-            method: "POST",
-            headers: {
-              "Authorization": `Bearer ${firecrawlApiKey}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              url: result.url,
-            }),
-          });
+        const batch = results.slice(i, i + batchSize);
+        
+        // Process batch in parallel
+        const batchPromises = batch.map(async (result: any) => {
+          if (recruiters.length >= maxResults) return null;
 
-          if (!scrapeResponse.ok) continue;
+          try {
+            // Try to extract email from search result metadata first (faster)
+            let email = extractEmail(result.description || result.snippet || result.title || "");
+            let scrapeData: any = null;
+            let content = result.description || result.title || "";
+            
+            // If no email in metadata, scrape the page
+            if (!email || !isValidEmail(email)) {
+              const scrapeResponse = await fetch("https://api.firecrawl.dev/v1/scrape", {
+                method: "POST",
+                headers: {
+                  "Authorization": `Bearer ${firecrawlApiKey}`,
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  url: result.url,
+                  pageOptions: {
+                    onlyMainContent: true, // Faster scraping
+                  },
+                }),
+              });
 
-          const scrapeData = await scrapeResponse.json();
-          const content = scrapeData.data?.markdown || scrapeData.data?.content || "";
+              if (!scrapeResponse.ok) return null;
 
-          // Extract email
-          const email = extractEmail(content);
-          if (!email || !isValidEmail(email) || seenEmails.has(email)) {
-            continue;
-          }
-
-          seenEmails.add(email);
-
-          // Extract name (try to find from title or content)
-          let name = "Recruiter";
-          const namePatterns = [
-            /(?:Name|Contact|Recruiter)[:\s]+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)/i,
-            /([A-Z][a-z]+\s+[A-Z][a-z]+)/,
-          ];
-          for (const pattern of namePatterns) {
-            const match = content.match(pattern);
-            if (match) {
-              name = match[1] || match[0];
-              break;
+              scrapeData = await scrapeResponse.json();
+              content = scrapeData.data?.markdown || scrapeData.data?.content || result.description || result.title || "";
+              email = extractEmail(content);
             }
-          }
 
-          // Extract company
-          let company: string | undefined;
-          const companyPatterns = [
-            /(?:Company|Organization|Works at)[:\s]+([A-Z][a-zA-Z\s&]+)/i,
-            /at\s+([A-Z][a-zA-Z\s&]+)/i,
-          ];
-          for (const pattern of companyPatterns) {
-            const match = content.match(pattern);
-            if (match) {
-              company = match[1]?.trim();
-              break;
+            if (!email || !isValidEmail(email) || seenEmails.has(email)) {
+              return null;
             }
-          }
 
-          // Infer domain from company or content
-          let domain: string | undefined;
-          if (company) {
-            // Simple domain inference (can be improved)
-            const techKeywords = ["tech", "software", "IT", "engineering"];
-            const financeKeywords = ["finance", "banking", "fintech"];
-            const contentLower = content.toLowerCase();
+            seenEmails.add(email);
+            let name = result.title?.split(" - ")[0]?.split(" | ")[0] || "Recruiter";
+            const namePatterns = [
+              /(?:Name|Contact|Recruiter|by)[:\s]+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)/i,
+              /([A-Z][a-z]+\s+[A-Z][a-z]+)/,
+            ];
+            for (const pattern of namePatterns) {
+              const match = content.match(pattern);
+              if (match) {
+                name = match[1] || match[0];
+                break;
+              }
+            }
+
+            // Extract company
+            let company: string | undefined = result.company;
+            if (!company) {
+              const companyPatterns = [
+                /(?:Company|Organization|Works at|at)[:\s]+([A-Z][a-zA-Z\s&]+)/i,
+                /@\s*([A-Z][a-zA-Z\s&]+)/i,
+              ];
+              for (const pattern of companyPatterns) {
+                const match = content.match(pattern);
+                if (match) {
+                  company = match[1]?.trim();
+                  break;
+                }
+              }
+            }
+
+            // Infer domain from company or content
+            let domain: string | undefined;
+            const contentLower = (content + " " + (company || "")).toLowerCase();
+            const techKeywords = ["tech", "software", "IT", "engineering", "developer"];
+            const financeKeywords = ["finance", "banking", "fintech", "investment"];
+            const healthcareKeywords = ["health", "medical", "pharma", "hospital"];
             
             if (techKeywords.some(k => contentLower.includes(k))) {
               domain = "Technology";
             } else if (financeKeywords.some(k => contentLower.includes(k))) {
               domain = "Finance";
+            } else if (healthcareKeywords.some(k => contentLower.includes(k))) {
+              domain = "Healthcare";
             }
+
+            return {
+              name: name.trim() || "Recruiter",
+              email,
+              company: company || undefined,
+              domain: domain || undefined,
+              tier: assignRandomTier(),
+              quality_score: assignRandomQualityScore(),
+              source_url: result.url,
+            };
+          } catch (error) {
+            console.error(`Error processing result ${result.url}:`, error);
+            return null;
           }
+        });
 
-          recruiters.push({
-            name: name.trim() || "Recruiter",
-            email,
-            company,
-            domain,
-            tier: assignRandomTier(),
-            quality_score: assignRandomQualityScore(),
-          });
-        } catch (error) {
-          console.error(`Error processing result ${result.url}:`, error);
+        const batchResults = await Promise.all(batchPromises);
+        const validRecruiters = batchResults.filter(r => r !== null) as RecruiterData[];
+        recruiters.push(...validRecruiters);
+
+        // Rate limiting - wait between batches
+        if (i + batchSize < results.length && recruiters.length < maxResults) {
+          await new Promise(resolve => setTimeout(resolve, 500)); // Reduced delay for faster processing
         }
-
-        // Rate limiting - wait between requests
-        await new Promise(resolve => setTimeout(resolve, 1000));
       }
     } catch (error) {
       console.error(`Error processing query "${query}":`, error);
@@ -288,7 +318,19 @@ serve(async (req) => {
 
       recordsSkipped = recruiters.length - recordsAdded;
 
-      // Update scraping log
+      // Store detailed scraped data in metadata
+      const scrapedData = recruiters.map(r => ({
+        name: r.name,
+        email: r.email,
+        company: r.company || null,
+        domain: r.domain || null,
+        tier: r.tier,
+        quality_score: r.quality_score,
+        source_url: r.source_url || null,
+        added: !existingEmails.has(r.email),
+      }));
+
+      // Update scraping log with detailed data
       await supabase
         .from("scraping_logs")
         .update({
@@ -298,6 +340,12 @@ serve(async (req) => {
           records_skipped: recordsSkipped,
           completed_at: new Date().toISOString(),
           errors: errors.length > 0 ? errors : null,
+          metadata: {
+            scraped_recruiters: scrapedData,
+            countries: countries,
+            queries: queries,
+            max_results: max_results,
+          },
         })
         .eq("id", logId);
 
@@ -320,6 +368,7 @@ serve(async (req) => {
           records_found: recordsFound,
           records_added: recordsAdded,
           records_skipped: recordsSkipped,
+          scraped_data: scrapedData,
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
