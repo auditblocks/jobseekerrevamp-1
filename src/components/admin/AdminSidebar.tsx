@@ -41,6 +41,7 @@ const mainItems = [
 
 const managementItems = [
   { title: "Email Campaigns", url: "/admin/email-campaigns", icon: Mail },
+  { title: "Scraper", url: "/admin/scraper", icon: Globe },
   { title: "Domains", url: "/admin/domains", icon: Globe },
   { title: "Subscriptions", url: "/admin/subscriptions", icon: CreditCard },
   { title: "Notifications", url: "/admin/notifications", icon: Bell },

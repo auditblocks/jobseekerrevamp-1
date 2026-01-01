@@ -53,3 +53,9 @@ verify_jwt = false
 
 [functions.send-contact-form]
 verify_jwt = false
+
+[functions.scrape-recruiters]
+verify_jwt = false
+
+[functions.auto-scrape-recruiters]
+verify_jwt = false
