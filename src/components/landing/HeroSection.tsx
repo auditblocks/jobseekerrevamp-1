@@ -181,8 +181,9 @@ const HeroSection = () => {
               transition={{ duration: 0.6, delay: 0.4 }}
               className="text-lg md:text-xl text-primary-foreground/70 max-w-xl"
             >
-              Automate your recruiter outreach with personalized AI-generated emails. 
-              Track responses, manage conversations, and boost your job search success rate.
+              JobSeeker is an AI-powered job outreach platform that helps you automate your recruiter outreach with personalized emails. 
+              Connect your Gmail account to send emails directly from your inbox, track recruiter replies automatically, and manage all your job application conversations in one place. 
+              Boost your job search success rate with intelligent email tracking and follow-up reminders.
             </motion.p>
             
             <motion.div
