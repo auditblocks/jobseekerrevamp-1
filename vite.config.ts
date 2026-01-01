@@ -61,4 +61,54 @@ export default defineConfig(({ mode }) => ({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  build: {
+    // Enable code splitting and chunk optimization
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // Vendor chunks
+          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+          'ui-vendor': [
+            '@radix-ui/react-dialog',
+            '@radix-ui/react-dropdown-menu',
+            '@radix-ui/react-select',
+            '@radix-ui/react-popover',
+            '@radix-ui/react-switch',
+            '@radix-ui/react-tabs',
+            '@radix-ui/react-toast',
+            '@radix-ui/react-tooltip',
+          ],
+          'utils-vendor': ['date-fns', 'zod', 'class-variance-authority', 'clsx', 'tailwind-merge'],
+          'charts-vendor': ['recharts'],
+          'motion-vendor': ['framer-motion'],
+          'supabase-vendor': ['@supabase/supabase-js'],
+          'query-vendor': ['@tanstack/react-query'],
+        },
+        // Optimize chunk file names
+        chunkFileNames: 'assets/js/[name]-[hash].js',
+        entryFileNames: 'assets/js/[name]-[hash].js',
+        assetFileNames: 'assets/[ext]/[name]-[hash].[ext]',
+      },
+    },
+    // Enable minification (esbuild is faster than terser)
+    minify: 'esbuild',
+    // Note: esbuild doesn't support drop_console, but it's faster
+    // For production builds, consider using terser if you need drop_console
+    // Chunk size warning limit
+    chunkSizeWarningLimit: 1000,
+    // Source maps for production (optional - can disable for smaller builds)
+    sourcemap: false,
+    // CSS code splitting
+    cssCodeSplit: true,
+  },
+  // Optimize dependencies
+  optimizeDeps: {
+    include: [
+      'react',
+      'react-dom',
+      'react-router-dom',
+      '@supabase/supabase-js',
+      '@tanstack/react-query',
+    ],
+  },
 }));
