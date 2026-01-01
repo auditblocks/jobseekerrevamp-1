@@ -17,6 +17,7 @@ import Templates from "./pages/Templates";
 import Recruiters from "./pages/Recruiters";
 import Analytics from "./pages/Analytics";
 import Settings from "./pages/Settings";
+import Subscription from "./pages/Subscription";
 import Notifications from "./pages/Notifications";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsOfService from "./pages/TermsOfService";
@@ -61,6 +62,8 @@ const App = () => (
               <Route path="/recruiters" element={<Recruiters />} />
               <Route path="/analytics" element={<Analytics />} />
               <Route path="/settings" element={<Settings />} />
+              <Route path="/dashboard/subscription" element={<Subscription />} />
+              <Route path="/subscription" element={<Subscription />} />
               <Route path="/notifications" element={<Notifications />} />
               
               {/* Legal & Info Pages */}

@@ -245,7 +245,7 @@ const Dashboard = () => {
             
             <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
               <NotificationBell />
-              <Button variant="accent" size="sm" className="text-xs sm:text-sm" onClick={() => navigate("/settings")}>
+              <Button variant="accent" size="sm" className="text-xs sm:text-sm" onClick={() => navigate("/dashboard/subscription")}>
                 <Sparkles className="w-3 h-3 sm:w-4 sm:h-4" />
                 <span className="hidden sm:inline">Upgrade to Pro</span>
                 <span className="sm:hidden">Upgrade</span>
