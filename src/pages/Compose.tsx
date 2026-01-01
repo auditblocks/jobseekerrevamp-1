@@ -67,6 +67,7 @@ interface EmailLimit {
 
 const Compose = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { user, profile } = useAuth();
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
