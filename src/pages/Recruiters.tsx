@@ -59,17 +59,36 @@ const Recruiters = () => {
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        // Fetch recruiters
-        const { data: recruitersData, error: recruitersError } = await supabase
-          .from("recruiters")
-          .select("id, name, email, company, domain, tier, quality_score, response_rate")
-          .order("name");
+        // Fetch all recruiters in batches (Supabase has a 1000 row limit per query)
+        let allRecruiters: Recruiter[] = [];
+        let from = 0;
+        const batchSize = 1000;
+        let hasMore = true;
 
-        if (recruitersError) throw recruitersError;
-        setRecruiters(recruitersData || []);
+        while (hasMore) {
+          const { data: batchData, error: recruitersError } = await supabase
+            .from("recruiters")
+            .select("id, name, email, company, domain, tier, quality_score, response_rate")
+            .order("name")
+            .range(from, from + batchSize - 1);
 
-        // Extract unique domains
-        const uniqueDomains = [...new Set(recruitersData?.map(r => r.domain).filter(Boolean) || [])];
+          if (recruitersError) throw recruitersError;
+
+          if (batchData && batchData.length > 0) {
+            allRecruiters = [...allRecruiters, ...batchData];
+            from += batchSize;
+            // If we got less than batchSize, we've reached the end
+            hasMore = batchData.length === batchSize;
+          } else {
+            hasMore = false;
+          }
+        }
+
+        console.log(`Fetched ${allRecruiters.length} total recruiters`);
+        setRecruiters(allRecruiters);
+
+        // Extract unique domains from all recruiters
+        const uniqueDomains = [...new Set(allRecruiters.map(r => r.domain).filter(Boolean) || [])];
         setDomains(["All", ...uniqueDomains as string[]]);
       } catch (error) {
         console.error("Error fetching recruiters:", error);
@@ -131,7 +150,7 @@ const Recruiters = () => {
               </div>
               <Badge variant="outline" className="text-accent border-accent/30">
                 <Users className="h-3 w-3 mr-1" />
-                {recruiters.length} recruiters
+                {filteredRecruiters.length} {filteredRecruiters.length === 1 ? 'recruiter' : 'recruiters'}
               </Badge>
             </div>
           </div>
