@@ -324,7 +324,7 @@ const Recruiters = () => {
                             if (isLocked) {
                               toast.info("Upgrade to access this recruiter");
                             } else {
-                              navigate("/compose");
+                              navigate(`/compose?recruiter=${recruiter.id}`);
                             }
                           }}
                         >
