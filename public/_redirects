@@ -1,2 +1,8 @@
+# Allow static files to be served directly
+/sitemap.xml    /sitemap.xml   200
+/robots.txt     /robots.txt    200
+/manifest.json  /manifest.json 200
+
+# SPA redirect - catch all other routes
 /*    /index.html   200
 

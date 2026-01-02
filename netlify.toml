@@ -1,6 +1,26 @@
 # Netlify configuration for Single Page Application (SPA)
 # This ensures all routes are handled by React Router
 
+# Allow static files to be served directly (before SPA redirect)
+[[redirects]]
+  from = "/sitemap.xml"
+  to = "/sitemap.xml"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/robots.txt"
+  to = "/robots.txt"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/manifest.json"
+  to = "/manifest.json"
+  status = 200
+  force = true
+
+# SPA redirect - catch all other routes
 [[redirects]]
   from = "/*"
   to = "/index.html"
@@ -62,6 +82,12 @@
   [headers.values]
     Cache-Control = "public, max-age=31536000, immutable"
     X-Content-Type-Options = "nosniff"
+
+[[headers]]
+  for = "/sitemap.xml"
+  [headers.values]
+    Content-Type = "application/xml; charset=utf-8"
+    Cache-Control = "public, max-age=3600"
 
 [[headers]]
   for = "/index.html"
