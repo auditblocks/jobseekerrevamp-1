@@ -1,8 +1,4 @@
-# Allow static files to be served directly
-/sitemap.xml    /sitemap.xml   200
-/robots.txt     /robots.txt    200
-/manifest.json  /manifest.json 200
-
-# SPA redirect - catch all other routes
+# SPA redirect - catch all routes
+# Static files in public folder (sitemap.xml, robots.txt, etc.) are served directly by Netlify
 /*    /index.html   200
 
