@@ -1,19 +1,31 @@
-import { Helmet } from "react-helmet-async";
 import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import SEOHead from "@/components/SEO/SEOHead";
+import StructuredData from "@/components/SEO/StructuredData";
 
 const PrivacyPolicy = () => {
   const navigate = useNavigate();
 
   return (
     <>
-      <Helmet>
-        <title>Privacy Policy | Job Seeker AI</title>
-        <meta name="description" content="Privacy Policy for Job Seeker AI - Learn how we protect your personal information" />
-      </Helmet>
+      <SEOHead
+        title="Privacy Policy | JobSeeker - Data Protection & Privacy"
+        description="Privacy Policy for JobSeeker - Learn how we protect your personal information, email data, and ensure your privacy while using our AI-powered job search platform."
+        keywords="privacy policy, data protection, job search privacy, email security, GDPR compliance"
+        canonicalUrl="/privacy-policy"
+        ogImage="/icon-512.png"
+        ogImageAlt="Privacy Policy - JobSeeker"
+        noindex={true}
+      />
+      <StructuredData 
+        type="page" 
+        pageTitle="Privacy Policy" 
+        pageDescription="Privacy Policy for JobSeeker - Learn how we protect your personal information"
+        pageUrl="/privacy-policy"
+      />
 
       <div className="min-h-screen bg-background">
         <div className="container mx-auto px-4 py-8 max-w-4xl">

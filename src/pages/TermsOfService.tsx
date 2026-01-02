@@ -1,19 +1,31 @@
-import { Helmet } from "react-helmet-async";
 import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import SEOHead from "@/components/SEO/SEOHead";
+import StructuredData from "@/components/SEO/StructuredData";
 
 const TermsOfService = () => {
   const navigate = useNavigate();
 
   return (
     <>
-      <Helmet>
-        <title>Terms of Service | Job Seeker AI</title>
-        <meta name="description" content="Terms of Service for Job Seeker AI - Read our terms and conditions" />
-      </Helmet>
+      <SEOHead
+        title="Terms of Service | JobSeeker - Terms & Conditions"
+        description="Terms of Service for JobSeeker - Read our terms and conditions for using our AI-powered job search automation platform."
+        keywords="terms of service, terms and conditions, job search platform terms, user agreement"
+        canonicalUrl="/terms-of-service"
+        ogImage="/icon-512.png"
+        ogImageAlt="Terms of Service - JobSeeker"
+        noindex={true}
+      />
+      <StructuredData 
+        type="page" 
+        pageTitle="Terms of Service" 
+        pageDescription="Terms of Service for JobSeeker - Read our terms and conditions"
+        pageUrl="/terms-of-service"
+      />
 
       <div className="min-h-screen bg-background">
         <div className="container mx-auto px-4 py-8 max-w-4xl">

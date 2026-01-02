@@ -1,4 +1,3 @@
-import { Helmet } from "react-helmet-async";
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -8,6 +7,8 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { PricingContainer, PricingPlan } from "@/components/ui/pricing-container";
+import SEOHead from "@/components/SEO/SEOHead";
+import StructuredData from "@/components/SEO/StructuredData";
 
 declare global {
   interface Window {
@@ -217,10 +218,20 @@ const Subscription = () => {
 
   return (
     <>
-      <Helmet>
-        <title>Subscription Plans | JobSeeker</title>
-        <meta name="description" content="Choose your subscription plan and upgrade your JobSeeker account" />
-      </Helmet>
+      <SEOHead
+        title="Subscription Plans & Pricing | JobSeeker - Choose Your Plan"
+        description="Choose your subscription plan and upgrade your JobSeeker account. Free, Pro, and Pro Max plans available. Start automating your job search today."
+        keywords="jobseeker pricing, subscription plans, job search tool pricing, recruiter outreach pricing, job application automation cost"
+        canonicalUrl="/subscription"
+        ogImage="/icon-512.png"
+        ogImageAlt="Subscription Plans - JobSeeker"
+      />
+      <StructuredData 
+        type="page" 
+        pageTitle="Subscription Plans" 
+        pageDescription="Choose your subscription plan and upgrade your JobSeeker account"
+        pageUrl="/subscription"
+      />
 
       <div className="min-h-screen bg-background">
         <div className="container mx-auto px-4 sm:px-6 py-6 sm:py-8 max-w-7xl">

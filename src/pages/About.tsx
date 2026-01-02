@@ -1,9 +1,10 @@
-import { Helmet } from "react-helmet-async";
 import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Target, Users, Zap, Shield, Heart, Mail, Sparkles } from "lucide-react";
 import { useNavigate, Link } from "react-router-dom";
+import SEOHead from "@/components/SEO/SEOHead";
+import StructuredData from "@/components/SEO/StructuredData";
 
 const About = () => {
   const navigate = useNavigate();
@@ -60,13 +61,20 @@ const About = () => {
 
   return (
     <>
-      <Helmet>
-        <title>About Us | JobSeeker</title>
-        <meta 
-          name="description" 
-          content="Learn about JobSeeker - AI-powered job outreach platform helping job seekers land their dream roles faster through automated, personalized email campaigns." 
-        />
-      </Helmet>
+      <SEOHead
+        title="About Us | JobSeeker - AI-Powered Job Search Platform"
+        description="Learn about JobSeeker - AI-powered job outreach platform helping job seekers land their dream roles faster through automated, personalized email campaigns. Our mission is to democratize professional networking."
+        keywords="about jobseeker, job search platform, AI job search, recruiter outreach tool, job application automation"
+        canonicalUrl="/about"
+        ogImage="/icon-512.png"
+        ogImageAlt="About JobSeeker - AI-Powered Job Search Platform"
+      />
+      <StructuredData 
+        type="page" 
+        pageTitle="About Us" 
+        pageDescription="Learn about JobSeeker - AI-powered job outreach platform"
+        pageUrl="/about"
+      />
 
       <div className="min-h-screen bg-background">
         <div className="container mx-auto px-4 py-8 max-w-6xl">

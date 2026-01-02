@@ -34,10 +34,10 @@ const FooterSection = () => {
           <div>
             <h4 className="font-semibold text-primary-foreground mb-4">Product</h4>
             <ul className="space-y-3">
-              <li><a href="#" className="text-primary-foreground/60 hover:text-accent transition-colors">Features</a></li>
-              <li><a href="#" className="text-primary-foreground/60 hover:text-accent transition-colors">Pricing</a></li>
-              <li><a href="#" className="text-primary-foreground/60 hover:text-accent transition-colors">Templates</a></li>
-              <li><a href="#" className="text-primary-foreground/60 hover:text-accent transition-colors">API</a></li>
+              <li><Link to="/#features" className="text-primary-foreground/60 hover:text-accent transition-colors">Features</Link></li>
+              <li><Link to="/subscription" className="text-primary-foreground/60 hover:text-accent transition-colors">Pricing</Link></li>
+              <li><Link to="/about" className="text-primary-foreground/60 hover:text-accent transition-colors">About</Link></li>
+              <li><Link to="/contact" className="text-primary-foreground/60 hover:text-accent transition-colors">Contact</Link></li>
             </ul>
           </div>
           
@@ -45,8 +45,7 @@ const FooterSection = () => {
             <h4 className="font-semibold text-primary-foreground mb-4">Company</h4>
             <ul className="space-y-3">
               <li><Link to="/about" className="text-primary-foreground/60 hover:text-accent transition-colors">About</Link></li>
-              <li><a href="#" className="text-primary-foreground/60 hover:text-accent transition-colors">Blog</a></li>
-              <li><a href="#" className="text-primary-foreground/60 hover:text-accent transition-colors">Careers</a></li>
+              <li><Link to="/faq" className="text-primary-foreground/60 hover:text-accent transition-colors">FAQ</Link></li>
               <li><Link to="/contact" className="text-primary-foreground/60 hover:text-accent transition-colors">Contact</Link></li>
             </ul>
           </div>

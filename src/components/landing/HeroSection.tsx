@@ -166,9 +166,9 @@ const HeroSection = () => {
               transition={{ duration: 0.6, delay: 0.3 }}
               className="text-4xl md:text-5xl lg:text-6xl font-extrabold text-primary-foreground leading-tight"
             >
-              Land Your Dream Job{" "}
+              Automate Your Job Search with{" "}
               <span className="relative">
-                <span className="text-accent">Faster</span>
+                <span className="text-accent">AI-Powered Outreach</span>
                 <svg className="absolute -bottom-2 left-0 w-full" viewBox="0 0 200 12" fill="none">
                   <path d="M2 10C50 4 150 4 198 10" stroke="hsl(173 80% 40%)" strokeWidth="3" strokeLinecap="round" />
                 </svg>
@@ -181,9 +181,9 @@ const HeroSection = () => {
               transition={{ duration: 0.6, delay: 0.4 }}
               className="text-lg md:text-xl text-primary-foreground/70 max-w-xl"
             >
-              JobSeeker is an AI-powered job outreach platform that helps you automate your recruiter outreach with personalized emails. 
-              Connect your Gmail account to send emails directly from your inbox, track recruiter replies automatically, and manage all your job application conversations in one place. 
-              Boost your job search success rate with intelligent email tracking and follow-up reminders.
+              JobSeeker is the best job search automation platform that helps you automate recruiter outreach with AI-generated personalized emails. 
+              Send automated job applications, track recruiter responses, and manage your entire job search pipeline in one place. 
+              Boost your job search success rate with intelligent email tracking, follow-up reminders, and comprehensive application management.
             </motion.p>
             
             <motion.div

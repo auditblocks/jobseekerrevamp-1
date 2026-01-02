@@ -4,38 +4,38 @@ import { Mail, BarChart3, Users, Zap, Shield, Clock, Sparkles, Target } from "lu
 const features = [
   {
     icon: Mail,
-    title: "Smart Email Campaigns",
-    description: "Send personalized emails to recruiters with AI-generated content that resonates.",
+    title: "AI-Powered Recruiter Outreach",
+    description: "Automate job search with personalized recruiter emails using AI-generated content that resonates with hiring managers.",
     color: "bg-accent/10 text-accent",
   },
   {
     icon: BarChart3,
-    title: "Real-time Analytics",
-    description: "Track opens, clicks, and responses with detailed engagement metrics.",
+    title: "Job Search Analytics",
+    description: "Track email opens, clicks, and recruiter responses with detailed engagement metrics for your job application campaigns.",
     color: "bg-success/10 text-success",
   },
   {
     icon: Users,
-    title: "Recruiter Database",
-    description: "Access thousands of verified recruiters across multiple industries.",
+    title: "Verified Recruiter Database",
+    description: "Access thousands of verified recruiters across multiple industries for automated job applications and outreach.",
     color: "bg-primary/10 text-primary",
   },
   {
     icon: Sparkles,
-    title: "AI-Powered Templates",
-    description: "Generate compelling email templates tailored to your target roles.",
+    title: "AI Email Generator",
+    description: "Generate compelling, personalized email templates tailored to your target roles and job search goals.",
     color: "bg-warning/10 text-warning",
   },
   {
     icon: Target,
-    title: "Application Tracking",
-    description: "Keep track of all your job applications in one organized dashboard.",
+    title: "Job Application Tracker",
+    description: "Keep track of all your job applications in one organized dashboard with automated application management.",
     color: "bg-destructive/10 text-destructive",
   },
   {
     icon: Clock,
-    title: "Follow-up Reminders",
-    description: "Never miss a follow-up with intelligent reminder suggestions.",
+    title: "Smart Follow-up Automation",
+    description: "Never miss a follow-up with intelligent reminder suggestions for your recruiter outreach campaigns.",
     color: "bg-accent/10 text-accent",
   },
 ];
@@ -57,12 +57,12 @@ const FeaturesSection = () => {
             <span className="text-sm font-medium text-accent">Powerful Features</span>
           </div>
           <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
-            Everything You Need to{" "}
-            <span className="text-accent">Succeed</span>
+            Complete Job Search Automation{" "}
+            <span className="text-accent">Platform</span>
           </h2>
           <p className="text-lg text-muted-foreground">
-            Our comprehensive suite of tools helps you streamline your job search 
-            and maximize your chances of landing interviews.
+            Our comprehensive suite of job search automation tools helps you streamline recruiter outreach, 
+            automate job applications, and maximize your chances of landing interviews with AI-powered email campaigns.
           </p>
         </motion.div>
         

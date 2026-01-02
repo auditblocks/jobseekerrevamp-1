@@ -5,6 +5,7 @@ Allow: /about
 Allow: /privacy-policy
 Allow: /terms-of-service
 Allow: /contact
+Allow: /subscription
 
 # Block private/dashboard pages from being indexed
 Disallow: /dashboard
@@ -29,3 +30,6 @@ Allow: /
 
 User-agent: LinkedInBot
 Allow: /
+
+# Sitemap location
+Sitemap: https://startworking.in/sitemap.xml

@@ -1,4 +1,3 @@
-import { Helmet } from "react-helmet-async";
 import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,6 +9,8 @@ import { useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import SEOHead from "@/components/SEO/SEOHead";
+import StructuredData from "@/components/SEO/StructuredData";
 
 const Contact = () => {
   const navigate = useNavigate();
@@ -55,10 +56,20 @@ const Contact = () => {
 
   return (
     <>
-      <Helmet>
-        <title>Contact Us | JobSeeker</title>
-        <meta name="description" content="Get in touch with JobSeeker. We're here to help with any questions or support you need." />
-      </Helmet>
+      <SEOHead
+        title="Contact Us | JobSeeker - Get Support & Help"
+        description="Get in touch with JobSeeker. We're here to help with any questions or support you need about our AI-powered job search automation platform."
+        keywords="contact jobseeker, job search support, job application help, recruiter outreach support"
+        canonicalUrl="/contact"
+        ogImage="/icon-512.png"
+        ogImageAlt="Contact JobSeeker - AI-Powered Job Search Platform"
+      />
+      <StructuredData 
+        type="page" 
+        pageTitle="Contact Us" 
+        pageDescription="Get in touch with JobSeeker for support and questions"
+        pageUrl="/contact"
+      />
 
       <div className="min-h-screen bg-background">
         <div className="container mx-auto px-4 py-8 sm:py-16 max-w-4xl">
