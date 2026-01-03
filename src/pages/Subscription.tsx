@@ -64,6 +64,17 @@ const Subscription = () => {
     }
   }, [user?.id]);
 
+  // Refresh profile when page becomes visible (in case admin changed tier)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && user?.id) {
+        fetchProfile();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [user?.id]);
+
   const fetchPlans = async () => {
     try {
       setLoadingPlans(true);
