@@ -81,10 +81,12 @@ const ResumeUpload = ({ onUploadSuccess, setAsActive = false, disabled = false }
         throw new Error("Invalid session. Please log in again.");
       }
 
-      // Supabase client automatically adds Authorization header when user is authenticated
-      // But we'll also pass it explicitly to ensure it's included
+      // Pass Authorization header explicitly with refreshed token
       const response = await supabase.functions.invoke("upload-resume", {
         body: formData,
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
       });
 
       const { data, error } = response;
