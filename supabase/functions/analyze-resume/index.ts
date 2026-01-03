@@ -135,44 +135,166 @@ serve(async (req) => {
     
     console.log("Processing analysis for resume_id:", resume_id);
 
-    // Fetch resume
-    const { data: resume, error: resumeError } = await supabase
+    // Fetch resume from both tables (resumes and user_resumes)
+    console.log("Fetching resume with ID:", resume_id);
+    
+    let resume: any = null;
+    let resumeError: any = null;
+    
+    // First try the resumes table (Resume Optimizer)
+    const { data: optimizerResume, error: optimizerError } = await supabase
       .from("resumes")
       .select("*")
       .eq("id", resume_id)
       .eq("user_id", user.id)
       .single();
+    
+    if (optimizerResume && !optimizerError) {
+      resume = optimizerResume;
+      console.log("Resume found in resumes table");
+    } else {
+      // If not found, try user_resumes table (Settings page)
+      console.log("Resume not found in resumes table, checking user_resumes table");
+      const { data: userResume, error: userResumeError } = await supabase
+        .from("user_resumes")
+        .select("*")
+        .eq("id", resume_id)
+        .eq("user_id", user.id)
+        .single();
+      
+      if (userResume && !userResumeError) {
+        // Convert user_resumes format to resumes format
+        let fileType = "pdf";
+        if (userResume.file_type) {
+          if (userResume.file_type.includes("pdf")) {
+            fileType = "pdf";
+          } else if (userResume.file_type.includes("wordprocessingml") || userResume.file_type.includes("msword") || userResume.file_type.includes("docx")) {
+            fileType = "docx";
+          } else if (userResume.file_type.includes("text") || userResume.file_type.includes("txt")) {
+            fileType = "txt";
+          }
+        }
+        
+        resume = {
+          id: userResume.id,
+          user_id: userResume.user_id,
+          name: userResume.file_name || userResume.version_name || "Resume",
+          file_url: userResume.file_url,
+          file_type: fileType,
+          file_size: userResume.file_size || 0,
+          extracted_text: null, // user_resumes doesn't have extracted_text
+          is_active: userResume.is_primary || false,
+          created_at: userResume.created_at,
+          updated_at: userResume.updated_at,
+        };
+        console.log("Resume found in user_resumes table, converted format");
+      } else {
+        resumeError = userResumeError || optimizerError;
+        console.error("Resume not found in either table:", resumeError);
+      }
+    }
 
     if (resumeError || !resume) {
+      console.error("Resume lookup failed:", resumeError);
       return new Response(
-        JSON.stringify({ error: "Resume not found" }),
+        JSON.stringify({ 
+          error: "Resume not found",
+          details: resumeError?.message || "The resume does not exist or you don't have access to it"
+        }),
         { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+    
+    console.log("Resume found:", { id: resume.id, name: resume.name, file_type: resume.file_type, has_extracted_text: !!resume.extracted_text });
 
     // Get resume text (extract if not already extracted)
     let resumeText = resume.extracted_text || "";
+    console.log("Initial resume text length:", resumeText.length);
 
-    // If no extracted text, try to fetch from file URL
+    // If no extracted text, fetch and extract from file
     if (!resumeText && resume.file_url) {
+      console.log("No extracted text found, fetching file from URL:", resume.file_url);
       try {
         const fileResponse = await fetch(resume.file_url);
-        if (resume.file_type === "txt" && fileResponse.ok) {
-          resumeText = await fileResponse.text();
+        if (!fileResponse.ok) {
+          throw new Error(`Failed to fetch file: ${fileResponse.status} ${fileResponse.statusText}`);
         }
-        // For PDF and DOCX, we'd need proper parsing libraries
-        // For now, we'll use the text as-is or empty
-      } catch (fetchError) {
-        console.error("Error fetching resume file:", fetchError);
+        
+        const fileBuffer = await fileResponse.arrayBuffer();
+        console.log("File fetched, size:", fileBuffer.byteLength, "bytes");
+        
+        if (resume.file_type === "txt") {
+          resumeText = new TextDecoder().decode(fileBuffer);
+          console.log("Extracted text from TXT file, length:", resumeText.length);
+        } else if (resume.file_type === "pdf") {
+          // Use pdfjs-dist for PDF text extraction
+          console.log("Extracting text from PDF...");
+          try {
+            // Import pdfjs-dist dynamically
+            const pdfjsLib = await import("https://esm.sh/pdfjs-dist@3.11.174/build/pdf.mjs");
+            
+            // Load the PDF document
+            const loadingTask = pdfjsLib.getDocument({ data: fileBuffer });
+            const pdfDocument = await loadingTask.promise;
+            console.log("PDF loaded, pages:", pdfDocument.numPages);
+            
+            // Extract text from all pages
+            const textParts: string[] = [];
+            for (let pageNum = 1; pageNum <= pdfDocument.numPages; pageNum++) {
+              const page = await pdfDocument.getPage(pageNum);
+              const textContent = await page.getTextContent();
+              const pageText = textContent.items
+                .map((item: any) => item.str)
+                .join(" ");
+              textParts.push(pageText);
+              console.log(`Extracted text from page ${pageNum}, length:`, pageText.length);
+            }
+            
+            resumeText = textParts.join("\n\n");
+            console.log("Total extracted text length:", resumeText.length);
+            
+            // Update the resume record with extracted text if it's in the resumes table
+            if (resume.source !== "user_resumes") {
+              await supabase
+                .from("resumes")
+                .update({ extracted_text: resumeText })
+                .eq("id", resume.id);
+              console.log("Updated resume record with extracted text");
+            }
+          } catch (pdfError: any) {
+            console.error("PDF extraction error:", pdfError);
+            throw new Error(`Failed to extract text from PDF: ${pdfError.message}`);
+          }
+        } else if (resume.file_type === "docx") {
+          // For DOCX, we'll need a different library
+          // For now, return an error suggesting to use PDF or TXT
+          console.error("DOCX text extraction not yet implemented");
+          throw new Error("DOCX text extraction is not yet supported. Please convert to PDF or TXT format.");
+        }
+      } catch (fetchError: any) {
+        console.error("Error fetching/extracting resume file:", fetchError);
+        return new Response(
+          JSON.stringify({ 
+            error: "Could not extract text from resume", 
+            details: fetchError.message || "Please ensure the file is readable and not corrupted"
+          }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
       }
     }
 
     if (!resumeText || resumeText.trim().length === 0) {
+      console.error("No text extracted from resume");
       return new Response(
-        JSON.stringify({ error: "Could not extract text from resume. Please ensure the file is readable." }),
+        JSON.stringify({ 
+          error: "Could not extract text from resume", 
+          details: "The resume file appears to be empty or unreadable. Please ensure the file contains text and is not corrupted."
+        }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+    
+    console.log("Resume text ready for analysis, length:", resumeText.length);
 
     // Initialize Google Gemini
     const geminiApiKey = Deno.env.get("GOOGLE_GEMINI_API_KEY");
