@@ -88,6 +88,32 @@ export default function AdminUsers() {
     }
   };
 
+  const updateUserSubscriptionTier = async (userId: string, tier: string) => {
+    try {
+      const updateData: any = {
+        subscription_tier: tier,
+        updated_at: new Date().toISOString(),
+      };
+
+      // If downgrading to FREE, clear expiration date
+      if (tier === "FREE") {
+        updateData.subscription_expires_at = null;
+      }
+
+      const { error } = await supabase
+        .from("profiles")
+        .update(updateData)
+        .eq("id", userId);
+
+      if (error) throw error;
+      toast.success(`User subscription tier updated to ${tier}`);
+      fetchUsers();
+    } catch (error: any) {
+      console.error("Failed to update subscription tier:", error);
+      toast.error("Failed to update subscription tier");
+    }
+  };
+
   const filteredUsers = users.filter((user) => {
     const matchesSearch =
       user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -294,20 +320,34 @@ export default function AdminUsers() {
                           )}
                         </TableCell>
                         <TableCell className="text-right">
-                          <div className="flex items-center justify-end gap-2">
+                          <div className="flex items-center justify-end gap-2 flex-wrap">
                             <Button
                               variant="ghost"
                               size="sm"
                               onClick={() => handleViewActivity(user.id)}
                               className="h-8"
+                              title="View Activity"
                             >
                               <Activity className="h-3 w-3 sm:h-4 sm:w-4" />
                             </Button>
                             <Select
+                              value={user.subscription_tier}
+                              onValueChange={(value) => updateUserSubscriptionTier(user.id, value)}
+                            >
+                              <SelectTrigger className="w-[110px] h-8 text-xs">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="FREE">FREE</SelectItem>
+                                <SelectItem value="PRO">PRO</SelectItem>
+                                <SelectItem value="PRO_MAX">PRO_MAX</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <Select
                               value={user.status}
                               onValueChange={(value) => updateUserStatus(user.id, value)}
                             >
-                              <SelectTrigger className="w-[100px] h-8">
+                              <SelectTrigger className="w-[100px] h-8 text-xs">
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
