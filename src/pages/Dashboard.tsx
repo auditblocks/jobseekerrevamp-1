@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -143,6 +143,9 @@ const Dashboard = () => {
     { icon: Briefcase, label: "Applications", path: "/applications" },
     { icon: FileText, label: "Templates", path: "/templates" },
     { icon: Users, label: "Recruiters", path: "/recruiters" },
+    ...(profile?.subscription_tier === "PRO" || profile?.subscription_tier === "PRO_MAX"
+      ? [{ icon: Sparkles, label: "Resume Optimizer", path: "/resume-optimizer" }]
+      : []),
     { icon: BarChart3, label: "Analytics", path: "/analytics" },
     { icon: Settings, label: "Settings", path: "/settings" },
     ...(isSuperadmin ? [{ icon: Shield, label: "Admin Portal", path: "/admin" }] : []),
