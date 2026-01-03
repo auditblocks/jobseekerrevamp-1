@@ -23,6 +23,8 @@ const ResumeOptimizer = () => {
   // Check subscription tier
   const isProUser = profile?.subscription_tier === "PRO" || profile?.subscription_tier === "PRO_MAX";
 
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+
   const handleUploadSuccess = (resume: any) => {
     if (!isProUser) {
       toast.error("Please upgrade to PRO or PRO_MAX to upload and analyze resumes");
@@ -30,7 +32,8 @@ const ResumeOptimizer = () => {
       return;
     }
     setSelectedResumeId(resume.id);
-    setActiveTab("analyze");
+    setActiveTab("manage"); // Switch to manage tab to show the uploaded resume
+    setRefreshTrigger(prev => prev + 1); // Trigger refresh
     toast.success("Resume uploaded! You can now analyze it.");
   };
 
@@ -146,6 +149,7 @@ const ResumeOptimizer = () => {
               <ResumeManager
                 onAnalyze={handleAnalyze}
                 onResumeSelect={(resume) => setSelectedResumeId(resume.id)}
+                refreshTrigger={refreshTrigger}
               />
             </TabsContent>
 

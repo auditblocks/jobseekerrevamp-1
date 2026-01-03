@@ -41,7 +41,7 @@ interface ResumeManagerProps {
   onResumeSelect?: (resume: Resume) => void;
 }
 
-const ResumeManager = ({ onAnalyze, onResumeSelect }: ResumeManagerProps) => {
+const ResumeManager = ({ onAnalyze, onResumeSelect, refreshTrigger }: ResumeManagerProps) => {
   const [resumes, setResumes] = useState<Resume[]>([]);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -50,13 +50,52 @@ const ResumeManager = ({ onAnalyze, onResumeSelect }: ResumeManagerProps) => {
 
   const fetchResumes = async () => {
     try {
-      const { data, error } = await supabase
-        .from("resumes")
-        .select("*")
-        .order("created_at", { ascending: false });
+      setLoading(true);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
 
-      if (error) throw error;
-      setResumes(data || []);
+      // Fetch from both tables
+      const [resumesRes, userResumesRes] = await Promise.all([
+        supabase
+          .from("resumes")
+          .select("*")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("user_resumes")
+          .select("*")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false }),
+      ]);
+
+      if (resumesRes.error) throw resumesRes.error;
+      if (userResumesRes.error) throw userResumesRes.error;
+
+      // Convert user_resumes to resumes format and merge
+      const convertedUserResumes = (userResumesRes.data || []).map((ur: any) => ({
+        id: ur.id,
+        name: ur.file_name || ur.version_name || "Resume",
+        file_url: ur.file_url,
+        file_type: ur.file_type?.split("/").pop()?.replace("vnd.openxmlformats-officedocument.wordprocessingml.document", "docx") || "pdf",
+        file_size: ur.file_size || 0,
+        is_active: ur.is_primary || false,
+        created_at: ur.created_at,
+        updated_at: ur.updated_at,
+        source: "user_resumes", // Mark to identify source
+      }));
+
+      const optimizerResumes = (resumesRes.data || []).map((r: any) => ({
+        ...r,
+        source: "resumes",
+      }));
+
+      // Merge and deduplicate by file_url (in case same file exists in both)
+      const allResumes = [...optimizerResumes, ...convertedUserResumes];
+      const uniqueResumes = Array.from(
+        new Map(allResumes.map((r) => [r.file_url, r])).values()
+      );
+
+      setResumes(uniqueResumes);
     } catch (error: any) {
       console.error("Error fetching resumes:", error);
       toast.error("Failed to load resumes");
@@ -67,6 +106,17 @@ const ResumeManager = ({ onAnalyze, onResumeSelect }: ResumeManagerProps) => {
 
   useEffect(() => {
     fetchResumes();
+  }, [refreshTrigger]); // Refresh when trigger changes
+
+  // Refresh when tab becomes visible
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        fetchResumes();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, []);
 
   const handleSetActive = async (resumeId: string) => {

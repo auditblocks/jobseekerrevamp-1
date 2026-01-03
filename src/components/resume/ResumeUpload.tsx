@@ -79,6 +79,9 @@ const ResumeUpload = ({ onUploadSuccess, setAsActive = false, disabled = false }
       onUploadSuccess(data.resume);
       setFile(null);
       setResumeName("");
+      
+      // Trigger a page refresh or state update to ensure resume persists
+      // The parent component should handle refreshing the list
     } catch (error: any) {
       console.error("Upload error:", error);
       toast.error(error.message || "Failed to upload resume");
