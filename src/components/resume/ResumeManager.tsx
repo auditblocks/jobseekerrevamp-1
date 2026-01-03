@@ -208,23 +208,26 @@ const ResumeManager = ({ onAnalyze, onResumeSelect }: ResumeManagerProps) => {
                         {!resume.is_active && (
                           <Button
                             variant="ghost"
-                            size="icon"
+                            size="sm"
                             onClick={() => handleSetActive(resume.id)}
                             title="Set as active"
                           >
-                            <StarOff className="w-4 h-4" />
+                            <StarOff className="w-4 h-4 mr-1" />
+                            Set Active
                           </Button>
                         )}
                         <Button
-                          variant="ghost"
-                          size="icon"
+                          variant="default"
+                          size="sm"
                           onClick={() => {
                             onAnalyze(resume.id);
                             if (onResumeSelect) onResumeSelect(resume);
                           }}
                           title="Analyze resume"
+                          className="bg-accent hover:bg-accent/90"
                         >
-                          <Play className="w-4 h-4" />
+                          <Play className="w-4 h-4 mr-1" />
+                          Analyze
                         </Button>
                         <Button
                           variant="ghost"

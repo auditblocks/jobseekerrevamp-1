@@ -121,6 +121,19 @@ const ResumeAnalysis = ({ resumeId, onAnalysisComplete }: ResumeAnalysisProps) =
           <CardTitle>Resume Analysis</CardTitle>
           <CardDescription>Select a resume to analyze</CardDescription>
         </CardHeader>
+        <CardContent>
+          <div className="text-center py-8 space-y-4">
+            <FileText className="w-12 h-12 mx-auto text-muted-foreground" />
+            <div>
+              <p className="text-muted-foreground mb-2">
+                No resume selected for analysis
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Go to the "My Resumes" tab and click the <strong>"Analyze"</strong> button on any resume to get started.
+              </p>
+            </div>
+          </div>
+        </CardContent>
       </Card>
     );
   }
