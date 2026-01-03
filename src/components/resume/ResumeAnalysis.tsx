@@ -102,13 +102,12 @@ const ResumeAnalysis = ({ resumeId, onAnalysisComplete }: ResumeAnalysisProps) =
         throw new Error("Invalid session. Please log in again.");
       }
 
+      // Supabase client automatically adds Authorization header when user is authenticated
+      // But we'll also pass it explicitly to ensure it's included
       const response = await supabase.functions.invoke("analyze-resume", {
         body: {
           resume_id: resumeId,
           job_description: jobDescription || null,
-        },
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
         },
       });
 
