@@ -282,27 +282,67 @@ serve(async (req) => {
           // Use pdfjs-dist for PDF text extraction
           console.log("Extracting text from PDF...");
           try {
-            // Import pdfjs-dist dynamically
-            const pdfjsLib = await import("https://esm.sh/pdfjs-dist@3.11.174/build/pdf.mjs");
+            // Import pdfjs-dist using esm.sh which works better with Deno
+            const pdfjsLib = await import("https://esm.sh/pdfjs-dist@3.11.174");
             
-            // Load the PDF document
-            const loadingTask = pdfjsLib.getDocument({ data: fileBuffer });
-            const pdfDocument = await loadingTask.promise;
-            console.log("PDF loaded, pages:", pdfDocument.numPages);
+            // Check if getDocument is available
+            const getDocument = pdfjsLib.getDocument || pdfjsLib.default?.getDocument;
             
-            // Extract text from all pages
-            const textParts: string[] = [];
-            for (let pageNum = 1; pageNum <= pdfDocument.numPages; pageNum++) {
-              const page = await pdfDocument.getPage(pageNum);
-              const textContent = await page.getTextContent();
-              const pageText = textContent.items
-                .map((item: any) => item.str)
-                .join(" ");
-              textParts.push(pageText);
-              console.log(`Extracted text from page ${pageNum}, length:`, pageText.length);
+            if (!getDocument || typeof getDocument !== 'function') {
+              console.error("getDocument not found. Module keys:", Object.keys(pdfjsLib));
+              // Try alternative: use the module's default export
+              const pdfjs = pdfjsLib.default || pdfjsLib;
+              const getDoc = pdfjs.getDocument;
+              
+              if (!getDoc || typeof getDoc !== 'function') {
+                throw new Error("getDocument function not available in pdfjs-dist module");
+              }
+              
+              // Load the PDF document
+              const loadingTask = getDoc({ 
+                data: new Uint8Array(fileBuffer),
+                useSystemFonts: true,
+              });
+              const pdfDocument = await loadingTask.promise;
+              console.log("PDF loaded, pages:", pdfDocument.numPages);
+              
+              // Extract text from all pages
+              const textParts: string[] = [];
+              for (let pageNum = 1; pageNum <= pdfDocument.numPages; pageNum++) {
+                const page = await pdfDocument.getPage(pageNum);
+                const textContent = await page.getTextContent();
+                const pageText = textContent.items
+                  .map((item: any) => item.str)
+                  .join(" ");
+                textParts.push(pageText);
+                console.log(`Extracted text from page ${pageNum}, length:`, pageText.length);
+              }
+              
+              resumeText = textParts.join("\n\n");
+            } else {
+              // Load the PDF document
+              const loadingTask = getDocument({ 
+                data: new Uint8Array(fileBuffer),
+                useSystemFonts: true,
+              });
+              const pdfDocument = await loadingTask.promise;
+              console.log("PDF loaded, pages:", pdfDocument.numPages);
+              
+              // Extract text from all pages
+              const textParts: string[] = [];
+              for (let pageNum = 1; pageNum <= pdfDocument.numPages; pageNum++) {
+                const page = await pdfDocument.getPage(pageNum);
+                const textContent = await page.getTextContent();
+                const pageText = textContent.items
+                  .map((item: any) => item.str)
+                  .join(" ");
+                textParts.push(pageText);
+                console.log(`Extracted text from page ${pageNum}, length:`, pageText.length);
+              }
+              
+              resumeText = textParts.join("\n\n");
             }
             
-            resumeText = textParts.join("\n\n");
             console.log("Total extracted text length:", resumeText.length);
             
             // Update the resume record with extracted text if it's in the resumes table
@@ -315,6 +355,11 @@ serve(async (req) => {
             }
           } catch (pdfError: any) {
             console.error("PDF extraction error:", pdfError);
+            console.error("Error details:", {
+              message: pdfError.message,
+              stack: pdfError.stack,
+              name: pdfError.name
+            });
             throw new Error(`Failed to extract text from PDF: ${pdfError.message}`);
           }
         } else if (resume.file_type === "docx") {
