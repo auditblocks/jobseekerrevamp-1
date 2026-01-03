@@ -39,6 +39,7 @@ interface DashboardStats {
 
 const Dashboard = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, loading: authLoading, isSuperadmin, signOut, profile } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [stats, setStats] = useState<DashboardStats>({
@@ -179,7 +180,7 @@ const Dashboard = () => {
             {/* Navigation */}
             <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
               {navItems.map((item, index) => {
-                const isActive = item.path === "/dashboard";
+                const isActive = location.pathname === item.path;
                 return (
                   <button
                     key={index}
