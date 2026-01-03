@@ -30,6 +30,7 @@ const About = lazy(() => import("./pages/About"));
 const Contact = lazy(() => import("./pages/Contact"));
 const FAQ = lazy(() => import("./pages/FAQ"));
 const ResumeOptimizer = lazy(() => import("./pages/ResumeOptimizer"));
+const OrderHistory = lazy(() => import("./pages/OrderHistory"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 // Admin pages - lazy loaded
@@ -84,6 +85,7 @@ const App = () => (
                 <Route path="/settings" element={<Settings />} />
                 <Route path="/dashboard/subscription" element={<Subscription />} />
                 <Route path="/subscription" element={<Subscription />} />
+                <Route path="/order-history" element={<OrderHistory />} />
                 <Route path="/notifications" element={<Notifications />} />
                 
                 {/* Legal & Info Pages */}

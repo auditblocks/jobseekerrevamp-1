@@ -979,13 +979,36 @@ const Settings = () => {
                     <Loader2 className="h-8 w-8 animate-spin text-accent" />
                   </div>
                 ) : (
-                  <div className="bg-background rounded-lg p-4">
-                    <PricingContainer
-                      title="Subscription Plans"
-                      plans={convertToPricingPlans()}
-                      className="bg-transparent min-h-0"
-                      showYearlyToggle={true}
-                    />
+                  <div className="space-y-6">
+                    <div className="bg-background rounded-lg p-4">
+                      <PricingContainer
+                        title="Subscription Plans"
+                        plans={convertToPricingPlans()}
+                        className="bg-transparent min-h-0"
+                        showYearlyToggle={true}
+                      />
+                    </div>
+                    
+                    {/* Order History Link */}
+                    <Card>
+                      <CardContent className="p-6">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h3 className="text-lg font-semibold mb-1">Order History</h3>
+                            <p className="text-sm text-muted-foreground">
+                              View all your subscription purchases and receipts
+                            </p>
+                          </div>
+                          <Button
+                            variant="outline"
+                            onClick={() => navigate("/order-history")}
+                          >
+                            <Receipt className="mr-2 h-4 w-4" />
+                            View Orders
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
                   </div>
                 )}
               </motion.div>
