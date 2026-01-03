@@ -81,7 +81,7 @@ const ResumeAnalysis = ({ resumeId, onAnalysisComplete }: ResumeAnalysisProps) =
         throw new Error("Not authenticated");
       }
 
-      const { data, error } = await supabase.functions.invoke("analyze-resume", {
+      const response = await supabase.functions.invoke("analyze-resume", {
         body: {
           resume_id: resumeId,
           job_description: jobDescription || null,
@@ -91,19 +91,34 @@ const ResumeAnalysis = ({ resumeId, onAnalysisComplete }: ResumeAnalysisProps) =
         },
       });
 
+      const { data, error } = response;
+
       if (error) {
         // Try to extract error message from error object
-        const errorMessage = error.message || error.error || JSON.stringify(error);
-        console.error("Analyze function error:", error);
+        let errorMessage = "Failed to analyze resume";
+        
+        if (error.message) {
+          errorMessage = error.message;
+        } else if (error.error) {
+          errorMessage = error.error;
+        } else if (typeof error === 'string') {
+          errorMessage = error;
+        } else if (data?.error) {
+          errorMessage = data.error;
+        } else if (data?.details) {
+          errorMessage = data.details;
+        }
+        
+        console.error("Analyze function error:", { error, data, response });
         throw new Error(errorMessage);
       }
 
       if (data?.error) {
-        throw new Error(data.error);
+        throw new Error(data.error || data.details || "Analysis failed");
       }
 
       if (!data || !data.analysis) {
-        throw new Error("Invalid response from server");
+        throw new Error("Invalid response from server: No analysis data returned");
       }
 
       toast.success("Resume analyzed successfully!");

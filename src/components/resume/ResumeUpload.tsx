@@ -60,26 +60,41 @@ const ResumeUpload = ({ onUploadSuccess, setAsActive = false, disabled = false }
         throw new Error("Not authenticated");
       }
 
-      const { data, error } = await supabase.functions.invoke("upload-resume", {
+      const response = await supabase.functions.invoke("upload-resume", {
         body: formData,
         headers: {
           Authorization: `Bearer ${session.access_token}`,
         },
       });
 
+      const { data, error } = response;
+
       if (error) {
         // Try to extract error message from error object
-        const errorMessage = error.message || error.error || JSON.stringify(error);
-        console.error("Upload function error:", error);
+        let errorMessage = "Failed to upload resume";
+        
+        if (error.message) {
+          errorMessage = error.message;
+        } else if (error.error) {
+          errorMessage = error.error;
+        } else if (typeof error === 'string') {
+          errorMessage = error;
+        } else if (data?.error) {
+          errorMessage = data.error;
+        } else if (data?.details) {
+          errorMessage = data.details;
+        }
+        
+        console.error("Upload function error:", { error, data, response });
         throw new Error(errorMessage);
       }
 
       if (data?.error) {
-        throw new Error(data.error);
+        throw new Error(data.error || data.details || "Upload failed");
       }
 
       if (!data || !data.resume) {
-        throw new Error("Invalid response from server");
+        throw new Error("Invalid response from server: No resume data returned");
       }
 
       toast.success("Resume uploaded successfully!");
