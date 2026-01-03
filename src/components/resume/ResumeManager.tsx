@@ -73,17 +73,31 @@ const ResumeManager = ({ onAnalyze, onResumeSelect, refreshTrigger }: ResumeMana
       if (userResumesRes.error) throw userResumesRes.error;
 
       // Convert user_resumes to resumes format and merge
-      const convertedUserResumes = (userResumesRes.data || []).map((ur: any) => ({
-        id: ur.id,
-        name: ur.file_name || ur.version_name || "Resume",
-        file_url: ur.file_url,
-        file_type: ur.file_type?.split("/").pop()?.replace("vnd.openxmlformats-officedocument.wordprocessingml.document", "docx") || "pdf",
-        file_size: ur.file_size || 0,
-        is_active: ur.is_primary || false,
-        created_at: ur.created_at,
-        updated_at: ur.updated_at,
-        source: "user_resumes", // Mark to identify source
-      }));
+      const convertedUserResumes = (userResumesRes.data || []).map((ur: any) => {
+        // Convert MIME type to file_type format
+        let fileType = "pdf";
+        if (ur.file_type) {
+          if (ur.file_type.includes("pdf")) {
+            fileType = "pdf";
+          } else if (ur.file_type.includes("wordprocessingml") || ur.file_type.includes("msword") || ur.file_type.includes("docx")) {
+            fileType = "docx";
+          } else if (ur.file_type.includes("text") || ur.file_type.includes("txt")) {
+            fileType = "txt";
+          }
+        }
+        
+        return {
+          id: ur.id,
+          name: ur.file_name || ur.version_name || "Resume",
+          file_url: ur.file_url,
+          file_type: fileType,
+          file_size: ur.file_size || 0,
+          is_active: ur.is_primary || false,
+          created_at: ur.created_at,
+          updated_at: ur.updated_at,
+          source: "user_resumes", // Mark to identify source
+        };
+      });
 
       const optimizerResumes = (resumesRes.data || []).map((r: any) => ({
         ...r,
