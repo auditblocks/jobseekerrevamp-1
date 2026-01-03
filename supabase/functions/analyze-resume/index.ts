@@ -32,10 +32,27 @@ serve(async (req) => {
     }
 
     const token = authHeader.replace("Bearer ", "");
+    
+    // Try to get user with the token
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-    if (authError || !user) {
+    
+    if (authError) {
+      console.error("Auth error:", authError);
+      console.error("Token length:", token.length);
       return new Response(
-        JSON.stringify({ error: "Invalid or expired token" }),
+        JSON.stringify({ 
+          error: "Invalid or expired token", 
+          details: authError.message,
+          hint: "Please refresh your session and try again"
+        }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    
+    if (!user) {
+      console.error("No user found for token");
+      return new Response(
+        JSON.stringify({ error: "User not found" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }

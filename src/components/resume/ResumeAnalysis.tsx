@@ -76,9 +76,30 @@ const ResumeAnalysis = ({ resumeId, onAnalysisComplete }: ResumeAnalysisProps) =
     setAnalyzing(true);
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        throw new Error("Not authenticated");
+      // Get and refresh session to ensure we have a valid token
+      const { data: { session: currentSession }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError) {
+        console.error("Session error:", sessionError);
+        throw new Error("Failed to get session. Please try logging in again.");
+      }
+
+      if (!currentSession) {
+        throw new Error("Not authenticated. Please log in to continue.");
+      }
+
+      // Refresh the session to get a fresh token
+      const { data: { session: refreshedSession }, error: refreshError } = await supabase.auth.refreshSession();
+      
+      const session = refreshedSession || currentSession;
+      
+      if (refreshError) {
+        console.warn("Token refresh warning:", refreshError);
+        // Continue with current session if refresh fails
+      }
+
+      if (!session?.access_token) {
+        throw new Error("Invalid session. Please log in again.");
       }
 
       const response = await supabase.functions.invoke("analyze-resume", {
