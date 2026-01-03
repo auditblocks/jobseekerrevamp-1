@@ -215,13 +215,65 @@ serve(async (req) => {
     if (!resumeText && resume.file_url) {
       console.log("No extracted text found, fetching file from URL:", resume.file_url);
       try {
-        const fileResponse = await fetch(resume.file_url);
-        if (!fileResponse.ok) {
-          throw new Error(`Failed to fetch file: ${fileResponse.status} ${fileResponse.statusText}`);
-        }
+        let fileBuffer: ArrayBuffer;
         
-        const fileBuffer = await fileResponse.arrayBuffer();
-        console.log("File fetched, size:", fileBuffer.byteLength, "bytes");
+        // Try to extract file path from Supabase Storage URL
+        // URL format: https://[project].supabase.co/storage/v1/object/public/[bucket]/[path]
+        // or: https://[project].supabase.co/storage/v1/object/sign/[bucket]/[path]?token=...
+        const urlParts = resume.file_url.split('/storage/v1/object/');
+        if (urlParts.length > 1) {
+          // This is a Supabase Storage URL - use storage client to download
+          const pathAfterStorage = urlParts[1];
+          const isPublic = pathAfterStorage.startsWith('public/');
+          const isSigned = pathAfterStorage.startsWith('sign/');
+          
+          let bucketName = 'resumes';
+          let filePath = '';
+          
+          if (isPublic) {
+            const publicPath = pathAfterStorage.replace('public/', '');
+            const pathParts = publicPath.split('/');
+            bucketName = pathParts[0];
+            filePath = pathParts.slice(1).join('/');
+          } else if (isSigned) {
+            // For signed URLs, extract path before the query string
+            const signedPath = pathAfterStorage.replace('sign/', '').split('?')[0];
+            const pathParts = signedPath.split('/');
+            bucketName = pathParts[0];
+            filePath = pathParts.slice(1).join('/');
+          } else {
+            // Fallback: try to extract from URL path
+            const pathParts = pathAfterStorage.split('/');
+            if (pathParts.length > 1) {
+              bucketName = pathParts[0];
+              filePath = pathParts.slice(1).join('/');
+            }
+          }
+          
+          console.log("Extracted storage path:", { bucketName, filePath });
+          
+          // Download using Supabase Storage client (works for both public and private)
+          const { data: fileData, error: downloadError } = await supabase.storage
+            .from(bucketName)
+            .download(filePath);
+          
+          if (downloadError || !fileData) {
+            console.error("Storage download error:", downloadError);
+            throw new Error(`Failed to download file from storage: ${downloadError?.message || 'Unknown error'}`);
+          }
+          
+          fileBuffer = await fileData.arrayBuffer();
+          console.log("File downloaded from storage, size:", fileBuffer.byteLength, "bytes");
+        } else {
+          // Not a Supabase Storage URL - try direct fetch (for external URLs)
+          console.log("Not a Supabase Storage URL, trying direct fetch");
+          const fileResponse = await fetch(resume.file_url);
+          if (!fileResponse.ok) {
+            throw new Error(`Failed to fetch file: ${fileResponse.status} ${fileResponse.statusText}`);
+          }
+          fileBuffer = await fileResponse.arrayBuffer();
+          console.log("File fetched via HTTP, size:", fileBuffer.byteLength, "bytes");
+        }
         
         if (resume.file_type === "txt") {
           resumeText = new TextDecoder().decode(fileBuffer);
