@@ -26,11 +26,16 @@ serve(async (req) => {
     console.log("Processing analyze-resume request");
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    console.log("Supabase URL:", supabaseUrl);
+    console.log("Service key present:", !!supabaseServiceKey);
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Get auth token
+    console.log("Checking authorization header");
     const authHeader = req.headers.get("Authorization");
+    console.log("Auth header present:", !!authHeader);
     if (!authHeader) {
+      console.error("Missing authorization header");
       return new Response(
         JSON.stringify({ error: "Missing authorization header" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -38,8 +43,10 @@ serve(async (req) => {
     }
 
     const token = authHeader.replace("Bearer ", "");
+    console.log("Token extracted, length:", token.length);
     
     // Try to get user with the token
+    console.log("Verifying user token");
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     
     if (authError) {
@@ -62,6 +69,8 @@ serve(async (req) => {
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+    
+    console.log("User authenticated:", user.id);
 
     // Check subscription tier
     const { data: profile, error: profileError } = await supabase
@@ -85,14 +94,30 @@ serve(async (req) => {
     }
 
     // Parse request
-    const { resume_id, job_description }: AnalyzeRequest = await req.json();
+    console.log("Parsing request body");
+    let requestBody: AnalyzeRequest;
+    try {
+      requestBody = await req.json();
+      console.log("Request body parsed:", { resume_id: requestBody.resume_id, has_job_description: !!requestBody.job_description });
+    } catch (parseError: any) {
+      console.error("Error parsing request body:", parseError);
+      return new Response(
+        JSON.stringify({ error: "Invalid request body", details: parseError?.message || "Unknown error" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    
+    const { resume_id, job_description } = requestBody;
 
     if (!resume_id) {
+      console.error("Missing resume_id in request");
       return new Response(
         JSON.stringify({ error: "resume_id is required" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+    
+    console.log("Processing analysis for resume_id:", resume_id);
 
     // Fetch resume
     const { data: resume, error: resumeError } = await supabase

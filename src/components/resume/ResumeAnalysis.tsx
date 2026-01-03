@@ -117,6 +117,10 @@ const ResumeAnalysis = ({ resumeId, onAnalysisComplete }: ResumeAnalysisProps) =
       }
 
       // Pass Authorization header explicitly with refreshed token
+      console.log("Invoking analyze-resume function with resume_id:", resumeId);
+      console.log("Token present:", !!session.access_token);
+      console.log("Token length:", session.access_token?.length);
+      
       const response = await supabase.functions.invoke("analyze-resume", {
         body: {
           resume_id: resumeId,
@@ -124,7 +128,16 @@ const ResumeAnalysis = ({ resumeId, onAnalysisComplete }: ResumeAnalysisProps) =
         },
         headers: {
           Authorization: `Bearer ${session.access_token}`,
+          "Content-Type": "application/json",
         },
+      });
+      
+      console.log("Edge function response:", { 
+        hasData: !!response.data, 
+        hasError: !!response.error,
+        errorStatus: response.error?.status,
+        errorMessage: response.error?.message,
+        errorDetails: response.error
       });
 
       const { data, error } = response;
