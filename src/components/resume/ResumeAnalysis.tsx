@@ -92,11 +92,18 @@ const ResumeAnalysis = ({ resumeId, onAnalysisComplete }: ResumeAnalysisProps) =
       });
 
       if (error) {
-        throw error;
+        // Try to extract error message from error object
+        const errorMessage = error.message || error.error || JSON.stringify(error);
+        console.error("Analyze function error:", error);
+        throw new Error(errorMessage);
       }
 
-      if (data.error) {
+      if (data?.error) {
         throw new Error(data.error);
+      }
+
+      if (!data || !data.analysis) {
+        throw new Error("Invalid response from server");
       }
 
       toast.success("Resume analyzed successfully!");

@@ -191,10 +191,20 @@ serve(async (req) => {
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error:", error);
+    const errorMessage = error?.message || error?.toString() || "Unknown error";
+    console.error("Error details:", {
+      message: errorMessage,
+      stack: error?.stack,
+      name: error?.name,
+    });
     return new Response(
-      JSON.stringify({ error: "Internal server error", details: error.message }),
+      JSON.stringify({ 
+        error: "Internal server error", 
+        details: errorMessage,
+        timestamp: new Date().toISOString(),
+      }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
