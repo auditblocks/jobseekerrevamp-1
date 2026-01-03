@@ -39,6 +39,7 @@ interface Resume {
 interface ResumeManagerProps {
   onAnalyze: (resumeId: string) => void;
   onResumeSelect?: (resume: Resume) => void;
+  refreshTrigger?: number; // Add refresh trigger prop
 }
 
 const ResumeManager = ({ onAnalyze, onResumeSelect, refreshTrigger }: ResumeManagerProps) => {
