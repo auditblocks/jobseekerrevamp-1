@@ -25,6 +25,7 @@ const Subscription = lazy(() => import("./pages/Subscription"));
 const Notifications = lazy(() => import("./pages/Notifications"));
 const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
 const TermsOfService = lazy(() => import("./pages/TermsOfService"));
+const CancellationsAndRefunds = lazy(() => import("./pages/CancellationsAndRefunds"));
 const About = lazy(() => import("./pages/About"));
 const Contact = lazy(() => import("./pages/Contact"));
 const FAQ = lazy(() => import("./pages/FAQ"));

@@ -55,6 +55,7 @@ const FooterSection = () => {
             <ul className="space-y-3">
               <li><Link to="/privacy-policy" className="text-primary-foreground/60 hover:text-accent transition-colors">Privacy Policy</Link></li>
               <li><Link to="/terms-of-service" className="text-primary-foreground/60 hover:text-accent transition-colors">Terms of Service</Link></li>
+              <li><Link to="/cancellations-and-refunds" className="text-primary-foreground/60 hover:text-accent transition-colors">Cancellations & Refunds</Link></li>
             </ul>
           </div>
         </div>
