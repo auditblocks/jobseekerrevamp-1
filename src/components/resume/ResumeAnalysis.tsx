@@ -120,15 +120,13 @@ const ResumeAnalysis = ({ resumeId, onAnalysisComplete }: ResumeAnalysisProps) =
       console.log("Invoking analyze-resume function with resume_id:", resumeId);
       console.log("Token present:", !!session.access_token);
       console.log("Token length:", session.access_token?.length);
-      
-      // Explicitly stringify the body to ensure it's sent as JSON
-      const requestBody = {
-        resume_id: resumeId,
-        job_description: jobDescription || null,
-      };
+      console.log("Supabase URL:", import.meta.env.VITE_SUPABASE_URL);
       
       const response = await supabase.functions.invoke("analyze-resume", {
-        body: JSON.stringify(requestBody),
+        body: {
+          resume_id: resumeId,
+          job_description: jobDescription || null,
+        },
         headers: {
           Authorization: `Bearer ${session.access_token}`,
         },

@@ -95,14 +95,30 @@ serve(async (req) => {
 
     // Parse request
     console.log("Parsing request body");
+    console.log("Request headers:", Object.fromEntries(req.headers.entries()));
+    console.log("Request method:", req.method);
+    console.log("Content-Type:", req.headers.get("Content-Type"));
+    
     let requestBody: AnalyzeRequest;
     try {
       requestBody = await req.json();
-      console.log("Request body parsed:", { resume_id: requestBody.resume_id, has_job_description: !!requestBody.job_description });
+      console.log("Request body parsed successfully:", { 
+        resume_id: requestBody.resume_id, 
+        has_job_description: !!requestBody.job_description 
+      });
     } catch (parseError: any) {
       console.error("Error parsing request body:", parseError);
+      console.error("Parse error details:", {
+        message: parseError?.message,
+        name: parseError?.name,
+        stack: parseError?.stack
+      });
       return new Response(
-        JSON.stringify({ error: "Invalid request body", details: parseError?.message || "Unknown error" }),
+        JSON.stringify({ 
+          error: "Invalid request body", 
+          details: parseError?.message || "Unknown error",
+          hint: "Expected JSON format: { resume_id: string, job_description?: string }"
+        }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
