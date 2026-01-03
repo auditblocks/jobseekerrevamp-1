@@ -120,8 +120,11 @@ const ResumeAnalysis = ({ resumeId, onAnalysisComplete }: ResumeAnalysisProps) =
       console.log("Invoking analyze-resume function with resume_id:", resumeId);
       console.log("Token present:", !!session.access_token);
       console.log("Token length:", session.access_token?.length);
+      console.log("Token preview:", session.access_token?.substring(0, 20) + "...");
       console.log("Supabase URL:", import.meta.env.VITE_SUPABASE_URL);
+      console.log("Function endpoint:", `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/analyze-resume`);
       
+      // Since verify_jwt = false, we must manually pass the Authorization header
       const response = await supabase.functions.invoke("analyze-resume", {
         body: {
           resume_id: resumeId,
