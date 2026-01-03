@@ -4,9 +4,10 @@
 Your app is requesting Gmail scopes that are not configured in your Google Cloud Console OAuth consent screen.
 
 ## Required Scopes
-Your application requests these scopes:
+Your application requests this scope:
 - `https://www.googleapis.com/auth/gmail.send`
-- `https://www.googleapis.com/auth/gmail.readonly`
+
+**Note:** `gmail.readonly` scope was removed to avoid CASA (Customer Application Security Assessment) requirement. This means the automatic reply checking feature (`check-gmail-replies`) will not work, but email sending will continue to function.
 
 ## Solution Steps
 
@@ -23,16 +24,15 @@ Your application requests these scopes:
 2. Click **"ADD OR REMOVE SCOPES"** button
 3. In the scope selection dialog:
    - Search for "Gmail API" or filter by "Gmail"
-   - Check the following scopes:
+   - Check the following scope:
      - ✅ `https://www.googleapis.com/auth/gmail.send` - Send email on your behalf
-     - ✅ `https://www.googleapis.com/auth/gmail.readonly` - View your email messages and settings
+   - ⚠️ **Do NOT add** `gmail.readonly` - This requires CASA assessment
 4. Click **"UPDATE"** to save
 
 ### Step 4: Verify Scope Configuration
-1. After adding scopes, you should see them listed in the "Scopes" section
-2. Make sure both scopes are visible:
+1. After adding scopes, you should see it listed in the "Scopes" section
+2. Make sure only this scope is visible:
    - `https://www.googleapis.com/auth/gmail.send`
-   - `https://www.googleapis.com/auth/gmail.readonly`
 
 ### Step 5: Save and Continue
 1. Click **"SAVE AND CONTINUE"** at the bottom
@@ -58,7 +58,11 @@ Your application requests these scopes:
 
 ### Scope Descriptions
 - **gmail.send**: Allows the app to send emails on behalf of the user
-- **gmail.readonly**: Allows the app to read emails (for checking replies)
+
+### Important: Reply Checking Feature
+- The `check-gmail-replies` edge function requires `gmail.readonly` scope to work
+- Since we're not requesting this scope (to avoid CASA), automatic reply checking is disabled
+- Users will need to manually check their email for replies, or you can implement an alternative solution
 
 ## Troubleshooting
 
@@ -75,13 +79,31 @@ Your application requests these scopes:
 
 ## Code Reference
 
-The scopes are configured in:
+The scope is configured in:
 - **File**: `src/pages/Compose.tsx`
 - **Line**: 306
 - **Code**: 
   ```typescript
-  const scope = encodeURIComponent("https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/gmail.readonly");
+  const scope = encodeURIComponent("https://www.googleapis.com/auth/gmail.send");
   ```
 
-Make sure these exact scopes are in your Google Cloud Console OAuth consent screen.
+Make sure this exact scope is in your Google Cloud Console OAuth consent screen.
+
+## Impact of Removing gmail.readonly
+
+**What Still Works:**
+- ✅ Sending emails via Gmail API
+- ✅ All email composition features
+- ✅ Email tracking (opens, clicks via tracking pixels)
+
+**What Won't Work:**
+- ❌ Automatic reply checking (`check-gmail-replies` function)
+- ❌ Automatic conversation thread updates from incoming emails
+- ❌ Gmail webhook functionality (requires readonly)
+
+**Alternative Solutions:**
+1. Use email tracking pixels to detect when emails are opened/clicked
+2. Implement a manual "Check Replies" button that users can click
+3. Use email webhooks from your email service provider (if available)
+4. Consider implementing CASA assessment in the future if reply checking is critical
 

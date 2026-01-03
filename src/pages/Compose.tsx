@@ -303,7 +303,9 @@ const Compose = () => {
     }
 
     const redirectUri = `${window.location.origin}/compose`;
-    const scope = encodeURIComponent("https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/gmail.readonly");
+    // Only request gmail.send scope to avoid CASA assessment requirement
+    // Note: gmail.readonly was removed as it requires CASA security assessment
+    const scope = encodeURIComponent("https://www.googleapis.com/auth/gmail.send");
     
     const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
       `client_id=${googleClientId}` +
