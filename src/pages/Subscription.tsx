@@ -88,7 +88,7 @@ const Subscription = () => {
     try {
       const { data, error } = await supabase
         .from("profiles")
-        .select("subscription_tier")
+        .select("subscription_tier, subscription_expires_at")
         .eq("id", user.id)
         .single();
 

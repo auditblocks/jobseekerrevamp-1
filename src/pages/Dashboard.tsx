@@ -144,9 +144,7 @@ const Dashboard = () => {
     { icon: Briefcase, label: "Applications", path: "/applications" },
     { icon: FileText, label: "Templates", path: "/templates" },
     { icon: Users, label: "Recruiters", path: "/recruiters" },
-    ...(profile?.subscription_tier === "PRO" || profile?.subscription_tier === "PRO_MAX"
-      ? [{ icon: Sparkles, label: "Resume Optimizer", path: "/resume-optimizer" }]
-      : []),
+    { icon: Sparkles, label: "Resume Optimizer", path: "/resume-optimizer" },
     { icon: BarChart3, label: "Analytics", path: "/analytics" },
     { icon: Settings, label: "Settings", path: "/settings" },
     ...(isSuperadmin ? [{ icon: Shield, label: "Admin Portal", path: "/admin" }] : []),
@@ -320,9 +318,7 @@ const Dashboard = () => {
                   { icon: Send, label: "Send Emails", description: "Reach out to recruiters", path: "/compose" },
                   { icon: Briefcase, label: "Track Application", description: "Add a new job application", path: "/applications" },
                   { icon: Users, label: "Browse Recruiters", description: "Find recruiters in your field", path: "/recruiters" },
-                  ...(profile?.subscription_tier === "PRO" || profile?.subscription_tier === "PRO_MAX"
-                    ? [{ icon: FileText, label: "Resume Optimizer", description: "Optimize your resume with AI", path: "/resume-optimizer" }]
-                    : []),
+                  { icon: Sparkles, label: "Resume Optimizer", description: "Optimize your resume with AI", path: "/resume-optimizer" },
                 ].map((action, index) => (
                   <button
                     key={index}

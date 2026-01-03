@@ -11,9 +11,10 @@ import { toast } from "sonner";
 interface ResumeUploadProps {
   onUploadSuccess: (resume: any) => void;
   setAsActive?: boolean;
+  disabled?: boolean;
 }
 
-const ResumeUpload = ({ onUploadSuccess, setAsActive = false }: ResumeUploadProps) => {
+const ResumeUpload = ({ onUploadSuccess, setAsActive = false, disabled = false }: ResumeUploadProps) => {
   const [file, setFile] = useState<File | null>(null);
   const [resumeName, setResumeName] = useState("");
   const [uploading, setUploading] = useState(false);
@@ -37,6 +38,7 @@ const ResumeUpload = ({ onUploadSuccess, setAsActive = false }: ResumeUploadProp
     },
     maxSize: 5 * 1024 * 1024, // 5MB
     multiple: false,
+    disabled: disabled,
   });
 
   const handleUpload = async () => {

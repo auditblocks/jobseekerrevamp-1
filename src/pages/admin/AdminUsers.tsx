@@ -96,8 +96,13 @@ export default function AdminUsers() {
       };
 
       // If downgrading to FREE, clear expiration date
+      // If upgrading to PRO or PRO_MAX, set expiration date to 1 year from now
       if (tier === "FREE") {
         updateData.subscription_expires_at = null;
+      } else if (tier === "PRO" || tier === "PRO_MAX") {
+        const expiresAt = new Date();
+        expiresAt.setFullYear(expiresAt.getFullYear() + 1);
+        updateData.subscription_expires_at = expiresAt.toISOString();
       }
 
       const { error } = await supabase
@@ -106,7 +111,7 @@ export default function AdminUsers() {
         .eq("id", userId);
 
       if (error) throw error;
-      toast.success(`User subscription tier updated to ${tier}`);
+      toast.success(`User subscription tier updated to ${tier}. User may need to refresh their page to see changes.`);
       fetchUsers();
     } catch (error: any) {
       console.error("Failed to update subscription tier:", error);

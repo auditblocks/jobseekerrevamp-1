@@ -24,12 +24,22 @@ const ResumeOptimizer = () => {
   const isProUser = profile?.subscription_tier === "PRO" || profile?.subscription_tier === "PRO_MAX";
 
   const handleUploadSuccess = (resume: any) => {
+    if (!isProUser) {
+      toast.error("Please upgrade to PRO or PRO_MAX to upload and analyze resumes");
+      navigate("/subscription");
+      return;
+    }
     setSelectedResumeId(resume.id);
     setActiveTab("analyze");
     toast.success("Resume uploaded! You can now analyze it.");
   };
 
   const handleAnalyze = (resumeId: string) => {
+    if (!isProUser) {
+      toast.error("Please upgrade to PRO or PRO_MAX to analyze resumes");
+      navigate("/subscription");
+      return;
+    }
     setSelectedResumeId(resumeId);
     setActiveTab("analyze");
   };
@@ -38,6 +48,7 @@ const ResumeOptimizer = () => {
     navigate("/subscription");
   };
 
+  // Show upgrade prompt for FREE users but allow them to see the page
   if (!isProUser) {
     return (
       <>
@@ -176,13 +187,50 @@ const ResumeOptimizer = () => {
             </TabsList>
 
             <TabsContent value="upload" className="space-y-6">
+              {!isProUser && (
+                <Card className="border-accent/50 bg-accent/5 mb-4">
+                  <CardContent className="p-6">
+                    <div className="flex items-center gap-3 mb-4">
+                      <Sparkles className="w-6 h-6 text-accent" />
+                      <div>
+                        <h3 className="font-semibold">Upgrade Required</h3>
+                        <p className="text-sm text-muted-foreground">
+                          Upload and analyze resumes with AI-powered ATS scoring
+                        </p>
+                      </div>
+                    </div>
+                    <Button onClick={handleUpgrade} className="w-full sm:w-auto">
+                      Upgrade to PRO
+                    </Button>
+                  </CardContent>
+                </Card>
+              )}
               <ResumeUpload
                 onUploadSuccess={handleUploadSuccess}
                 setAsActive={false}
+                disabled={!isProUser}
               />
             </TabsContent>
 
             <TabsContent value="manage" className="space-y-6">
+              {!isProUser && (
+                <Card className="border-accent/50 bg-accent/5 mb-4">
+                  <CardContent className="p-6">
+                    <div className="flex items-center gap-3 mb-4">
+                      <Sparkles className="w-6 h-6 text-accent" />
+                      <div>
+                        <h3 className="font-semibold">Upgrade Required</h3>
+                        <p className="text-sm text-muted-foreground">
+                          Manage and analyze your resumes with PRO features
+                        </p>
+                      </div>
+                    </div>
+                    <Button onClick={handleUpgrade} className="w-full sm:w-auto">
+                      Upgrade to PRO
+                    </Button>
+                  </CardContent>
+                </Card>
+              )}
               <ResumeManager
                 onAnalyze={handleAnalyze}
                 onResumeSelect={(resume) => setSelectedResumeId(resume.id)}
@@ -190,6 +238,24 @@ const ResumeOptimizer = () => {
             </TabsContent>
 
             <TabsContent value="analyze" className="space-y-6">
+              {!isProUser && (
+                <Card className="border-accent/50 bg-accent/5 mb-4">
+                  <CardContent className="p-6">
+                    <div className="flex items-center gap-3 mb-4">
+                      <Sparkles className="w-6 h-6 text-accent" />
+                      <div>
+                        <h3 className="font-semibold">Upgrade Required</h3>
+                        <p className="text-sm text-muted-foreground">
+                          Get AI-powered ATS score analysis and optimization suggestions
+                        </p>
+                      </div>
+                    </div>
+                    <Button onClick={handleUpgrade} className="w-full sm:w-auto">
+                      Upgrade to PRO
+                    </Button>
+                  </CardContent>
+                </Card>
+              )}
               <ResumeAnalysis
                 resumeId={selectedResumeId}
                 onAnalysisComplete={() => {
