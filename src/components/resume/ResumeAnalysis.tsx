@@ -116,34 +116,53 @@ const ResumeAnalysis = ({ resumeId, onAnalysisComplete }: ResumeAnalysisProps) =
         throw new Error("Invalid session. Please log in again.");
       }
 
-      // Pass Authorization header explicitly with refreshed token
+      // Use direct fetch instead of supabase.functions.invoke to ensure headers are passed correctly
       console.log("Invoking analyze-resume function with resume_id:", resumeId);
       console.log("Token present:", !!session.access_token);
       console.log("Token length:", session.access_token?.length);
       console.log("Token preview:", session.access_token?.substring(0, 20) + "...");
       console.log("Supabase URL:", import.meta.env.VITE_SUPABASE_URL);
-      console.log("Function endpoint:", `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/analyze-resume`);
       
-      // Since verify_jwt = false, we must manually pass the Authorization header
-      const response = await supabase.functions.invoke("analyze-resume", {
-        body: {
+      const functionUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/analyze-resume`;
+      console.log("Function endpoint:", functionUrl);
+      
+      // Use direct fetch to ensure Authorization header is properly sent
+      const fetchResponse = await fetch(functionUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${session.access_token}`,
+          "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || "",
+        },
+        body: JSON.stringify({
           resume_id: resumeId,
           job_description: jobDescription || null,
-        },
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-        },
+        }),
       });
       
+      console.log("Fetch response status:", fetchResponse.status);
+      console.log("Fetch response ok:", fetchResponse.ok);
+      
+      if (!fetchResponse.ok) {
+        const errorText = await fetchResponse.text();
+        let errorData;
+        try {
+          errorData = JSON.parse(errorText);
+        } catch {
+          errorData = { error: errorText };
+        }
+        console.error("Fetch error:", errorData);
+        throw new Error(errorData.error || errorData.details || `HTTP ${fetchResponse.status}: ${fetchResponse.statusText}`);
+      }
+      
+      const data = await fetchResponse.json();
+      const error = null;
+      
       console.log("Edge function response:", { 
-        hasData: !!response.data, 
-        hasError: !!response.error,
-        errorStatus: response.error?.status,
-        errorMessage: response.error?.message,
-        errorDetails: response.error
+        hasData: !!data, 
+        hasError: !!error,
+        dataKeys: data ? Object.keys(data) : []
       });
-
-      const { data, error } = response;
 
       if (error) {
         // Try to extract error message from error object
