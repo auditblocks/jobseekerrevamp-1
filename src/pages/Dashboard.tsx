@@ -39,7 +39,7 @@ interface DashboardStats {
 
 const Dashboard = () => {
   const navigate = useNavigate();
-  const { user, loading: authLoading, isSuperadmin, signOut } = useAuth();
+  const { user, loading: authLoading, isSuperadmin, signOut, profile } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [stats, setStats] = useState<DashboardStats>({
     emailsSent: 0,
@@ -316,6 +316,9 @@ const Dashboard = () => {
                   { icon: Send, label: "Send Emails", description: "Reach out to recruiters", path: "/compose" },
                   { icon: Briefcase, label: "Track Application", description: "Add a new job application", path: "/applications" },
                   { icon: Users, label: "Browse Recruiters", description: "Find recruiters in your field", path: "/recruiters" },
+                  ...(profile?.subscription_tier === "PRO" || profile?.subscription_tier === "PRO_MAX"
+                    ? [{ icon: FileText, label: "Resume Optimizer", description: "Optimize your resume with AI", path: "/resume-optimizer" }]
+                    : []),
                 ].map((action, index) => (
                   <button
                     key={index}

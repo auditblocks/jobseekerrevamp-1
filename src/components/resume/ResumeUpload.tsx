@@ -1,0 +1,188 @@
+import { useState, useCallback } from "react";
+import { useDropzone } from "react-dropzone";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Upload, FileText, X, Loader2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+
+interface ResumeUploadProps {
+  onUploadSuccess: (resume: any) => void;
+  setAsActive?: boolean;
+}
+
+const ResumeUpload = ({ onUploadSuccess, setAsActive = false }: ResumeUploadProps) => {
+  const [file, setFile] = useState<File | null>(null);
+  const [resumeName, setResumeName] = useState("");
+  const [uploading, setUploading] = useState(false);
+
+  const onDrop = useCallback((acceptedFiles: File[]) => {
+    if (acceptedFiles.length > 0) {
+      const selectedFile = acceptedFiles[0];
+      setFile(selectedFile);
+      if (!resumeName) {
+        setResumeName(selectedFile.name.replace(/\.[^/.]+$/, ""));
+      }
+    }
+  }, [resumeName]);
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop,
+    accept: {
+      "application/pdf": [".pdf"],
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document": [".docx"],
+      "text/plain": [".txt"],
+    },
+    maxSize: 5 * 1024 * 1024, // 5MB
+    multiple: false,
+  });
+
+  const handleUpload = async () => {
+    if (!file) {
+      toast.error("Please select a file first");
+      return;
+    }
+
+    setUploading(true);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("name", resumeName || file.name);
+      formData.append("setAsActive", setAsActive.toString());
+
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error("Not authenticated");
+      }
+
+      const { data, error } = await supabase.functions.invoke("upload-resume", {
+        body: formData,
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      if (data.error) {
+        throw new Error(data.error);
+      }
+
+      toast.success("Resume uploaded successfully!");
+      onUploadSuccess(data.resume);
+      setFile(null);
+      setResumeName("");
+    } catch (error: any) {
+      console.error("Upload error:", error);
+      toast.error(error.message || "Failed to upload resume");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const removeFile = () => {
+    setFile(null);
+    setResumeName("");
+  };
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes === 0) return "0 Bytes";
+    const k = 1024;
+    const sizes = ["Bytes", "KB", "MB"];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return Math.round(bytes / Math.pow(k, i) * 100) / 100 + " " + sizes[i];
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Upload Resume</CardTitle>
+        <CardDescription>
+          Upload your resume in PDF, DOCX, or TXT format (max 5MB)
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {!file ? (
+          <div
+            {...getRootProps()}
+            className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
+              isDragActive
+                ? "border-accent bg-accent/10"
+                : "border-border hover:border-accent/50"
+            }`}
+          >
+            <input {...getInputProps()} />
+            <Upload className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+            <p className="text-sm text-muted-foreground mb-2">
+              {isDragActive ? "Drop the file here" : "Drag & drop your resume here, or click to select"}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Supported formats: PDF, DOCX, TXT (max 5MB)
+            </p>
+          </div>
+        ) : (
+          <div className="border rounded-lg p-4 bg-muted/50">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <FileText className="w-8 h-8 text-accent" />
+                <div>
+                  <p className="font-medium text-sm">{file.name}</p>
+                  <p className="text-xs text-muted-foreground">{formatFileSize(file.size)}</p>
+                </div>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={removeFile}
+                disabled={uploading}
+              >
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {file && (
+          <>
+            <div className="space-y-2">
+              <Label htmlFor="resume-name">Resume Name</Label>
+              <Input
+                id="resume-name"
+                value={resumeName}
+                onChange={(e) => setResumeName(e.target.value)}
+                placeholder="Enter a name for this resume"
+                disabled={uploading}
+              />
+            </div>
+
+            <Button
+              onClick={handleUpload}
+              disabled={uploading || !resumeName.trim()}
+              className="w-full"
+            >
+              {uploading ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Uploading...
+                </>
+              ) : (
+                <>
+                  <Upload className="w-4 h-4 mr-2" />
+                  Upload Resume
+                </>
+              )}
+            </Button>
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
+};
+
+export default ResumeUpload;
+

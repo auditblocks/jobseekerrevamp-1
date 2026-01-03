@@ -59,3 +59,9 @@ verify_jwt = false
 
 [functions.auto-scrape-recruiters]
 verify_jwt = false
+
+[functions.upload-resume]
+verify_jwt = true
+
+[functions.analyze-resume]
+verify_jwt = true
