@@ -13,11 +13,17 @@ interface AnalyzeRequest {
 }
 
 serve(async (req) => {
+  console.log("=== analyze-resume function called ===");
+  console.log("Method:", req.method);
+  console.log("URL:", req.url);
+  
   if (req.method === "OPTIONS") {
+    console.log("Handling OPTIONS request");
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
+    console.log("Processing analyze-resume request");
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);

@@ -45,23 +45,37 @@ const ResumeAnalysis = ({ resumeId, onAnalysisComplete }: ResumeAnalysisProps) =
 
     setLoadingAnalysis(true);
     try {
+      // Use maybeSingle() instead of single() to handle cases where no analysis exists
       const { data, error } = await supabase
         .from("resume_analyses")
         .select("*")
         .eq("resume_id", resumeId)
         .order("created_at", { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
 
-      if (error && error.code !== "PGRST116") {
-        throw error;
+      if (error) {
+        // Only throw if it's not a "not found" error
+        if (error.code !== "PGRST116" && error.code !== "42P01") {
+          console.error("Error loading analysis:", error);
+          throw error;
+        }
+        // If no analysis found, that's okay - just set to null
+        setAnalysis(null);
+        return;
       }
 
       if (data) {
         setAnalysis(data);
+      } else {
+        setAnalysis(null);
       }
     } catch (error: any) {
       console.error("Error loading analysis:", error);
+      // Don't show error toast for "not found" - it's normal if no analysis exists yet
+      if (error.code !== "PGRST116" && error.code !== "42P01") {
+        toast.error("Failed to load previous analysis");
+      }
     } finally {
       setLoadingAnalysis(false);
     }
