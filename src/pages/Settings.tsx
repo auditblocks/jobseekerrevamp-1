@@ -26,7 +26,8 @@ import {
   Star,
   StarOff,
   Download,
-  Trash2
+  Trash2,
+  Receipt
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
