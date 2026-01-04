@@ -50,7 +50,18 @@ serve(async (req) => {
       );
     }
 
-    const { original_resume_text, suggestions, job_description, analysis_id }: OptimizeRequest = await req.json();
+    let requestData: OptimizeRequest;
+    try {
+      requestData = await req.json();
+    } catch (parseError: any) {
+      console.error("Error parsing request body:", parseError);
+      return new Response(
+        JSON.stringify({ error: "Invalid request body", details: parseError.message }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const { original_resume_text, suggestions, job_description, analysis_id } = requestData;
 
     if (!original_resume_text || !suggestions || suggestions.length === 0) {
       return new Response(
@@ -58,6 +69,29 @@ serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
+    // Sanitize text to avoid Unicode escape sequence issues
+    const sanitizeText = (text: string): string => {
+      if (!text) return text;
+      return text
+        .replace(/\\u([0-9a-fA-F]{4})/g, (match, hex) => {
+          try {
+            return String.fromCharCode(parseInt(hex, 16));
+          } catch {
+            return '';
+          }
+        })
+        .replace(/\\x([0-9a-fA-F]{2})/g, (match, hex) => {
+          try {
+            return String.fromCharCode(parseInt(hex, 16));
+          } catch {
+            return '';
+          }
+        });
+    };
+
+    const sanitizedResumeText = sanitizeText(original_resume_text);
+    const sanitizedJobDescription = job_description ? sanitizeText(job_description) : undefined;
 
     // Verify analysis belongs to user
     const { data: analysis, error: analysisError } = await supabase
@@ -90,12 +124,12 @@ serve(async (req) => {
     let optimizePrompt = `You are a professional resume optimizer. Apply the following suggestions to improve this resume while maintaining its authenticity and professional tone.
 
 ORIGINAL RESUME:
-${original_resume_text}
+${sanitizedResumeText}
 
 SUGGESTIONS TO APPLY:
 ${suggestions.map((s, idx) => `${idx + 1}. [${s.category.toUpperCase()}] ${s.suggestion}${s.keyword ? ` - Add keyword: "${s.keyword}"${s.where_to_add ? ` in ${s.where_to_add}` : ''}` : ''}`).join('\n')}
 
-${job_description ? `\nTARGET JOB DESCRIPTION:\n${job_description}\n` : ''}
+${sanitizedJobDescription ? `\nTARGET JOB DESCRIPTION:\n${sanitizedJobDescription}\n` : ''}
 
 INSTRUCTIONS:
 1. Apply ALL the suggestions listed above

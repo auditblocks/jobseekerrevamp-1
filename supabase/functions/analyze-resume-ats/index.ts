@@ -73,7 +73,18 @@ serve(async (req) => {
       );
     }
 
-    const { resume_text, job_description, analysis_id }: AnalyzeRequest = await req.json();
+    let requestData: AnalyzeRequest;
+    try {
+      requestData = await req.json();
+    } catch (parseError: any) {
+      console.error("Error parsing request body:", parseError);
+      return new Response(
+        JSON.stringify({ error: "Invalid request body", details: parseError.message }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const { resume_text, job_description, analysis_id } = requestData;
 
     if (!resume_text || !analysis_id) {
       return new Response(
@@ -81,6 +92,30 @@ serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
+    // Sanitize text to avoid Unicode escape sequence issues
+    const sanitizeText = (text: string): string => {
+      if (!text) return text;
+      // Remove problematic Unicode escape sequences
+      return text
+        .replace(/\\u([0-9a-fA-F]{4})/g, (match, hex) => {
+          try {
+            return String.fromCharCode(parseInt(hex, 16));
+          } catch {
+            return '';
+          }
+        })
+        .replace(/\\x([0-9a-fA-F]{2})/g, (match, hex) => {
+          try {
+            return String.fromCharCode(parseInt(hex, 16));
+          } catch {
+            return '';
+          }
+        });
+    };
+
+    const sanitizedResumeText = sanitizeText(resume_text);
+    const sanitizedJobDescription = job_description ? sanitizeText(job_description) : undefined;
 
     // Initialize Google Gemini
     const geminiApiKey = Deno.env.get("GOOGLE_GEMINI_API_KEY");
@@ -98,7 +133,7 @@ serve(async (req) => {
     let analysisPrompt = `Analyze this resume and provide a comprehensive ATS (Applicant Tracking System) compatibility assessment.
 
 RESUME TEXT:
-${resume_text}
+${sanitizedResumeText}
 
 Please provide a detailed analysis in the following EXACT JSON format (respond ONLY with valid JSON, no markdown):
 {
@@ -146,7 +181,7 @@ Please provide a detailed analysis in the following EXACT JSON format (respond O
       analysisPrompt += `
 
 JOB DESCRIPTION:
-${job_description}
+${sanitizedJobDescription}
 
 Additionally, compare the resume against the job description and update the keyword_analysis section with:
 {

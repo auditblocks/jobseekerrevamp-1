@@ -145,9 +145,36 @@ const ResumeOptimizer = () => {
     setResumeText(pastedText);
   };
 
+  const sanitizeText = (text: string): string => {
+    if (!text) return text;
+    // Remove or replace problematic Unicode escape sequences
+    // Replace \u followed by digits with the actual character or remove it
+    return text
+      .replace(/\\u([0-9a-fA-F]{4})/g, (match, hex) => {
+        try {
+          return String.fromCharCode(parseInt(hex, 16));
+        } catch {
+          return '';
+        }
+      })
+      .replace(/\\x([0-9a-fA-F]{2})/g, (match, hex) => {
+        try {
+          return String.fromCharCode(parseInt(hex, 16));
+        } catch {
+          return '';
+        }
+      })
+      // Remove other problematic escape sequences that might cause issues
+      .replace(/\\(?!['"\\/bfnrt])/g, '\\\\');
+  };
+
   const createAnalysisRecord = async (): Promise<string | null> => {
     if (!user?.id) return null;
     try {
+      // Sanitize text to avoid Unicode escape sequence issues
+      const sanitizedResumeText = sanitizeText(resumeText);
+      const sanitizedJobDescription = jobDescription ? sanitizeText(jobDescription) : null;
+
       // Set a default ats_score of 0 (will be updated after analysis)
       const { data, error } = await supabase
         .from("resume_analyses")
@@ -155,8 +182,8 @@ const ResumeOptimizer = () => {
           user_id: user.id,
           resume_id: null, // Nullable for pasted text analysis
           resume_file_name: selectedFile?.name || "pasted_resume.txt",
-          resume_content: resumeText,
-          job_description: jobDescription || null,
+          resume_content: sanitizedResumeText,
+          job_description: sanitizedJobDescription,
           ats_score: 0, // Default score, will be updated after analysis
           payment_status: isProUser ? "completed" : "pending",
           amount_paid: isProUser ? 0 : scanPrice,
@@ -164,11 +191,19 @@ const ResumeOptimizer = () => {
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error("Database error:", error);
+        console.error("Error code:", error.code);
+        console.error("Error message:", error.message);
+        console.error("Error details:", error.details);
+        console.error("Error hint:", error.hint);
+        throw error;
+      }
       return data.id;
     } catch (error: any) {
       console.error("Error creating analysis record:", error);
-      toast.error("Failed to create analysis record: " + (error.message || "Unknown error"));
+      const errorMessage = error?.message || error?.details || "Unknown error";
+      toast.error("Failed to create analysis record: " + errorMessage);
       return null;
     }
   };
