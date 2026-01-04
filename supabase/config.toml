@@ -65,3 +65,18 @@ verify_jwt = false
 
 [functions.analyze-resume]
 verify_jwt = false
+
+[functions.send-purchase-receipt]
+verify_jwt = false
+
+[functions.analyze-resume-ats]
+verify_jwt = false
+
+[functions.create-ats-scan-order]
+verify_jwt = false
+
+[functions.verify-ats-payment]
+verify_jwt = false
+
+[functions.optimize-resume]
+verify_jwt = false

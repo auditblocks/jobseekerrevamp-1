@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { AdminLayout } from "@/components/admin/AdminLayout";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
   Table,
@@ -22,6 +22,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { CreditCard, RefreshCw, IndianRupee, Calendar, User, Pencil, Plus, Trash2, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -87,10 +88,71 @@ export default function AdminSubscriptions() {
   const [editingPlan, setEditingPlan] = useState<Partial<SubscriptionPlan> | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [featuresText, setFeaturesText] = useState("");
+  
+  // ATS Scan Pricing state
+  const [atsScanPrice, setAtsScanPrice] = useState<number>(99);
+  const [atsScanStats, setAtsScanStats] = useState({ total: 0, paid: 0, revenue: 0 });
+  const [savingPrice, setSavingPrice] = useState(false);
 
   useEffect(() => {
     fetchData();
+    fetchAtsScanData();
   }, []);
+
+  const fetchAtsScanData = async () => {
+    try {
+      // Fetch scan price
+      const { data: priceData, error: priceError } = await supabase
+        .from("ats_scan_settings")
+        .select("setting_value")
+        .eq("setting_key", "scan_price")
+        .single();
+
+      if (!priceError && priceData?.setting_value) {
+        const settings = priceData.setting_value as { amount: number; currency: string };
+        setAtsScanPrice(settings.amount || 99);
+      }
+
+      // Fetch scan stats
+      const { data: analysesData, error: analysesError } = await supabase
+        .from("resume_analyses")
+        .select("payment_status, amount_paid");
+
+      if (!analysesError && analysesData) {
+        const total = analysesData.length;
+        const paid = analysesData.filter(a => a.payment_status === "completed").length;
+        const revenue = analysesData
+          .filter(a => a.payment_status === "completed")
+          .reduce((sum, a) => sum + (a.amount_paid || 0), 0);
+        
+        setAtsScanStats({ total, paid, revenue });
+      }
+    } catch (error: any) {
+      console.error("Failed to fetch ATS scan data:", error);
+    }
+  };
+
+  const handleSaveScanPrice = async () => {
+    setSavingPrice(true);
+    try {
+      const { error } = await supabase
+        .from("ats_scan_settings")
+        .upsert({
+          setting_key: "scan_price",
+          setting_value: { amount: atsScanPrice, currency: "INR" },
+        }, {
+          onConflict: "setting_key"
+        });
+
+      if (error) throw error;
+      toast.success("Scan price updated successfully");
+    } catch (error: any) {
+      console.error("Failed to save scan price:", error);
+      toast.error("Failed to save scan price: " + error.message);
+    } finally {
+      setSavingPrice(false);
+    }
+  };
 
   const fetchData = async () => {
     setLoading(true);
@@ -235,6 +297,14 @@ export default function AdminSubscriptions() {
             Refresh
           </Button>
         </div>
+
+        <Tabs defaultValue="subscriptions" className="w-full">
+          <TabsList>
+            <TabsTrigger value="subscriptions">Subscriptions</TabsTrigger>
+            <TabsTrigger value="ats-pricing">ATS Scan Pricing</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="subscriptions" className="space-y-4 sm:space-y-6">
 
         {/* Stats */}
         <div className="grid gap-4 md:grid-cols-3">
@@ -430,6 +500,85 @@ export default function AdminSubscriptions() {
             </div>
           </CardContent>
         </Card>
+          </TabsContent>
+
+          <TabsContent value="ats-pricing" className="space-y-4 sm:space-y-6">
+            {/* ATS Scan Stats */}
+            <div className="grid gap-4 md:grid-cols-3">
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium">Total Scans</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{atsScanStats.total}</div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium">Paid Scans</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-green-500">{atsScanStats.paid}</div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium">Revenue</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold flex items-center gap-1">
+                    <IndianRupee className="h-5 w-5" />
+                    {atsScanStats.revenue.toLocaleString()}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Pricing Configuration */}
+            <Card>
+              <CardHeader>
+                <CardTitle>ATS Scan Pricing</CardTitle>
+                <CardDescription>Configure the price for ATS resume scans</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="scan-price">Scan Price (INR)</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="scan-price"
+                      type="number"
+                      value={atsScanPrice}
+                      onChange={(e) => setAtsScanPrice(Number(e.target.value))}
+                      min="1"
+                      className="max-w-[200px]"
+                    />
+                    <Button 
+                      onClick={handleSaveScanPrice} 
+                      disabled={savingPrice}
+                    >
+                      {savingPrice ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Saving...
+                        </>
+                      ) : (
+                        "Save Price"
+                      )}
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="p-4 bg-muted rounded-lg space-y-2">
+                  <h4 className="font-semibold">Pricing Rules</h4>
+                  <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground">
+                    <li><strong>PRO Users:</strong> Unlimited free scans</li>
+                    <li><strong>FREE Users:</strong> Pay ₹{atsScanPrice} per scan</li>
+                  </ul>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
 
       {/* Edit Plan Dialog */}

@@ -1,55 +1,479 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, FileText, Sparkles } from "lucide-react";
+import { 
+  ArrowLeft, 
+  FileText, 
+  Sparkles, 
+  Upload, 
+  Loader2, 
+  CheckCircle2, 
+  XCircle,
+  FileSearch,
+  IndianRupee,
+  Clock,
+  TrendingUp,
+  Wand2,
+  Download,
+  Check,
+  X
+} from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import SEOHead from "@/components/SEO/SEOHead";
-import StructuredData from "@/components/SEO/StructuredData";
-import ResumeUpload from "@/components/resume/ResumeUpload";
-import ResumeManager from "@/components/resume/ResumeManager";
-import ResumeAnalysis from "@/components/resume/ResumeAnalysis";
+
+declare global {
+  interface Window {
+    Razorpay: any;
+  }
+}
+
+interface AnalysisResult {
+  id: string;
+  ats_score: number;
+  analysis_result: any;
+  keyword_match_score: number;
+  missing_keywords: string[];
+  matched_keywords: string[];
+  created_at: string;
+  payment_status: string;
+}
+
+interface ScanSettings {
+  amount: number;
+  currency: string;
+}
 
 const ResumeOptimizer = () => {
   const navigate = useNavigate();
-  const { profile } = useAuth();
-  const [selectedResumeId, setSelectedResumeId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState("upload");
+  const { user, profile } = useAuth();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  const [resumeText, setResumeText] = useState("");
+  const [jobDescription, setJobDescription] = useState("");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [scanPrice, setScanPrice] = useState<number>(99);
+  const [loading, setLoading] = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [currentAnalysis, setCurrentAnalysis] = useState<AnalysisResult | null>(null);
+  const [analysisHistory, setAnalysisHistory] = useState<AnalysisResult[]>([]);
+  const [processingPayment, setProcessingPayment] = useState(false);
+  const [selectedSuggestions, setSelectedSuggestions] = useState<Set<number>>(new Set());
+  const [optimizing, setOptimizing] = useState(false);
+  const [optimizedResume, setOptimizedResume] = useState<string | null>(null);
+  const [showOptimized, setShowOptimized] = useState(false);
 
-  // Check subscription tier
   const isProUser = profile?.subscription_tier === "PRO" || profile?.subscription_tier === "PRO_MAX";
 
-  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  // Load Razorpay script
+  useEffect(() => {
+    const script = document.createElement("script");
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.async = true;
+    document.body.appendChild(script);
+    return () => {
+      if (document.body.contains(script)) {
+        document.body.removeChild(script);
+      }
+    };
+  }, []);
 
-  const handleUploadSuccess = (resume: any) => {
-    if (!isProUser) {
-      toast.error("Please upgrade to PRO or PRO_MAX to upload and analyze resumes");
-      navigate("/subscription");
+  // Fetch scan price
+  useEffect(() => {
+    const fetchScanPrice = async () => {
+      const { data, error } = await supabase
+        .from("ats_scan_settings")
+        .select("setting_value")
+        .eq("setting_key", "scan_price")
+        .single();
+
+      if (!error && data?.setting_value) {
+        const settings = (data.setting_value as any) as ScanSettings;
+        setScanPrice(settings.amount || 99);
+      }
+    };
+    fetchScanPrice();
+  }, []);
+
+  // Fetch analysis history
+  useEffect(() => {
+    if (user?.id) {
+      fetchAnalysisHistory();
+    }
+  }, [user?.id]);
+
+  const fetchAnalysisHistory = async () => {
+    if (!user?.id) return;
+    try {
+      const { data, error } = await supabase
+        .from("resume_analyses")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(10);
+
+      if (error) throw error;
+      setAnalysisHistory((data || []) as unknown as AnalysisResult[]);
+    } catch (error: any) {
+      console.error("Error fetching analysis history:", error);
+    }
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setSelectedFile(file);
+      // Read file as text
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setResumeText(event.target?.result as string);
+      };
+      reader.readAsText(file);
+    }
+  };
+
+  const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const pastedText = e.clipboardData.getData("text");
+    setResumeText(pastedText);
+  };
+
+  const createAnalysisRecord = async (): Promise<string | null> => {
+    if (!user?.id) return null;
+    try {
+      const { data, error } = await supabase
+        .from("resume_analyses")
+        .insert({
+          user_id: user.id,
+          resume_file_name: selectedFile?.name || "pasted_resume.txt",
+          resume_content: resumeText,
+          job_description: jobDescription || null,
+          payment_status: isProUser ? "completed" : "pending",
+          amount_paid: isProUser ? 0 : scanPrice,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data.id;
+    } catch (error: any) {
+      console.error("Error creating analysis record:", error);
+      toast.error("Failed to create analysis record");
+      return null;
+    }
+  };
+
+  const handleAnalyze = async () => {
+    if (!resumeText.trim()) {
+      toast.error("Please provide resume text");
       return;
     }
-    setSelectedResumeId(resume.id);
-    setActiveTab("manage"); // Switch to manage tab to show the uploaded resume
-    setRefreshTrigger(prev => prev + 1); // Trigger refresh
-    toast.success("Resume uploaded! You can now analyze it.");
-  };
 
-  const handleAnalyze = (resumeId: string) => {
-    if (!isProUser) {
-      toast.error("Please upgrade to PRO or PRO_MAX to analyze resumes");
-      navigate("/subscription");
+    if (!user?.id) {
+      toast.error("Please log in to continue");
+      navigate("/auth");
       return;
     }
-    setSelectedResumeId(resumeId);
-    setActiveTab("analyze");
+
+    // For FREE users, need to pay first
+    if (!isProUser) {
+      await handlePayAndAnalyze();
+      return;
+    }
+
+    // For PRO users, analyze directly
+    await runAnalysis();
   };
 
-  const handleUpgrade = () => {
-    navigate("/subscription");
+  const handlePayAndAnalyze = async () => {
+    setProcessingPayment(true);
+    try {
+      // Create analysis record first
+      const analysisId = await createAnalysisRecord();
+      if (!analysisId) {
+        setProcessingPayment(false);
+        return;
+      }
+
+      // Create Razorpay order
+      const { data: orderData, error: orderError } = await supabase.functions.invoke(
+        "create-ats-scan-order",
+        {
+          body: {
+            analysis_id: analysisId,
+            amount: scanPrice,
+          },
+        }
+      );
+
+      if (orderError) throw orderError;
+      if (!orderData?.order_id) {
+        throw new Error("Failed to create payment order");
+      }
+
+      // Open Razorpay checkout
+      const options = {
+        key: orderData.key_id,
+        amount: orderData.amount,
+        currency: orderData.currency,
+        name: "JobSeeker",
+        description: `ATS Resume Scan - ₹${scanPrice}`,
+        order_id: orderData.order_id,
+        handler: async (response: any) => {
+          try {
+            // Verify payment
+            const { error: verifyError } = await supabase.functions.invoke(
+              "verify-ats-payment",
+              {
+                body: {
+                  razorpay_order_id: response.razorpay_order_id,
+                  razorpay_payment_id: response.razorpay_payment_id,
+                  razorpay_signature: response.razorpay_signature,
+                },
+              }
+            );
+
+            if (verifyError) throw verifyError;
+            
+            toast.success("Payment successful! Analyzing resume...");
+            // Run analysis after payment
+            await runAnalysis(analysisId);
+          } catch (error: any) {
+            console.error("Payment verification error:", error);
+            toast.error("Payment verification failed: " + error.message);
+          } finally {
+            setProcessingPayment(false);
+          }
+        },
+        prefill: {
+          email: user.email || "",
+        },
+        theme: {
+          color: "#6366f1",
+        },
+        modal: {
+          ondismiss: () => {
+            setProcessingPayment(false);
+          },
+        },
+      };
+
+      const razorpay = new window.Razorpay(options);
+      razorpay.open();
+    } catch (error: any) {
+      console.error("Payment error:", error);
+      toast.error("Failed to initiate payment: " + error.message);
+      setProcessingPayment(false);
+    }
   };
+
+  const runAnalysis = async (analysisId?: string) => {
+    setAnalyzing(true);
+    try {
+      // If no analysisId provided, create one
+      let finalAnalysisId = analysisId;
+      if (!finalAnalysisId) {
+        finalAnalysisId = await createAnalysisRecord();
+        if (!finalAnalysisId) {
+          setAnalyzing(false);
+          return;
+        }
+      }
+
+      // Call analyze function
+      const { data, error } = await supabase.functions.invoke("analyze-resume-ats", {
+        body: {
+          resume_text: resumeText,
+          job_description: jobDescription || undefined,
+          analysis_id: finalAnalysisId,
+        },
+      });
+
+      if (error) throw error;
+
+      // Fetch updated analysis
+      const { data: updatedAnalysis, error: fetchError } = await supabase
+        .from("resume_analyses")
+        .select("*")
+        .eq("id", finalAnalysisId)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      setCurrentAnalysis(updatedAnalysis as unknown as AnalysisResult);
+      setSelectedSuggestions(new Set()); // Reset selections
+      setOptimizedResume(null); // Reset optimized resume
+      setShowOptimized(false);
+      toast.success("Analysis completed!");
+      fetchAnalysisHistory();
+    } catch (error: any) {
+      console.error("Analysis error:", error);
+      toast.error("Failed to analyze resume: " + (error.message || "Unknown error"));
+    } finally {
+      setAnalyzing(false);
+    }
+  };
+
+  const toggleSuggestion = (index: number) => {
+    const newSelected = new Set(selectedSuggestions);
+    if (newSelected.has(index)) {
+      newSelected.delete(index);
+    } else {
+      newSelected.add(index);
+    }
+    setSelectedSuggestions(newSelected);
+  };
+
+  const handleOptimizeResume = async () => {
+    if (!currentAnalysis || selectedSuggestions.size === 0) {
+      toast.error("Please select at least one suggestion to apply");
+      return;
+    }
+
+    if (!resumeText.trim()) {
+      toast.error("Original resume text is required");
+      return;
+    }
+
+    setOptimizing(true);
+    try {
+      // Collect selected suggestions
+      const analysisResult = currentAnalysis.analysis_result || {};
+      const allSuggestions: any[] = [];
+      
+      // Get action items
+      const actionItems = analysisResult.action_items || [];
+      actionItems.forEach((item: any, idx: number) => {
+        if (selectedSuggestions.has(idx)) {
+          allSuggestions.push({
+            category: item.category || "general",
+            priority: item.priority === 1 ? "high" : item.priority === 2 ? "medium" : "low",
+            suggestion: item.action,
+            action: item.action,
+            keyword: item.keyword,
+            where_to_add: item.where_to_add,
+          });
+        }
+      });
+
+      // Get formatting issues
+      const formattingIssues = analysisResult.formatting_issues || [];
+      formattingIssues.forEach((issue: any, idx: number) => {
+        const actionIdx = actionItems.length + idx;
+        if (selectedSuggestions.has(actionIdx)) {
+          allSuggestions.push({
+            category: "formatting",
+            priority: issue.severity || "medium",
+            suggestion: issue.recommendation,
+            action: `Fix: ${issue.issue}`,
+          });
+        }
+      });
+
+      // Get content improvements
+      const contentImprovements = analysisResult.content_improvements || [];
+      contentImprovements.forEach((improvement: any, idx: number) => {
+        const actionIdx = actionItems.length + formattingIssues.length + idx;
+        if (selectedSuggestions.has(actionIdx)) {
+          allSuggestions.push({
+            category: "content",
+            priority: improvement.priority || "medium",
+            suggestion: improvement.suggestion,
+            action: `Improve: ${improvement.area}`,
+          });
+        }
+      });
+
+      // Get job-specific suggestions
+      const jobSuggestions = analysisResult.job_specific_suggestions || [];
+      jobSuggestions.forEach((suggestion: any, idx: number) => {
+        const actionIdx = actionItems.length + formattingIssues.length + contentImprovements.length + idx;
+        if (selectedSuggestions.has(actionIdx)) {
+          allSuggestions.push({
+            category: "keywords",
+            priority: "high",
+            suggestion: suggestion.reason,
+            action: `Add keyword: ${suggestion.keyword}`,
+            keyword: suggestion.keyword,
+            where_to_add: suggestion.where_to_add,
+          });
+        }
+      });
+
+      // Call optimize function
+      const { data, error } = await supabase.functions.invoke("optimize-resume", {
+        body: {
+          original_resume_text: resumeText,
+          suggestions: allSuggestions,
+          job_description: jobDescription || undefined,
+          analysis_id: currentAnalysis.id,
+        },
+      });
+
+      if (error) throw error;
+
+      if (data?.optimized_resume_text) {
+        setOptimizedResume(data.optimized_resume_text);
+        setShowOptimized(true);
+        toast.success(`Applied ${data.applied_suggestions_count} suggestions successfully!`);
+        
+        // Update current analysis to include optimized text
+        setCurrentAnalysis({
+          ...currentAnalysis,
+          analysis_result: {
+            ...analysisResult,
+            optimized_resume_text: data.optimized_resume_text,
+            applied_suggestions: allSuggestions,
+          },
+        });
+      }
+    } catch (error: any) {
+      console.error("Optimization error:", error);
+      toast.error("Failed to optimize resume: " + (error.message || "Unknown error"));
+    } finally {
+      setOptimizing(false);
+    }
+  };
+
+  const handleDownloadOptimized = () => {
+    if (!optimizedResume) return;
+    
+    const blob = new Blob([optimizedResume], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `optimized_resume_${new Date().toISOString().split("T")[0]}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast.success("Resume downloaded!");
+  };
+
+  const getScoreColor = (score: number) => {
+    if (score >= 80) return "text-green-500";
+    if (score >= 60) return "text-yellow-500";
+    return "text-red-500";
+  };
+
+  const getScoreBgColor = (score: number) => {
+    if (score >= 80) return "bg-green-500";
+    if (score >= 60) return "bg-yellow-500";
+    return "bg-red-500";
+  };
+
+  const analysisResult = currentAnalysis?.analysis_result || {};
+  const keywordAnalysis = analysisResult.keyword_analysis || {};
+  const formattingIssues = analysisResult.formatting_issues || [];
+  const contentImprovements = analysisResult.content_improvements || [];
+  const actionItems = analysisResult.action_items || [];
 
   return (
     <>
@@ -59,22 +483,16 @@ const ResumeOptimizer = () => {
         keywords="resume optimizer, ATS score checker, resume analysis, job search tool, ATS compatibility"
         canonicalUrl="/resume-optimizer"
       />
-      <StructuredData
-        type="page"
-        pageTitle="Resume Optimizer"
-        pageDescription="AI-powered resume optimization and ATS score checker"
-        pageUrl="/resume-optimizer"
-      />
 
       <div className="min-h-screen bg-background">
         <div className="container mx-auto px-4 py-6 sm:py-8 max-w-7xl">
           <Button
             variant="ghost"
-            onClick={() => navigate(-1)}
+            onClick={() => navigate("/dashboard")}
             className="mb-6"
           >
             <ArrowLeft className="mr-2 h-4 w-4" />
-            Back
+            Back to Dashboard
           </Button>
 
           <motion.div
@@ -85,101 +503,511 @@ const ResumeOptimizer = () => {
           >
             <div className="flex items-center gap-2 mb-2">
               <div className="w-10 h-10 rounded-xl bg-accent/10 flex items-center justify-center">
-                <Sparkles className="w-5 h-5 text-accent" />
+                <FileSearch className="w-5 h-5 text-accent" />
               </div>
               <h1 className="text-3xl font-bold text-foreground">Resume Optimizer</h1>
             </div>
             <p className="text-muted-foreground">
-              Upload your resume and get instant ATS compatibility scores with AI-powered optimization suggestions
+              Get AI-powered ATS compatibility scores and optimization suggestions for your resume
             </p>
           </motion.div>
 
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="upload">Upload Resume</TabsTrigger>
-              <TabsTrigger value="manage">My Resumes</TabsTrigger>
-              <TabsTrigger value="analyze">Analyze</TabsTrigger>
-            </TabsList>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Left Section - Resume Input */}
+            <div className="lg:col-span-2 space-y-6">
+              {/* Resume Upload */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Resume</CardTitle>
+                  <CardDescription>Upload a file or paste your resume text</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex gap-4">
+                    <Input
+                      ref={fileInputRef}
+                      type="file"
+                      accept=".pdf,.doc,.docx,.txt"
+                      onChange={handleFileSelect}
+                      className="hidden"
+                    />
+                    <Button
+                      variant="outline"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="flex-1"
+                    >
+                      <Upload className="mr-2 h-4 w-4" />
+                      Upload File
+                    </Button>
+                    {selectedFile && (
+                      <Badge variant="secondary" className="flex items-center gap-2">
+                        <FileText className="h-3 w-3" />
+                        {selectedFile.name}
+                      </Badge>
+                    )}
+                  </div>
+                  <Textarea
+                    placeholder="Or paste your resume text here..."
+                    value={resumeText}
+                    onChange={(e) => setResumeText(e.target.value)}
+                    onPaste={handlePaste}
+                    rows={12}
+                    className="font-mono text-sm"
+                  />
+                </CardContent>
+              </Card>
 
-            <TabsContent value="upload" className="space-y-6">
-              {!isProUser && (
-                <Card className="border-accent/50 bg-accent/5 mb-4">
-                  <CardContent className="p-6">
-                    <div className="flex items-center gap-3 mb-4">
-                      <Sparkles className="w-6 h-6 text-accent" />
-                      <div>
-                        <h3 className="font-semibold">Upgrade Required</h3>
-                        <p className="text-sm text-muted-foreground">
-                          Upload and analyze resumes with AI-powered ATS scoring
-                        </p>
+              {/* Job Description */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Job Description (Optional)</CardTitle>
+                  <CardDescription>Paste the job description for keyword matching</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Textarea
+                    placeholder="Paste the job description here for targeted keyword analysis..."
+                    value={jobDescription}
+                    onChange={(e) => setJobDescription(e.target.value)}
+                    rows={8}
+                  />
+                </CardContent>
+              </Card>
+
+              {/* Action Card */}
+              <Card className={`border-2 ${isProUser ? 'border-accent/50 bg-accent/5' : 'border-primary/50 bg-primary/5'}`}>
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="font-semibold text-lg mb-2">
+                        {isProUser ? "Unlimited Free Scans" : `Pay ₹${scanPrice} per Scan`}
+                      </h3>
+                      <p className="text-sm text-muted-foreground">
+                        {isProUser 
+                          ? "As a PRO user, you get unlimited ATS resume scans"
+                          : "FREE users pay per scan. Upgrade to PRO for unlimited scans"
+                        }
+                      </p>
+                    </div>
+                    <Button
+                      onClick={handleAnalyze}
+                      disabled={loading || analyzing || processingPayment || !resumeText.trim()}
+                      size="lg"
+                      className={isProUser ? "bg-accent hover:bg-accent/90" : ""}
+                    >
+                      {processingPayment ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Processing Payment...
+                        </>
+                      ) : analyzing ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Analyzing...
+                        </>
+                      ) : isProUser ? (
+                        <>
+                          <Sparkles className="mr-2 h-4 w-4" />
+                          Analyze (Unlimited)
+                        </>
+                      ) : (
+                        <>
+                          <IndianRupee className="mr-2 h-4 w-4" />
+                          Pay & Analyze
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Optimized Resume Display */}
+              {showOptimized && optimizedResume && (
+                <Card className="border-green-500/50 bg-green-500/5">
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="flex items-center gap-2">
+                        <Sparkles className="h-5 w-5 text-green-500" />
+                        Optimized Resume
+                      </CardTitle>
+                      <Button
+                        onClick={handleDownloadOptimized}
+                        variant="outline"
+                        size="sm"
+                      >
+                        <Download className="mr-2 h-4 w-4" />
+                        Download
+                      </Button>
+                    </div>
+                    <CardDescription>
+                      Your resume has been optimized with {selectedSuggestions.size} applied suggestions
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="relative">
+                      <Textarea
+                        value={optimizedResume}
+                        onChange={(e) => setOptimizedResume(e.target.value)}
+                        rows={15}
+                        className="font-mono text-sm"
+                      />
+                      <div className="mt-4 flex gap-2">
+                        <Button
+                          onClick={() => {
+                            setResumeText(optimizedResume);
+                            setShowOptimized(false);
+                            toast.success("Optimized resume loaded for further editing");
+                          }}
+                          variant="outline"
+                          size="sm"
+                        >
+                          Use as New Resume
+                        </Button>
+                        <Button
+                          onClick={() => setShowOptimized(false)}
+                          variant="ghost"
+                          size="sm"
+                        >
+                          Close
+                        </Button>
                       </div>
                     </div>
-                    <Button onClick={handleUpgrade} className="w-full sm:w-auto">
-                      Upgrade to PRO
-                    </Button>
                   </CardContent>
                 </Card>
               )}
-              <ResumeUpload
-                onUploadSuccess={handleUploadSuccess}
-                setAsActive={false}
-                disabled={!isProUser}
-              />
-            </TabsContent>
 
-            <TabsContent value="manage" className="space-y-6">
-              {!isProUser && (
-                <Card className="border-accent/50 bg-accent/5 mb-4">
-                  <CardContent className="p-6">
-                    <div className="flex items-center gap-3 mb-4">
-                      <Sparkles className="w-6 h-6 text-accent" />
-                      <div>
-                        <h3 className="font-semibold">Upgrade Required</h3>
-                        <p className="text-sm text-muted-foreground">
-                          Manage and analyze your resumes with PRO features
-                        </p>
-                      </div>
-                    </div>
-                    <Button onClick={handleUpgrade} className="w-full sm:w-auto">
-                      Upgrade to PRO
-                    </Button>
+              {/* Analysis Results */}
+              {currentAnalysis && !showOptimized && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Analysis Results</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <Tabs defaultValue="keywords" className="w-full">
+                      <TabsList className="grid w-full grid-cols-4">
+                        <TabsTrigger value="keywords">Keywords</TabsTrigger>
+                        <TabsTrigger value="formatting">Formatting</TabsTrigger>
+                        <TabsTrigger value="content">Content</TabsTrigger>
+                        <TabsTrigger value="actions">Action Items</TabsTrigger>
+                      </TabsList>
+
+                      <TabsContent value="keywords" className="space-y-4 mt-4">
+                        <div>
+                          <h4 className="font-semibold mb-2">Found Keywords</h4>
+                          <div className="flex flex-wrap gap-2">
+                            {(keywordAnalysis.found_keywords || currentAnalysis.matched_keywords || []).map((keyword: string, idx: number) => (
+                              <Badge key={idx} variant="default" className="bg-green-500">
+                                {keyword}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                        <div>
+                          <h4 className="font-semibold mb-2">Missing Keywords</h4>
+                          <div className="flex flex-wrap gap-2">
+                            {(keywordAnalysis.missing_keywords || currentAnalysis.missing_keywords || []).map((keyword: string, idx: number) => (
+                              <Badge key={idx} variant="destructive">
+                                {keyword}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      </TabsContent>
+
+                      <TabsContent value="formatting" className="space-y-4 mt-4">
+                        <div className="flex items-center justify-between mb-4">
+                          <p className="text-sm text-muted-foreground">
+                            Select formatting fixes to apply
+                          </p>
+                          {selectedSuggestions.size > 0 && (
+                            <Button
+                              onClick={handleOptimizeResume}
+                              disabled={optimizing}
+                              size="sm"
+                              className="bg-accent hover:bg-accent/90"
+                            >
+                              {optimizing ? (
+                                <>
+                                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                  Optimizing...
+                                </>
+                              ) : (
+                                <>
+                                  <Wand2 className="mr-2 h-4 w-4" />
+                                  Apply Selected
+                                </>
+                              )}
+                            </Button>
+                          )}
+                        </div>
+                        {formattingIssues.map((issue: any, idx: number) => {
+                          const actionItemsCount = (analysisResult.action_items || []).length;
+                          const suggestionIdx = actionItemsCount + idx;
+                          const isSelected = selectedSuggestions.has(suggestionIdx);
+                          return (
+                            <div key={idx} className={`p-4 border rounded-lg transition-colors ${isSelected ? 'border-accent bg-accent/5' : ''}`}>
+                              <div className="flex items-start justify-between mb-2">
+                                <div className="flex-1">
+                                  <h4 className="font-semibold">{issue.issue}</h4>
+                                  <p className="text-sm text-muted-foreground mt-1">{issue.recommendation}</p>
+                                </div>
+                                <div className="flex items-center gap-2 ml-4">
+                                  <Badge variant={issue.severity === "high" ? "destructive" : "secondary"}>
+                                    {issue.severity}
+                                  </Badge>
+                                  <Button
+                                    variant={isSelected ? "default" : "outline"}
+                                    size="sm"
+                                    onClick={() => toggleSuggestion(suggestionIdx)}
+                                  >
+                                    {isSelected ? (
+                                      <>
+                                        <Check className="mr-1 h-3 w-3" />
+                                        Applied
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Wand2 className="mr-1 h-3 w-3" />
+                                        Apply
+                                      </>
+                                    )}
+                                  </Button>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </TabsContent>
+
+                      <TabsContent value="content" className="space-y-4 mt-4">
+                        <div>
+                          <h4 className="font-semibold mb-2">Strengths</h4>
+                          <ul className="list-disc list-inside space-y-1">
+                            {(analysisResult.content_strengths || []).map((strength: string, idx: number) => (
+                              <li key={idx} className="text-sm">{strength}</li>
+                            ))}
+                          </ul>
+                        </div>
+                        <div>
+                          <div className="flex items-center justify-between mb-2">
+                            <h4 className="font-semibold">Improvements</h4>
+                            {selectedSuggestions.size > 0 && (
+                              <Button
+                                onClick={handleOptimizeResume}
+                                disabled={optimizing}
+                                size="sm"
+                                className="bg-accent hover:bg-accent/90"
+                              >
+                                {optimizing ? (
+                                  <>
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    Optimizing...
+                                  </>
+                                ) : (
+                                  <>
+                                    <Wand2 className="mr-2 h-4 w-4" />
+                                    Apply Selected
+                                  </>
+                                )}
+                              </Button>
+                            )}
+                          </div>
+                          {contentImprovements.map((improvement: any, idx: number) => {
+                            const actionItemsCount = (analysisResult.action_items || []).length;
+                            const formattingCount = (analysisResult.formatting_issues || []).length;
+                            const suggestionIdx = actionItemsCount + formattingCount + idx;
+                            const isSelected = selectedSuggestions.has(suggestionIdx);
+                            return (
+                              <div key={idx} className={`p-4 border rounded-lg mb-2 transition-colors ${isSelected ? 'border-accent bg-accent/5' : ''}`}>
+                                <div className="flex items-start justify-between mb-2">
+                                  <div className="flex-1">
+                                    <h5 className="font-medium">{improvement.area}</h5>
+                                    <p className="text-sm text-muted-foreground mt-1 mb-1">
+                                      <strong>Current:</strong> {improvement.current_state}
+                                    </p>
+                                    <p className="text-sm">{improvement.suggestion}</p>
+                                  </div>
+                                  <div className="flex items-center gap-2 ml-4">
+                                    <Badge variant={improvement.priority === "high" ? "destructive" : "secondary"}>
+                                      {improvement.priority}
+                                    </Badge>
+                                    <Button
+                                      variant={isSelected ? "default" : "outline"}
+                                      size="sm"
+                                      onClick={() => toggleSuggestion(suggestionIdx)}
+                                    >
+                                      {isSelected ? (
+                                        <>
+                                          <Check className="mr-1 h-3 w-3" />
+                                          Applied
+                                        </>
+                                      ) : (
+                                        <>
+                                          <Wand2 className="mr-1 h-3 w-3" />
+                                          Apply
+                                        </>
+                                      )}
+                                    </Button>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </TabsContent>
+
+                      <TabsContent value="actions" className="space-y-4 mt-4">
+                        <div className="flex items-center justify-between mb-4">
+                          <p className="text-sm text-muted-foreground">
+                            Select suggestions to apply ({selectedSuggestions.size} selected)
+                          </p>
+                          {selectedSuggestions.size > 0 && (
+                            <Button
+                              onClick={handleOptimizeResume}
+                              disabled={optimizing}
+                              size="sm"
+                              className="bg-accent hover:bg-accent/90"
+                            >
+                              {optimizing ? (
+                                <>
+                                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                  Optimizing...
+                                </>
+                              ) : (
+                                <>
+                                  <Wand2 className="mr-2 h-4 w-4" />
+                                  Apply Selected ({selectedSuggestions.size})
+                                </>
+                              )}
+                            </Button>
+                          )}
+                        </div>
+                        <ol className="list-decimal list-inside space-y-3">
+                          {actionItems
+                            .sort((a: any, b: any) => a.priority - b.priority)
+                            .map((item: any, idx: number) => {
+                              const isSelected = selectedSuggestions.has(idx);
+                              return (
+                                <li key={idx} className={`p-4 border rounded-lg transition-colors ${isSelected ? 'border-accent bg-accent/5' : ''}`}>
+                                  <div className="flex items-start justify-between mb-2">
+                                    <div className="flex-1">
+                                      <div className="flex items-center gap-2 mb-1">
+                                        <h4 className="font-semibold">{item.action}</h4>
+                                        <Badge variant="outline">{item.category}</Badge>
+                                      </div>
+                                      <p className="text-sm text-muted-foreground">{item.impact}</p>
+                                    </div>
+                                    <Button
+                                      variant={isSelected ? "default" : "outline"}
+                                      size="sm"
+                                      onClick={() => toggleSuggestion(idx)}
+                                      className="ml-4"
+                                    >
+                                      {isSelected ? (
+                                        <>
+                                          <Check className="mr-1 h-3 w-3" />
+                                          Applied
+                                        </>
+                                      ) : (
+                                        <>
+                                          <Wand2 className="mr-1 h-3 w-3" />
+                                          Apply
+                                        </>
+                                      )}
+                                    </Button>
+                                  </div>
+                                </li>
+                              );
+                            })}
+                        </ol>
+                      </TabsContent>
+                    </Tabs>
                   </CardContent>
                 </Card>
               )}
-              <ResumeManager
-                onAnalyze={handleAnalyze}
-                onResumeSelect={(resume) => setSelectedResumeId(resume.id)}
-                refreshTrigger={refreshTrigger}
-              />
-            </TabsContent>
+            </div>
 
-            <TabsContent value="analyze" className="space-y-6">
-              {!isProUser && (
-                <Card className="border-accent/50 bg-accent/5 mb-4">
-                  <CardContent className="p-6">
-                    <div className="flex items-center gap-3 mb-4">
-                      <Sparkles className="w-6 h-6 text-accent" />
+            {/* Right Sidebar */}
+            <div className="space-y-6">
+              {/* ATS Score Display */}
+              {currentAnalysis && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>ATS Score</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="text-center">
+                      <div className={`text-6xl font-bold ${getScoreColor(currentAnalysis.ats_score)}`}>
+                        {currentAnalysis.ats_score}
+                      </div>
+                      <div className="text-sm text-muted-foreground mt-2">out of 100</div>
+                    </div>
+                    <Progress value={currentAnalysis.ats_score} className="h-3" />
+                    
+                    <div className="space-y-3 pt-4 border-t">
                       <div>
-                        <h3 className="font-semibold">Upgrade Required</h3>
-                        <p className="text-sm text-muted-foreground">
-                          Get AI-powered ATS score analysis and optimization suggestions
-                        </p>
+                        <div className="flex justify-between text-sm mb-1">
+                          <span>Keywords</span>
+                          <span>{currentAnalysis.keyword_match_score || 0}%</span>
+                        </div>
+                        <Progress value={currentAnalysis.keyword_match_score || 0} className="h-2" />
+                      </div>
+                      <div>
+                        <div className="flex justify-between text-sm mb-1">
+                          <span>Formatting</span>
+                          <span>{analysisResult.analysis_data?.formatting_score || 0}%</span>
+                        </div>
+                        <Progress value={analysisResult.analysis_data?.formatting_score || 0} className="h-2" />
+                      </div>
+                      <div>
+                        <div className="flex justify-between text-sm mb-1">
+                          <span>Content</span>
+                          <span>{analysisResult.analysis_data?.content_score || 0}%</span>
+                        </div>
+                        <Progress value={analysisResult.analysis_data?.content_score || 0} className="h-2" />
                       </div>
                     </div>
-                    <Button onClick={handleUpgrade} className="w-full sm:w-auto">
-                      Upgrade to PRO
-                    </Button>
                   </CardContent>
                 </Card>
               )}
-              <ResumeAnalysis
-                resumeId={selectedResumeId}
-                onAnalysisComplete={() => {
-                  // Refresh resume list if needed
-                }}
-              />
-            </TabsContent>
-          </Tabs>
+
+              {/* Analysis History */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Recent Analyses</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {analysisHistory.length === 0 ? (
+                      <p className="text-sm text-muted-foreground text-center py-4">
+                        No analyses yet
+                      </p>
+                    ) : (
+                      analysisHistory.map((analysis) => (
+                        <div
+                          key={analysis.id}
+                          className="p-3 border rounded-lg cursor-pointer hover:bg-accent/5 transition-colors"
+                          onClick={() => setCurrentAnalysis(analysis)}
+                        >
+                          <div className="flex items-center justify-between mb-2">
+                            <div className={`text-2xl font-bold ${getScoreColor(analysis.ats_score)}`}>
+                              {analysis.ats_score}
+                            </div>
+                            {analysis.payment_status === "completed" ? (
+                              <CheckCircle2 className="h-4 w-4 text-green-500" />
+                            ) : (
+                              <Clock className="h-4 w-4 text-yellow-500" />
+                            )}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {new Date(analysis.created_at).toLocaleDateString()}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
         </div>
       </div>
     </>

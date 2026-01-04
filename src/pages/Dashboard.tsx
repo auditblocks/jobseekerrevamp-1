@@ -21,7 +21,9 @@ import {
   Sparkles,
   Shield,
   Eye,
-  Activity
+  Activity,
+  FileSearch,
+  Wand2
 } from "lucide-react";
 import { toast } from "sonner";
 import { Helmet } from "react-helmet-async";
@@ -41,6 +43,7 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, loading: authLoading, isSuperadmin, signOut, profile } = useAuth();
+  const isProUser = profile?.subscription_tier === "PRO" || profile?.subscription_tier === "PRO_MAX";
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [stats, setStats] = useState<DashboardStats>({
     emailsSent: 0,
@@ -144,7 +147,7 @@ const Dashboard = () => {
     { icon: Briefcase, label: "Applications", path: "/applications" },
     { icon: FileText, label: "Templates", path: "/templates" },
     { icon: Users, label: "Recruiters", path: "/recruiters" },
-    { icon: Sparkles, label: "Resume Optimizer", path: "/resume-optimizer" },
+    { icon: FileSearch, label: "Resume Optimizer", path: "/resume-optimizer", badge: isProUser ? "PRO" : "NEW" },
     { icon: BarChart3, label: "Analytics", path: "/analytics" },
     { icon: Settings, label: "Settings", path: "/settings" },
     ...(isSuperadmin ? [{ icon: Shield, label: "Admin Portal", path: "/admin" }] : []),
@@ -183,14 +186,25 @@ const Dashboard = () => {
                   <button
                     key={index}
                     onClick={() => navigate(item.path)}
-                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left transition-colors ${
+                    className={`w-full flex items-center justify-between gap-3 px-4 py-3 rounded-lg text-left transition-colors ${
                       isActive 
                         ? 'bg-sidebar-primary text-sidebar-primary-foreground' 
                         : 'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
                     }`}
                   >
-                    <item.icon className="w-5 h-5" />
-                    <span className="font-medium">{item.label}</span>
+                    <div className="flex items-center gap-3">
+                      <item.icon className="w-5 h-5" />
+                      <span className="font-medium">{item.label}</span>
+                    </div>
+                    {(item as any).badge && (
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${
+                        (item as any).badge === "PRO" 
+                          ? 'bg-accent/20 text-accent' 
+                          : 'bg-green-500/20 text-green-500'
+                      }`}>
+                        {(item as any).badge}
+                      </span>
+                    )}
                   </button>
                 );
               })}
@@ -318,7 +332,7 @@ const Dashboard = () => {
                   { icon: Send, label: "Send Emails", description: "Reach out to recruiters", path: "/compose" },
                   { icon: Briefcase, label: "Track Application", description: "Add a new job application", path: "/applications" },
                   { icon: Users, label: "Browse Recruiters", description: "Find recruiters in your field", path: "/recruiters" },
-                  { icon: Sparkles, label: "Resume Optimizer", description: "Optimize your resume with AI", path: "/resume-optimizer" },
+                  { icon: FileSearch, label: "Resume Optimizer", description: "Optimize your resume with AI", path: "/resume-optimizer" },
                 ].map((action, index) => (
                   <button
                     key={index}

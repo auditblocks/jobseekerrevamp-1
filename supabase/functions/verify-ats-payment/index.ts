@@ -65,97 +65,46 @@ serve(async (req) => {
       throw new Error("Invalid payment signature");
     }
 
-    console.log("Payment verified successfully:", razorpay_payment_id);
+    console.log("ATS payment verified successfully:", razorpay_payment_id);
 
-    // Get subscription history record
-    const { data: subscription, error: subError } = await supabase
-      .from("subscription_history")
-      .select("*, subscription_plans(*)")
+    // Get analysis record
+    const { data: analysis, error: analysisError } = await supabase
+      .from("resume_analyses")
+      .select("*")
       .eq("razorpay_order_id", razorpay_order_id)
       .eq("user_id", user.id)
       .single();
 
-    if (subError || !subscription) {
-      throw new Error("Subscription not found");
+    if (analysisError || !analysis) {
+      throw new Error("Analysis not found");
     }
 
-    // Calculate expiry date
-    const plan = subscription.subscription_plans;
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + (plan?.duration_days || 30));
-
-    // Update subscription history
+    // Update analysis payment status
     const { error: updateError } = await supabase
-      .from("subscription_history")
+      .from("resume_analyses")
       .update({
-        status: "completed",
+        payment_status: "completed",
         razorpay_payment_id,
-        expires_at: expiresAt.toISOString(),
       })
-      .eq("id", subscription.id);
+      .eq("id", analysis.id);
 
     if (updateError) {
-      console.error("Failed to update subscription:", updateError);
+      console.error("Failed to update analysis:", updateError);
+      throw new Error("Failed to update analysis payment status");
     }
-
-    // Update user profile with new tier
-    const { error: profileError } = await supabase
-      .from("profiles")
-      .update({
-        subscription_tier: plan?.name?.toUpperCase() || "PRO",
-        subscription_expires_at: expiresAt.toISOString(),
-      })
-      .eq("id", user.id);
-
-    if (profileError) {
-      console.error("Failed to update profile:", profileError);
-    }
-
-    // Fetch user profile for receipt email
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("name, email")
-      .eq("id", user.id)
-      .single();
-
-    // Send receipt email asynchronously (non-blocking)
-    fetch(`${supabaseUrl}/functions/v1/send-purchase-receipt`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${supabaseServiceKey}`,
-      },
-      body: JSON.stringify({
-        user_id: user.id,
-        user_email: profile?.email || user.email || "",
-        user_name: profile?.name || "User",
-        plan_name: plan?.name || "PRO",
-        plan_display_name: plan?.display_name || null,
-        amount: subscription.amount, // Already in rupees
-        order_id: razorpay_order_id,
-        payment_id: razorpay_payment_id,
-        purchase_date: new Date().toISOString(),
-        expiry_date: expiresAt.toISOString(),
-        duration_days: plan?.duration_days || 30,
-      }),
-    }).catch(err => {
-      console.error("Failed to send receipt email:", err);
-      // Don't fail payment verification if receipt fails
-    });
 
     return new Response(
       JSON.stringify({
         success: true,
         message: "Payment verified successfully",
-        subscription_tier: plan?.name?.toUpperCase() || "PRO",
-        expires_at: expiresAt.toISOString(),
+        analysis_id: analysis.id,
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       }
     );
   } catch (error: any) {
-    console.error("Error verifying payment:", error);
+    console.error("Error verifying ATS payment:", error);
     return new Response(
       JSON.stringify({ error: error.message }),
       {
@@ -165,3 +114,4 @@ serve(async (req) => {
     );
   }
 });
+
