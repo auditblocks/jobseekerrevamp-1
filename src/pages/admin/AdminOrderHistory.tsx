@@ -7,6 +7,13 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Table,
   TableBody,
   TableCell,
@@ -56,6 +63,7 @@ const AdminOrderHistory = () => {
   const [orders, setOrders] = useState<OrderHistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
   const [stats, setStats] = useState({
     totalOrders: 0,
     completedOrders: 0,
@@ -112,11 +120,12 @@ const AdminOrderHistory = () => {
     }
   };
 
-  const formatCurrency = (amountInPaise: number) => {
+  const formatCurrency = (amountInRupees: number) => {
+    // Amounts are stored in rupees (999 = ₹999), not paise
     return new Intl.NumberFormat("en-IN", {
       style: "currency",
       currency: "INR",
-    }).format(amountInPaise / 100);
+    }).format(amountInRupees);
   };
 
   const formatDate = (dateString: string | null) => {
@@ -168,8 +177,19 @@ const AdminOrderHistory = () => {
     );
   };
 
-  // Filter orders based on search query
+  // Filter orders based on search query and status
   const filteredOrders = orders.filter((order) => {
+    // Status filter
+    if (statusFilter !== "all") {
+      if (statusFilter === "success" && order.status !== "completed") {
+        return false;
+      }
+      if (statusFilter === "pending" && order.status !== "pending") {
+        return false;
+      }
+    }
+
+    // Search query filter
     if (!searchQuery) return true;
     const query = searchQuery.toLowerCase();
     return (

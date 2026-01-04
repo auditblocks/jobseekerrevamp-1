@@ -128,11 +128,12 @@ const OrderHistory = () => {
     }
   };
 
-  const formatCurrency = (amountInPaise: number) => {
+  const formatCurrency = (amountInRupees: number) => {
+    // Amounts are stored in rupees (999 = ₹999), not paise
     return new Intl.NumberFormat("en-IN", {
       style: "currency",
       currency: "INR",
-    }).format(amountInPaise / 100);
+    }).format(amountInRupees);
   };
 
   const formatDate = (dateString: string | null) => {
