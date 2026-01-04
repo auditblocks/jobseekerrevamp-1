@@ -148,13 +148,16 @@ const ResumeOptimizer = () => {
   const createAnalysisRecord = async (): Promise<string | null> => {
     if (!user?.id) return null;
     try {
+      // Set a default ats_score of 0 (will be updated after analysis)
       const { data, error } = await supabase
         .from("resume_analyses")
         .insert({
           user_id: user.id,
+          resume_id: null, // Nullable for pasted text analysis
           resume_file_name: selectedFile?.name || "pasted_resume.txt",
           resume_content: resumeText,
           job_description: jobDescription || null,
+          ats_score: 0, // Default score, will be updated after analysis
           payment_status: isProUser ? "completed" : "pending",
           amount_paid: isProUser ? 0 : scanPrice,
         })
@@ -165,7 +168,7 @@ const ResumeOptimizer = () => {
       return data.id;
     } catch (error: any) {
       console.error("Error creating analysis record:", error);
-      toast.error("Failed to create analysis record");
+      toast.error("Failed to create analysis record: " + (error.message || "Unknown error"));
       return null;
     }
   };

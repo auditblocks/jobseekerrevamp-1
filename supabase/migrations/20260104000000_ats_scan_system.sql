@@ -58,6 +58,10 @@ ON CONFLICT (setting_key) DO NOTHING;
 -- =====================================================
 -- UPDATE RESUME_ANALYSES TABLE
 -- =====================================================
+-- Make resume_id nullable to support pasted text analysis
+ALTER TABLE public.resume_analyses
+ALTER COLUMN resume_id DROP NOT NULL;
+
 -- Add new columns for payment tracking
 ALTER TABLE public.resume_analyses
 ADD COLUMN IF NOT EXISTS resume_file_name TEXT,
