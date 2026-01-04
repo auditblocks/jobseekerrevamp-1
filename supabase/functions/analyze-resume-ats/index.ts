@@ -115,27 +115,6 @@ serve(async (req) => {
         });
     };
 
-    // Sanitize text to avoid Unicode escape sequence issues
-    const sanitizeText = (text: string): string => {
-      if (!text) return text;
-      // Remove problematic Unicode escape sequences
-      return text
-        .replace(/\\u([0-9a-fA-F]{4})/g, (match, hex) => {
-          try {
-            return String.fromCharCode(parseInt(hex, 16));
-          } catch {
-            return '';
-          }
-        })
-        .replace(/\\x([0-9a-fA-F]{2})/g, (match, hex) => {
-          try {
-            return String.fromCharCode(parseInt(hex, 16));
-          } catch {
-            return '';
-          }
-        });
-    };
-
     const sanitizedResumeText = sanitizeText(resume_text);
     const sanitizedJobDescription = job_description ? sanitizeText(job_description) : undefined;
 
