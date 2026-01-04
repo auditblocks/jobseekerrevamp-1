@@ -11,7 +11,8 @@ import {
   ArrowLeft,
   Sliders,
   Activity,
-  Mail
+  Mail,
+  Receipt
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
@@ -44,6 +45,7 @@ const managementItems = [
   { title: "Scraper", url: "/admin/scraper", icon: Globe },
   { title: "Domains", url: "/admin/domains", icon: Globe },
   { title: "Subscriptions", url: "/admin/subscriptions", icon: CreditCard },
+  { title: "Order History", url: "/admin/order-history", icon: Receipt },
   { title: "Notifications", url: "/admin/notifications", icon: Bell },
   { title: "Requests", url: "/admin/requests", icon: FileText },
   { title: "Dashboard Config", url: "/admin/dashboard-config", icon: Sliders },
