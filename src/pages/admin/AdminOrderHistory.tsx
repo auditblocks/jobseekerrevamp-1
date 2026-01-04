@@ -95,7 +95,8 @@ const AdminOrderHistory = () => {
 
       if (error) throw error;
 
-      setOrders(data || []);
+      // Type cast the data to match our interface
+      setOrders((data || []) as OrderHistoryItem[]);
 
       // Calculate stats
       const totalOrders = data?.length || 0;
