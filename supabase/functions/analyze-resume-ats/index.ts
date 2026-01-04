@@ -94,14 +94,26 @@ serve(async (req) => {
       );
     }
 
-    const { resume_text, job_description, analysis_id } = requestData;
-
-    if (!resume_text || !analysis_id) {
-      return new Response(
-        JSON.stringify({ error: "Missing required fields: resume_text, analysis_id" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
+    // Sanitize text to avoid Unicode escape sequence issues
+    const sanitizeText = (text: string): string => {
+      if (!text) return text;
+      // Remove problematic Unicode escape sequences
+      return text
+        .replace(/\\u([0-9a-fA-F]{4})/g, (match, hex) => {
+          try {
+            return String.fromCharCode(parseInt(hex, 16));
+          } catch {
+            return '';
+          }
+        })
+        .replace(/\\x([0-9a-fA-F]{2})/g, (match, hex) => {
+          try {
+            return String.fromCharCode(parseInt(hex, 16));
+          } catch {
+            return '';
+          }
+        });
+    };
 
     // Sanitize text to avoid Unicode escape sequence issues
     const sanitizeText = (text: string): string => {
@@ -124,7 +136,6 @@ serve(async (req) => {
         });
     };
 
-    // Extract fields from already parsed requestData
     const sanitizedResumeText = sanitizeText(resume_text);
     const sanitizedJobDescription = job_description ? sanitizeText(job_description) : undefined;
 
