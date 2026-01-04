@@ -46,6 +46,7 @@ const AdminDashboardConfig = lazy(() => import("./pages/admin/AdminDashboardConf
 const AdminUserActivity = lazy(() => import("./pages/admin/AdminUserActivity"));
 const AdminEmailCampaigns = lazy(() => import("./pages/admin/AdminEmailCampaigns"));
 const AdminScraperConfig = lazy(() => import("./pages/admin/AdminScraperConfig"));
+const AdminOrderHistory = lazy(() => import("./pages/admin/AdminOrderHistory"));
 
 // Loading fallback component
 const PageLoader = () => (
