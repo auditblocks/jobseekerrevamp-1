@@ -14,6 +14,12 @@ ALTER TABLE public.ats_scan_settings ENABLE ROW LEVEL SECURITY;
 CREATE INDEX IF NOT EXISTS idx_ats_scan_settings_key ON public.ats_scan_settings(setting_key);
 
 -- RLS Policies for ats_scan_settings
+-- Drop existing policies if they exist
+DROP POLICY IF EXISTS "Anyone can read scan settings" ON public.ats_scan_settings;
+DROP POLICY IF EXISTS "Superadmins can insert scan settings" ON public.ats_scan_settings;
+DROP POLICY IF EXISTS "Superadmins can update scan settings" ON public.ats_scan_settings;
+DROP POLICY IF EXISTS "Superadmins can delete scan settings" ON public.ats_scan_settings;
+
 -- Anyone can read settings
 CREATE POLICY "Anyone can read scan settings"
     ON public.ats_scan_settings FOR SELECT
