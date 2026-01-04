@@ -19,8 +19,23 @@ serve(async (req) => {
   }
 
   try {
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    console.log("=== analyze-resume-ats function called ===");
+    console.log("Method:", req.method);
+    
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    
+    if (!supabaseUrl || !supabaseServiceKey) {
+      console.error("Missing environment variables:", { 
+        hasUrl: !!supabaseUrl, 
+        hasKey: !!supabaseServiceKey 
+      });
+      return new Response(
+        JSON.stringify({ error: "Server configuration error" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Get auth token
@@ -79,11 +94,19 @@ serve(async (req) => {
     }
 
     // Check payment status for FREE users
-    const { data: profile } = await supabase
+    const { data: profile, error: profileError } = await supabase
       .from("profiles")
       .select("subscription_tier")
       .eq("id", user.id)
-      .single();
+      .maybeSingle();
+
+    if (profileError) {
+      console.error("Error fetching profile:", profileError);
+      return new Response(
+        JSON.stringify({ error: "Failed to fetch user profile", details: profileError.message }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     const isProUser = profile?.subscription_tier === "PRO" || profile?.subscription_tier === "PRO_MAX";
     
@@ -121,14 +144,27 @@ serve(async (req) => {
     // Initialize Google Gemini
     const geminiApiKey = Deno.env.get("GOOGLE_GEMINI_API_KEY");
     if (!geminiApiKey) {
+      console.error("GOOGLE_GEMINI_API_KEY not configured");
       return new Response(
         JSON.stringify({ error: "Google Gemini API key not configured" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const genAI = new GoogleGenerativeAI(geminiApiKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+    console.log("Initializing Gemini API...");
+    let genAI: GoogleGenerativeAI;
+    let model: any;
+    try {
+      genAI = new GoogleGenerativeAI(geminiApiKey);
+      model = genAI.getGenerativeModel({ model: "gemini-pro" });
+      console.log("Gemini API initialized successfully");
+    } catch (initError: any) {
+      console.error("Error initializing Gemini API:", initError);
+      return new Response(
+        JSON.stringify({ error: "Failed to initialize AI service", details: initError.message }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     // Build structured JSON prompt
     let analysisPrompt = `Analyze this resume and provide a comprehensive ATS (Applicant Tracking System) compatibility assessment.
@@ -208,9 +244,15 @@ IMPORTANT: Respond ONLY with valid JSON. Do not include markdown code blocks, ex
 
     // Call Gemini API
     try {
+      console.log("Calling Gemini API...");
+      console.log("Prompt length:", analysisPrompt.length);
+      console.log("Resume text length:", sanitizedResumeText.length);
+      
       const result = await model.generateContent(analysisPrompt);
       const response = await result.response;
       let analysisText = response.text().trim();
+      
+      console.log("Gemini response received, length:", analysisText.length);
 
       // Parse JSON response (remove markdown code blocks if present)
       if (analysisText.startsWith("```json")) {
@@ -219,41 +261,87 @@ IMPORTANT: Respond ONLY with valid JSON. Do not include markdown code blocks, ex
         analysisText = analysisText.replace(/^```\n?/, "").replace(/\n?```$/, "");
       }
 
-      const analysisResult = JSON.parse(analysisText);
+      console.log("Parsing JSON response...");
+      let analysisResult: any;
+      try {
+        analysisResult = JSON.parse(analysisText);
+        console.log("JSON parsed successfully");
+      } catch (parseError: any) {
+        console.error("JSON parse error:", parseError);
+        console.error("Response text (first 500 chars):", analysisText.substring(0, 500));
+        throw new Error(`Failed to parse AI response as JSON: ${parseError.message}`);
+      }
 
-      // Extract scores
-      const atsScore = analysisResult.ats_score || 0;
-      const keywordScore = analysisResult.keyword_analysis?.keyword_score || 0;
-      const formattingScore = 100 - (analysisResult.formatting_issues?.length || 0) * 10;
-      const contentScore = analysisResult.content_strengths?.length > 0 ? 70 : 50;
+      // Extract scores with validation
+      const atsScore = typeof analysisResult.ats_score === 'number' ? analysisResult.ats_score : 0;
+      const keywordScore = typeof analysisResult.keyword_analysis?.keyword_score === 'number' 
+        ? analysisResult.keyword_analysis.keyword_score 
+        : 0;
+      const formattingScore = Math.max(0, Math.min(100, 100 - (analysisResult.formatting_issues?.length || 0) * 10));
+      const contentScore = (analysisResult.content_strengths?.length > 0) ? 70 : 50;
+      
+      console.log("Scores extracted:", { atsScore, keywordScore, formattingScore, contentScore });
 
       // Update analysis in database
+      console.log("Updating analysis in database...");
+      const updateData = {
+        ats_score: atsScore,
+        analysis_result: analysisResult,
+        keyword_match_score: keywordScore,
+        analysis_data: {
+          formatting_score: Math.max(0, Math.min(100, formattingScore)),
+          content_score: Math.max(0, Math.min(100, contentScore)),
+          keyword_score: keywordScore,
+        },
+        missing_keywords: Array.isArray(analysisResult.keyword_analysis?.missing_keywords) 
+          ? analysisResult.keyword_analysis.missing_keywords 
+          : [],
+        matched_keywords: Array.isArray(analysisResult.keyword_analysis?.found_keywords) 
+          ? analysisResult.keyword_analysis.found_keywords 
+          : [],
+      };
+      
+      console.log("Update data prepared:", {
+        ats_score: updateData.ats_score,
+        keyword_match_score: updateData.keyword_match_score,
+        missing_keywords_count: updateData.missing_keywords.length,
+        matched_keywords_count: updateData.matched_keywords.length,
+      });
+      
       const { data: updatedAnalysis, error: updateError } = await supabase
         .from("resume_analyses")
-        .update({
-          ats_score: atsScore,
-          analysis_result: analysisResult,
-          keyword_match_score: keywordScore,
-          analysis_data: {
-            formatting_score: Math.max(0, Math.min(100, formattingScore)),
-            content_score: Math.max(0, Math.min(100, contentScore)),
-            keyword_score: keywordScore,
-          },
-          missing_keywords: analysisResult.keyword_analysis?.missing_keywords || [],
-          matched_keywords: analysisResult.keyword_analysis?.found_keywords || [],
-        })
+        .update(updateData)
         .eq("id", analysis_id)
         .select()
         .single();
 
       if (updateError) {
         console.error("Error updating analysis:", updateError);
+        console.error("Update error details:", {
+          code: updateError.code,
+          message: updateError.message,
+          details: updateError.details,
+          hint: updateError.hint,
+        });
         return new Response(
-          JSON.stringify({ error: "Failed to save analysis", details: updateError.message }),
+          JSON.stringify({ 
+            error: "Failed to save analysis", 
+            details: updateError.message,
+            code: updateError.code,
+          }),
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 
+      if (!updatedAnalysis) {
+        console.error("Updated analysis is null");
+        return new Response(
+          JSON.stringify({ error: "Analysis update returned no data" }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      console.log("Analysis updated successfully:", updatedAnalysis.id);
       return new Response(
         JSON.stringify({
           success: true,
@@ -262,8 +350,8 @@ IMPORTANT: Respond ONLY with valid JSON. Do not include markdown code blocks, ex
             ats_score: updatedAnalysis.ats_score,
             analysis_result: updatedAnalysis.analysis_result,
             keyword_match_score: updatedAnalysis.keyword_match_score,
-            missing_keywords: updatedAnalysis.missing_keywords,
-            matched_keywords: updatedAnalysis.matched_keywords,
+            missing_keywords: updatedAnalysis.missing_keywords || [],
+            matched_keywords: updatedAnalysis.matched_keywords || [],
             created_at: updatedAnalysis.created_at,
           },
         }),
@@ -271,20 +359,30 @@ IMPORTANT: Respond ONLY with valid JSON. Do not include markdown code blocks, ex
       );
     } catch (geminiError: any) {
       console.error("Gemini API error:", geminiError);
+      console.error("Error stack:", geminiError.stack);
+      console.error("Error name:", geminiError.name);
       return new Response(
         JSON.stringify({ 
           error: "Failed to analyze resume", 
-          details: geminiError.message || "Invalid JSON response from AI" 
+          details: geminiError.message || "Invalid JSON response from AI",
+          type: geminiError.name || "UnknownError",
         }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
   } catch (error: any) {
-    console.error("Error:", error);
+    console.error("=== Top-level error ===");
+    console.error("Error message:", error.message);
+    console.error("Error name:", error.name);
+    console.error("Error stack:", error.stack);
+    console.error("Error type:", typeof error);
+    console.error("Error keys:", Object.keys(error));
+    
     return new Response(
       JSON.stringify({ 
         error: "Internal server error", 
-        details: error.message,
+        details: error.message || "Unknown error occurred",
+        type: error.name || "UnknownError",
         timestamp: new Date().toISOString(),
       }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
