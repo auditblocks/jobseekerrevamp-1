@@ -139,23 +139,53 @@ serve(async (req) => {
       .from("resumes")
       .getPublicUrl(fileName);
 
-    // Extract text from file (basic extraction for now)
+    // Extract text from file
     let extractedText = "";
     try {
       if (fileType === "txt") {
         extractedText = await file.text();
+        console.log("Extracted text from TXT file, length:", extractedText.length);
       } else if (fileType === "pdf") {
-        // For PDF, we'll extract text in the analyze-resume function
-        // For now, store empty and extract during analysis
-        extractedText = "";
+        // Extract text from PDF using pdfjs-dist
+        console.log("Extracting text from PDF...");
+        try {
+          const { getDocument, GlobalWorkerOptions } = await import("https://esm.sh/pdfjs-dist@3.11.174/build/pdf.mjs");
+          
+          // Set worker source (required for pdfjs-dist in Deno)
+          GlobalWorkerOptions.workerSrc = "https://esm.sh/pdfjs-dist@3.11.174/build/pdf.worker.mjs";
+          
+          // Load the PDF document
+          const pdfDocument = await getDocument(new Uint8Array(fileArrayBuffer)).promise;
+          console.log("PDF loaded, pages:", pdfDocument.numPages);
+          
+          // Extract text from all pages
+          const textParts: string[] = [];
+          for (let pageNum = 1; pageNum <= pdfDocument.numPages; pageNum++) {
+            const page = await pdfDocument.getPage(pageNum);
+            const textContent = await page.getTextContent();
+            const pageText = textContent.items
+              .map((item: any) => item.str)
+              .join(" ");
+            textParts.push(pageText);
+            console.log(`Extracted text from page ${pageNum}, length:`, pageText.length);
+          }
+          
+          extractedText = textParts.join("\n\n");
+          console.log("Total extracted text length:", extractedText.length);
+        } catch (pdfError: any) {
+          console.error("PDF extraction error:", pdfError);
+          throw new Error(`Failed to extract text from PDF: ${pdfError.message}`);
+        }
       } else if (fileType === "docx") {
-        // For DOCX, we'll extract text in the analyze-resume function
-        // For now, store empty and extract during analysis
+        // DOCX extraction not yet implemented
+        console.warn("DOCX extraction not yet implemented.");
         extractedText = "";
       }
-    } catch (extractError) {
+    } catch (extractError: any) {
       console.error("Text extraction error:", extractError);
-      // Continue without extracted text - will extract during analysis
+      // Don't fail the upload if extraction fails, but log the error
+      // The text can be extracted later during analysis
+      extractedText = "";
     }
 
     // Set other resumes as inactive if this is set as active

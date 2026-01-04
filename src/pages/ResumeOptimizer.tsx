@@ -127,16 +127,24 @@ const ResumeOptimizer = () => {
     }
   };
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       setSelectedFile(file);
-      // Read file as text
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        setResumeText(event.target?.result as string);
-      };
-      reader.readAsText(file);
+      
+      // Only read text files directly in the frontend
+      // For PDFs and DOCX, the text will be extracted by the backend after upload
+      if (file.type === "text/plain") {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          setResumeText(event.target?.result as string);
+        };
+        reader.readAsText(file);
+      } else {
+        // For PDF/DOCX, clear the text area - text will be loaded after upload
+        setResumeText("");
+        toast.info("PDF/DOCX files will be processed after upload. Text will be extracted automatically.");
+      }
     }
   };
 
