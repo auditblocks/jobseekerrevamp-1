@@ -42,11 +42,32 @@ serve(async (req) => {
       );
     }
 
+    // Parse request body ONCE at the beginning
+    let requestData: AnalyzeRequest;
+    try {
+      requestData = await req.json();
+    } catch (parseError: any) {
+      console.error("Error parsing request body:", parseError);
+      return new Response(
+        JSON.stringify({ error: "Invalid request body", details: parseError.message }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const { resume_text, job_description, analysis_id } = requestData;
+
+    if (!resume_text || !analysis_id) {
+      return new Response(
+        JSON.stringify({ error: "Missing required fields: resume_text, analysis_id" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // Check if analysis exists and belongs to user
     const { data: analysis, error: analysisError } = await supabase
       .from("resume_analyses")
       .select("*")
-      .eq("id", (await req.json() as AnalyzeRequest).analysis_id)
+      .eq("id", analysis_id)
       .eq("user_id", user.id)
       .single();
 
@@ -70,17 +91,6 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ error: "Payment required for FREE users" }),
         { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    let requestData: AnalyzeRequest;
-    try {
-      requestData = await req.json();
-    } catch (parseError: any) {
-      console.error("Error parsing request body:", parseError);
-      return new Response(
-        JSON.stringify({ error: "Invalid request body", details: parseError.message }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
@@ -114,6 +124,7 @@ serve(async (req) => {
         });
     };
 
+    // Extract fields from already parsed requestData
     const sanitizedResumeText = sanitizeText(resume_text);
     const sanitizedJobDescription = job_description ? sanitizeText(job_description) : undefined;
 
