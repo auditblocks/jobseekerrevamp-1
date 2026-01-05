@@ -118,7 +118,7 @@ serve(async (req) => {
     }
 
     const genAI = new GoogleGenerativeAI(geminiApiKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
     // Build optimization prompt
     let optimizePrompt = `You are a professional resume optimizer. Apply the following suggestions to improve this resume while maintaining its authenticity and professional tone.

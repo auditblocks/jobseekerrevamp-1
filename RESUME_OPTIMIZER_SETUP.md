@@ -20,14 +20,26 @@ The Resume Optimizer feature allows PRO and PRO_MAX users to upload resumes, get
 
 ### Step 1: Add Google Gemini API Key to Supabase Secrets
 
+**Option 1: Using the Setup Script (Recommended)**
 ```bash
-# Using Supabase CLI
-supabase secrets set GOOGLE_GEMINI_API_KEY=your_api_key_here
-
-# Or via Supabase Dashboard:
-# Go to Project Settings → Edge Functions → Secrets
-# Add: GOOGLE_GEMINI_API_KEY = your_api_key_here
+# Run the interactive setup script
+./setup-gemini-api-key.sh
 ```
+
+**Option 2: Using Supabase CLI Directly**
+```bash
+# Replace 'your_api_key_here' with your actual API key
+supabase secrets set GOOGLE_GEMINI_API_KEY=your_api_key_here
+```
+
+**Option 3: Via Supabase Dashboard**
+1. Go to Project Settings → Edge Functions → Secrets
+2. Click "Add new secret"
+3. Name: `GOOGLE_GEMINI_API_KEY`
+4. Value: `your_api_key_here`
+5. Click "Save"
+
+**Note:** After setting the secret, you may need to redeploy your edge functions for the changes to take effect.
 
 ### Step 2: Create Supabase Storage Bucket
 

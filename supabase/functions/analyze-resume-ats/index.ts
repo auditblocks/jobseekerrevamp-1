@@ -156,7 +156,7 @@ serve(async (req) => {
     let model: any;
     try {
       genAI = new GoogleGenerativeAI(geminiApiKey);
-      model = genAI.getGenerativeModel({ model: "gemini-pro" });
+      model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
       console.log("Gemini API initialized successfully");
     } catch (initError: any) {
       console.error("Error initializing Gemini API:", initError);
