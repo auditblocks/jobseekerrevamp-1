@@ -1086,6 +1086,13 @@ const ResumeOptimizer = () => {
         optimizedResume={optimizedResume}
         open={showTemplates}
         onOpenChange={setShowTemplates}
+        profilePhotoUrl={profile?.profile_photo_url}
+        userName={profile?.name}
+        userEmail={profile?.email}
+        userPhone={profile?.phone}
+        userLocation={profile?.location}
+        userLinkedIn={profile?.linkedin_url}
+        professionalTitle={profile?.professional_title}
       />
     </>
   );
