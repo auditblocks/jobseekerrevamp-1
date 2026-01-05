@@ -406,7 +406,9 @@ serve(async (req) => {
     
     // Helper function to try generating content with different models
     const tryGenerateContent = async (prompt: string) => {
-      const modelNames = ["gemini-2.0-flash-exp", "gemini-2.5-flash", "gemini-1.5-flash", "gemini-pro"];
+      // Use gemini-2.5-flash as primary (API key configured for this model)
+      // Fallback to gemini-1.5-pro if gemini-2.5-flash fails
+      const modelNames = ["gemini-2.5-flash", "gemini-1.5-pro"];
       
       for (const modelName of modelNames) {
         try {
