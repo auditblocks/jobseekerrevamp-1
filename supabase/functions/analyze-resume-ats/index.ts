@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
-import { GoogleGenerativeAI } from "https://esm.sh/@google/generative-ai@0.2.1";
+import { GoogleGenerativeAI } from "https://esm.sh/@google/generative-ai@0.21.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -152,19 +152,31 @@ serve(async (req) => {
     }
 
     console.log("Initializing Gemini API...");
-    let genAI: GoogleGenerativeAI;
-    let model: any;
-    try {
-      genAI = new GoogleGenerativeAI(geminiApiKey);
-      model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-      console.log("Gemini API initialized successfully");
-    } catch (initError: any) {
-      console.error("Error initializing Gemini API:", initError);
-      return new Response(
-        JSON.stringify({ error: "Failed to initialize AI service", details: initError.message }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
+    const genAI = new GoogleGenerativeAI(geminiApiKey);
+    
+    // Helper function to try generating content with different models
+    const tryGenerateContent = async (prompt: string) => {
+      const modelNames = ["gemini-2.0-flash-exp", "gemini-2.5-flash", "gemini-1.5-flash", "gemini-pro"];
+      
+      for (const modelName of modelNames) {
+        try {
+          console.log(`Trying model: ${modelName}`);
+          const model = genAI.getGenerativeModel({ model: modelName });
+          const result = await model.generateContent(prompt);
+          console.log(`Successfully used model: ${modelName}`);
+          return result;
+        } catch (modelError: any) {
+          console.log(`Model ${modelName} failed: ${modelError.message}`);
+          // If it's not a 404, throw immediately (auth errors, etc.)
+          if (!modelError.message?.includes("404") && !modelError.message?.includes("not found")) {
+            throw modelError;
+          }
+          // Otherwise, try next model
+          continue;
+        }
+      }
+      throw new Error("All Gemini models failed. Please check your API key and available models in Google AI Studio.");
+    };
 
     // Build structured JSON prompt
     let analysisPrompt = `Analyze this resume and provide a comprehensive ATS (Applicant Tracking System) compatibility assessment.
@@ -248,7 +260,7 @@ IMPORTANT: Respond ONLY with valid JSON. Do not include markdown code blocks, ex
       console.log("Prompt length:", analysisPrompt.length);
       console.log("Resume text length:", sanitizedResumeText.length);
       
-      const result = await model.generateContent(analysisPrompt);
+      const result = await tryGenerateContent(analysisPrompt);
       const response = await result.response;
       let analysisText = response.text().trim();
       

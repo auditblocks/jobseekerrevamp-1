@@ -23,12 +23,14 @@ import {
   Wand2,
   Download,
   Check,
-  X
+  X,
+  Palette
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import SEOHead from "@/components/SEO/SEOHead";
+import { ResumeTemplates } from "@/components/resume/ResumeTemplates";
 
 declare global {
   interface Window {
@@ -70,6 +72,7 @@ const ResumeOptimizer = () => {
   const [optimizing, setOptimizing] = useState(false);
   const [optimizedResume, setOptimizedResume] = useState<string | null>(null);
   const [showOptimized, setShowOptimized] = useState(false);
+  const [showTemplates, setShowTemplates] = useState(false);
 
   const isProUser = profile?.subscription_tier === "PRO" || profile?.subscription_tier === "PRO_MAX";
 
@@ -633,34 +636,46 @@ const ResumeOptimizer = () => {
                         }
                       </p>
                     </div>
-                    <Button
-                      onClick={handleAnalyze}
-                      disabled={loading || analyzing || processingPayment || !resumeText.trim()}
-                      size="lg"
-                      className={isProUser ? "bg-accent hover:bg-accent/90" : ""}
-                    >
-                      {processingPayment ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Processing Payment...
-                        </>
-                      ) : analyzing ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Analyzing...
-                        </>
-                      ) : isProUser ? (
-                        <>
-                          <Sparkles className="mr-2 h-4 w-4" />
-                          Analyze (Unlimited)
-                        </>
-                      ) : (
-                        <>
-                          <IndianRupee className="mr-2 h-4 w-4" />
-                          Pay & Analyze
-                        </>
+                    <div className="flex gap-2">
+                      {resumeText.trim() && (
+                        <Button
+                          onClick={() => setShowTemplates(true)}
+                          variant="outline"
+                          size="lg"
+                        >
+                          <Palette className="mr-2 h-4 w-4" />
+                          Templates
+                        </Button>
                       )}
-                    </Button>
+                      <Button
+                        onClick={handleAnalyze}
+                        disabled={loading || analyzing || processingPayment || !resumeText.trim()}
+                        size="lg"
+                        className={isProUser ? "bg-accent hover:bg-accent/90" : ""}
+                      >
+                        {processingPayment ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Processing Payment...
+                          </>
+                        ) : analyzing ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Analyzing...
+                          </>
+                        ) : isProUser ? (
+                          <>
+                            <Sparkles className="mr-2 h-4 w-4" />
+                            Analyze (Unlimited)
+                          </>
+                        ) : (
+                          <>
+                            <IndianRupee className="mr-2 h-4 w-4" />
+                            Pay & Analyze
+                          </>
+                        )}
+                      </Button>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -695,7 +710,15 @@ const ResumeOptimizer = () => {
                         rows={15}
                         className="font-mono text-sm"
                       />
-                      <div className="mt-4 flex gap-2">
+                      <div className="mt-4 flex gap-2 flex-wrap">
+                        <Button
+                          onClick={() => setShowTemplates(true)}
+                          className="bg-accent hover:bg-accent/90"
+                          size="sm"
+                        >
+                          <Palette className="mr-2 h-4 w-4" />
+                          Choose Template
+                        </Button>
                         <Button
                           onClick={() => {
                             setResumeText(optimizedResume);
@@ -1056,6 +1079,14 @@ const ResumeOptimizer = () => {
           </div>
         </div>
       </div>
+
+      {/* Resume Templates Dialog */}
+      <ResumeTemplates
+        originalResume={resumeText}
+        optimizedResume={optimizedResume}
+        open={showTemplates}
+        onOpenChange={setShowTemplates}
+      />
     </>
   );
 };
