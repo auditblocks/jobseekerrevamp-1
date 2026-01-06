@@ -248,7 +248,8 @@ const ResumeOptimizer = () => {
     if (!user?.id) return null;
     try {
       // Sanitize text to avoid Unicode escape sequence issues
-      const sanitizedResumeText = sanitizeText(resumeText);
+      // For PDF/DOCX uploads, resumeText will be empty, which is fine
+      const sanitizedResumeText = resumeText ? sanitizeText(resumeText) : "";
       const sanitizedJobDescription = jobDescription ? sanitizeText(jobDescription) : null;
 
       // Set a default ats_score of 0 (will be updated after analysis)
@@ -288,8 +289,9 @@ const ResumeOptimizer = () => {
   };
 
   const handleAnalyze = async () => {
-    if (!resumeText.trim()) {
-      toast.error("Please provide resume text");
+    // Check if either resume text or file is provided
+    if (!resumeText.trim() && !uploadedFilePath) {
+      toast.error("Please upload a resume file or paste resume text");
       return;
     }
 
