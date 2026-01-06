@@ -227,7 +227,7 @@ serve(async (req) => {
     const genAI = new GoogleGenerativeAI(geminiApiKey);
     
     // Helper function to try generating content with different models (supports Vision API)
-    const tryGenerateContent = async (prompt: string | any[]) => {
+    const tryGenerateContent = async (prompt: any) => {
       // Use gemini-2.5-flash as primary (API key configured for this model)
       // Fallback to gemini-1.5-pro if gemini-2.5-flash fails
       const modelNames = ["gemini-2.5-flash", "gemini-1.5-pro"];
@@ -255,7 +255,7 @@ serve(async (req) => {
     };
 
     // Build structured JSON prompt
-    let analysisPrompt: string | any[];
+    let analysisPrompt: any;
     
     if (isPdfAnalysis && pdfBase64) {
       // PDF Vision Analysis - analyze layout and formatting
@@ -404,9 +404,12 @@ Additionally, compare the resume against the job description and update the keyw
 
       if (isPdfAnalysis && Array.isArray(analysisPrompt)) {
         // For PDF analysis, update the first element (prompt text)
-        (analysisPrompt as string[])[0] += jobDescAddition;
+        const firstElement = analysisPrompt[0];
+        if (typeof firstElement === 'string') {
+          analysisPrompt[0] = firstElement + jobDescAddition;
+        }
       } else if (typeof analysisPrompt === 'string') {
-        analysisPrompt = (analysisPrompt as string) + jobDescAddition;
+        analysisPrompt = analysisPrompt + jobDescAddition;
       }
     }
 
@@ -416,9 +419,12 @@ Additionally, compare the resume against the job description and update the keyw
 IMPORTANT: Respond ONLY with valid JSON. Do not include markdown code blocks, explanations, or any text outside the JSON object.`;
     
     if (isPdfAnalysis && Array.isArray(analysisPrompt)) {
-      (analysisPrompt as string[])[0] += finalInstruction;
+      const firstElement = analysisPrompt[0];
+      if (typeof firstElement === 'string') {
+        analysisPrompt[0] = firstElement + finalInstruction;
+      }
     } else if (typeof analysisPrompt === 'string') {
-      analysisPrompt = (analysisPrompt as string) + finalInstruction;
+      analysisPrompt = analysisPrompt + finalInstruction;
     }
 
     // Call Gemini API
