@@ -442,14 +442,17 @@ const ResumeOptimizer = () => {
         analysis_id: finalAnalysisId,
       };
 
-      if (uploadedFilePath && originalFileType) {
-        // For uploaded files, pass file path
-        analyzeBody.file_path = uploadedFilePath;
-        console.log("Sending analysis request with file_path:", uploadedFilePath, "file_type:", originalFileType);
-      } else if (resumeText.trim()) {
-        // For text input, pass resume text
+      // TEMPORARY WORKAROUND: Since the deployed edge function doesn't support file_path yet,
+      // we extract text from PDF and send it as resume_text
+      // TODO: Once edge function is deployed with file_path support, we can use file_path directly
+      if (resumeText.trim()) {
+        // Use extracted text (from PDF upload or manual input)
         analyzeBody.resume_text = resumeText;
         console.log("Sending analysis request with resume_text (length):", resumeText.length);
+      } else if (uploadedFilePath && originalFileType) {
+        // Fallback: if no text extracted, try file_path (will work once edge function is updated)
+        analyzeBody.file_path = uploadedFilePath;
+        console.log("Sending analysis request with file_path:", uploadedFilePath, "file_type:", originalFileType);
       } else {
         throw new Error("No resume content provided. Please upload a file or paste text.");
       }
