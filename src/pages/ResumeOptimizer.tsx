@@ -220,11 +220,23 @@ const ResumeOptimizer = () => {
           
           if (extractError) {
             console.error("Text extraction error:", extractError);
-            toast.warning("File uploaded but text extraction failed. Analysis may be limited.");
+            toast.warning("File uploaded but text extraction failed. You may need to paste the text manually.");
             setResumeText("");
-          } else if (uploadData?.extracted_text) {
-            setResumeText(uploadData.extracted_text);
-            toast.success("File uploaded and text extracted successfully! Click 'Analyze' to proceed.");
+          } else if (uploadData?.resume?.id) {
+            // Fetch the resume record to get extracted_text
+            const { data: resumeData, error: fetchError } = await supabase
+              .from("resumes")
+              .select("extracted_text")
+              .eq("id", uploadData.resume.id)
+              .single();
+            
+            if (!fetchError && resumeData?.extracted_text) {
+              setResumeText(resumeData.extracted_text);
+              toast.success("File uploaded and text extracted successfully! Click 'Analyze' to proceed.");
+            } else {
+              setResumeText("");
+              toast.success("File uploaded successfully! Click 'Analyze' to proceed.");
+            }
           } else {
             setResumeText("");
             toast.success("File uploaded successfully! Click 'Analyze' to proceed.");
