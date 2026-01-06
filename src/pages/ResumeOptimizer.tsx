@@ -206,8 +206,38 @@ const ResumeOptimizer = () => {
 
       setUploadedFilePath(fileName);
       setUploadedFileUrl(urlData.publicUrl);
-      setResumeText(""); // Clear text area for PDF/DOCX
-      toast.success("File uploaded successfully! Click 'Analyze' to proceed.");
+      
+      // Extract text from PDF/DOCX using upload-resume function (workaround until edge function supports file_path)
+      if (fileType === 'pdf' || fileType === 'docx') {
+        try {
+          toast.info("Extracting text from file...");
+          const formData = new FormData();
+          formData.append('file', file);
+          
+          const { data: uploadData, error: extractError } = await supabase.functions.invoke('upload-resume', {
+            body: formData,
+          });
+          
+          if (extractError) {
+            console.error("Text extraction error:", extractError);
+            toast.warning("File uploaded but text extraction failed. Analysis may be limited.");
+            setResumeText("");
+          } else if (uploadData?.extracted_text) {
+            setResumeText(uploadData.extracted_text);
+            toast.success("File uploaded and text extracted successfully! Click 'Analyze' to proceed.");
+          } else {
+            setResumeText("");
+            toast.success("File uploaded successfully! Click 'Analyze' to proceed.");
+          }
+        } catch (extractError: any) {
+          console.error("Text extraction error:", extractError);
+          setResumeText("");
+          toast.success("File uploaded successfully! Click 'Analyze' to proceed.");
+        }
+      } else {
+        setResumeText(""); // Clear text area for other file types
+        toast.success("File uploaded successfully! Click 'Analyze' to proceed.");
+      }
     } catch (error: any) {
       console.error("Upload error:", error);
       toast.error("Failed to upload file: " + error.message);
@@ -415,18 +445,45 @@ const ResumeOptimizer = () => {
       if (uploadedFilePath && originalFileType) {
         // For uploaded files, pass file path
         analyzeBody.file_path = uploadedFilePath;
+        console.log("Sending analysis request with file_path:", uploadedFilePath, "file_type:", originalFileType);
       } else if (resumeText.trim()) {
         // For text input, pass resume text
         analyzeBody.resume_text = resumeText;
+        console.log("Sending analysis request with resume_text (length):", resumeText.length);
       } else {
         throw new Error("No resume content provided. Please upload a file or paste text.");
       }
+
+      console.log("Analysis request body:", {
+        has_analysis_id: !!analyzeBody.analysis_id,
+        has_file_path: !!analyzeBody.file_path,
+        has_resume_text: !!analyzeBody.resume_text,
+        has_job_description: !!analyzeBody.job_description,
+        analysis_id: analyzeBody.analysis_id,
+        file_path: analyzeBody.file_path,
+      });
+
+      console.log("Calling analyze-resume-ats with body:", {
+        analysis_id: analyzeBody.analysis_id,
+        has_file_path: !!analyzeBody.file_path,
+        has_resume_text: !!analyzeBody.resume_text,
+        file_path: analyzeBody.file_path,
+        resume_text_length: analyzeBody.resume_text?.length || 0,
+      });
 
       const { data, error } = await supabase.functions.invoke("analyze-resume-ats", {
         body: analyzeBody,
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error("Analysis error:", error);
+        console.error("Error details:", {
+          message: error.message,
+          status: (error as any).status,
+          context: (error as any).context,
+        });
+        throw error;
+      }
 
       // Fetch updated analysis
       const { data: updatedAnalysis, error: fetchError } = await supabase
