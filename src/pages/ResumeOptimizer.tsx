@@ -782,7 +782,7 @@ const ResumeOptimizer = () => {
                       )}
                       <Button
                         onClick={handleAnalyze}
-                        disabled={loading || analyzing || processingPayment || !resumeText.trim()}
+                        disabled={loading || analyzing || processingPayment || (!resumeText.trim() && !uploadedFilePath)}
                         size="lg"
                         className={isProUser ? "bg-accent hover:bg-accent/90" : ""}
                       >

@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
-import { Download, Eye } from "lucide-react";
+import { Download, Eye, FileText, FileDown } from "lucide-react";
 import { toast } from "sonner";
 
 export interface ResumeTemplate {
@@ -699,19 +699,59 @@ export const ResumeTemplates = ({
     setPreviewOpen(true);
   };
 
-  const handleDownload = (template: ResumeTemplate) => {
+  const handleDownload = async (template: ResumeTemplate, format: 'html' | 'pdf' = 'html') => {
     try {
       const html = generateTemplateHTML(template, currentResume, formattingData);
-      const blob = new Blob([html], { type: "text/html;charset=utf-8" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `resume_${template.id}_${new Date().toISOString().split("T")[0]}.html`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      toast.success(`Downloaded ${template.name} template!`);
+      
+      if (format === 'pdf') {
+        // Use html2pdf.js for PDF generation
+        try {
+          const html2pdf = (await import('html2pdf.js')).default;
+          const element = document.createElement('div');
+          element.innerHTML = html;
+          // Hide the element but keep it in DOM for rendering
+          element.style.position = 'absolute';
+          element.style.left = '-9999px';
+          document.body.appendChild(element);
+          
+          const opt = {
+            margin: 0.5,
+            filename: `resume_${template.id}_${new Date().toISOString().split("T")[0]}.pdf`,
+            image: { type: 'jpeg', quality: 0.98 },
+            html2canvas: { scale: 2, useCORS: true, logging: false },
+            jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
+          };
+          
+          await html2pdf().set(opt).from(element).save();
+          document.body.removeChild(element);
+          toast.success(`Downloaded ${template.name} as PDF!`);
+        } catch (pdfError: any) {
+          console.error("PDF generation error:", pdfError);
+          toast.error("Failed to generate PDF. Downloading as HTML instead.");
+          // Fallback to HTML download
+          const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `resume_${template.id}_${new Date().toISOString().split("T")[0]}.html`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        }
+      } else {
+        // Download as HTML
+        const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `resume_${template.id}_${new Date().toISOString().split("T")[0]}.html`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        toast.success(`Downloaded ${template.name} template!`);
+      }
     } catch (error) {
       console.error("Download error:", error);
       toast.error("Failed to download template");
@@ -779,20 +819,29 @@ export const ResumeTemplates = ({
                       <Button
                         variant="outline"
                         size="sm"
-                        className="flex-1"
                         onClick={() => handlePreview(template)}
                       >
                         <Eye className="mr-2 h-3 w-3" />
                         Preview
                       </Button>
                       <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleDownload(template, 'html')}
+                        title="Download as HTML"
+                      >
+                        <FileText className="mr-2 h-3 w-3" />
+                        HTML
+                      </Button>
+                      <Button
                         variant="default"
                         size="sm"
                         className="flex-1"
-                        onClick={() => handleDownload(template)}
+                        onClick={() => handleDownload(template, 'pdf')}
+                        title="Download as PDF"
                       >
-                        <Download className="mr-2 h-3 w-3" />
-                        Download
+                        <FileDown className="mr-2 h-3 w-3" />
+                        PDF
                       </Button>
                     </div>
                   </CardContent>
@@ -815,7 +864,7 @@ export const ResumeTemplates = ({
           <div className="flex-1 overflow-auto border rounded-lg bg-white">
             {selectedTemplate && (
               <iframe
-                srcDoc={generateTemplateHTML(selectedTemplate, currentResume)}
+                srcDoc={generateTemplateHTML(selectedTemplate, currentResume, formattingData)}
                 className="w-full h-full min-h-[600px] border-0"
                 title="Resume Preview"
               />
@@ -826,10 +875,19 @@ export const ResumeTemplates = ({
               Close
             </Button>
             {selectedTemplate && (
-              <Button onClick={() => handleDownload(selectedTemplate)}>
-                <Download className="mr-2 h-4 w-4" />
-                Download Template
-              </Button>
+              <>
+                <Button 
+                  variant="outline" 
+                  onClick={() => handleDownload(selectedTemplate, 'html')}
+                >
+                  <FileText className="mr-2 h-4 w-4" />
+                  Download HTML
+                </Button>
+                <Button onClick={() => handleDownload(selectedTemplate, 'pdf')}>
+                  <FileDown className="mr-2 h-4 w-4" />
+                  Download PDF
+                </Button>
+              </>
             )}
           </DialogFooter>
         </DialogContent>

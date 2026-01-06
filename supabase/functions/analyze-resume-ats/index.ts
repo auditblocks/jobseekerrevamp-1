@@ -153,9 +153,13 @@ serve(async (req) => {
     // Convert PDF buffer to base64 - Gemini Vision can analyze PDFs directly
     const preparePdfForVision = async (pdfBuffer: ArrayBuffer): Promise<string> => {
       try {
-        // Convert PDF buffer to base64
+        // Convert PDF buffer to base64 (handle large files efficiently)
         const uint8Array = new Uint8Array(pdfBuffer);
-        const base64 = btoa(String.fromCharCode(...uint8Array));
+        let binary = '';
+        for (let i = 0; i < uint8Array.length; i++) {
+          binary += String.fromCharCode(uint8Array[i]);
+        }
+        const base64 = btoa(binary);
         return base64;
       } catch (error: any) {
         console.error("PDF preparation error:", error);
@@ -223,7 +227,7 @@ serve(async (req) => {
     const genAI = new GoogleGenerativeAI(geminiApiKey);
     
     // Helper function to try generating content with different models (supports Vision API)
-    const tryGenerateContent = async (prompt: string | Array<any>) => {
+    const tryGenerateContent = async (prompt: string | any[]) => {
       // Use gemini-2.5-flash as primary (API key configured for this model)
       // Fallback to gemini-1.5-pro if gemini-2.5-flash fails
       const modelNames = ["gemini-2.5-flash", "gemini-1.5-pro"];
@@ -251,7 +255,7 @@ serve(async (req) => {
     };
 
     // Build structured JSON prompt
-    let analysisPrompt: string | Array<any>;
+    let analysisPrompt: string | any[];
     
     if (isPdfAnalysis && pdfBase64) {
       // PDF Vision Analysis - analyze layout and formatting
@@ -400,9 +404,9 @@ Additionally, compare the resume against the job description and update the keyw
 
       if (isPdfAnalysis && Array.isArray(analysisPrompt)) {
         // For PDF analysis, update the first element (prompt text)
-        analysisPrompt[0] += jobDescAddition;
+        (analysisPrompt as string[])[0] += jobDescAddition;
       } else if (typeof analysisPrompt === 'string') {
-        analysisPrompt += jobDescAddition;
+        analysisPrompt = (analysisPrompt as string) + jobDescAddition;
       }
     }
 
@@ -412,9 +416,9 @@ Additionally, compare the resume against the job description and update the keyw
 IMPORTANT: Respond ONLY with valid JSON. Do not include markdown code blocks, explanations, or any text outside the JSON object.`;
     
     if (isPdfAnalysis && Array.isArray(analysisPrompt)) {
-      analysisPrompt[0] += finalInstruction;
+      (analysisPrompt as string[])[0] += finalInstruction;
     } else if (typeof analysisPrompt === 'string') {
-      analysisPrompt += finalInstruction;
+      analysisPrompt = (analysisPrompt as string) + finalInstruction;
     }
 
     // Call Gemini API
