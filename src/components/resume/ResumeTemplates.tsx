@@ -69,6 +69,16 @@ interface ResumeTemplatesProps {
   userLocation?: string;
   userLinkedIn?: string;
   professionalTitle?: string;
+  formattingData?: {
+    layout_type?: string;
+    sidebar_color?: string;
+    font_family?: string;
+    section_spacing?: string;
+    design_style?: string;
+    colors?: string[];
+    fonts?: string[];
+    layout?: string;
+  } | null;
 }
 
 const TEMPLATES: ResumeTemplate[] = [
@@ -134,6 +144,7 @@ export const ResumeTemplates = ({
   userLocation,
   userLinkedIn,
   professionalTitle,
+  formattingData,
 }: ResumeTemplatesProps) => {
   const [selectedTemplate, setSelectedTemplate] = useState<ResumeTemplate | null>(null);
   const [resumeSource, setResumeSource] = useState<"original" | "optimized">(
@@ -316,9 +327,14 @@ export const ResumeTemplates = ({
     return parsed;
   };
 
-  const generateTemplateHTML = (template: ResumeTemplate, resumeText: string): string => {
+  const generateTemplateHTML = (template: ResumeTemplate, resumeText: string, formatData?: typeof formattingData): string => {
     const parsed = parseResumeContent(resumeText);
     const { header, professionalTitle, summary, experience, education, skills, projects, languages, certifications } = parsed;
+    
+    // Use formatting data if available to preserve original format
+    const sidebarColor = formatData?.sidebar_color || (formatData as any)?.styling?.colors?.[0] || template.accentColor;
+    const fontFamily = formatData?.font_family || (formatData as any)?.styling?.fonts?.[0] || 'Arial, sans-serif';
+    const layoutType = formatData?.layout_type || 'two-column';
 
     const escapeHtml = (text: string) => {
       if (!text) return "";
@@ -336,8 +352,6 @@ export const ResumeTemplates = ({
         </div>`
       : "";
 
-    const sidebarColor = template.accentColor;
-
     const html = `
 <!DOCTYPE html>
 <html lang="en">
@@ -348,7 +362,7 @@ export const ResumeTemplates = ({
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { 
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+      font-family: ${fontFamily}; 
       line-height: 1.6; 
       color: #333; 
       background: #f5f5f5; 
@@ -687,7 +701,7 @@ export const ResumeTemplates = ({
 
   const handleDownload = (template: ResumeTemplate) => {
     try {
-      const html = generateTemplateHTML(template, currentResume);
+      const html = generateTemplateHTML(template, currentResume, formattingData);
       const blob = new Blob([html], { type: "text/html;charset=utf-8" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");

@@ -8,7 +8,9 @@ const corsHeaders = {
 };
 
 interface AnalyzeRequest {
-  resume_text: string;
+  resume_text?: string;  // Fallback for text-only
+  file_path?: string;   // Path in storage bucket
+  file_url?: string;    // Public URL
   job_description?: string;
   analysis_id: string;
 }
@@ -69,11 +71,18 @@ serve(async (req) => {
       );
     }
 
-    const { resume_text, job_description, analysis_id } = requestData;
+    const { resume_text, file_path, file_url, job_description, analysis_id } = requestData;
 
-    if (!resume_text || !analysis_id) {
+    if (!analysis_id) {
       return new Response(
-        JSON.stringify({ error: "Missing required fields: resume_text, analysis_id" }),
+        JSON.stringify({ error: "Missing required field: analysis_id" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    if (!resume_text && !file_path && !file_url) {
+      return new Response(
+        JSON.stringify({ error: "Missing required field: resume_text, file_path, or file_url" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -138,8 +147,67 @@ serve(async (req) => {
         });
     };
 
-    const sanitizedResumeText = sanitizeText(resume_text);
     const sanitizedJobDescription = job_description ? sanitizeText(job_description) : undefined;
+
+    // Helper function to prepare PDF for Vision API
+    // Convert PDF buffer to base64 - Gemini Vision can analyze PDFs directly
+    const preparePdfForVision = async (pdfBuffer: ArrayBuffer): Promise<string> => {
+      try {
+        // Convert PDF buffer to base64
+        const uint8Array = new Uint8Array(pdfBuffer);
+        const base64 = btoa(String.fromCharCode(...uint8Array));
+        return base64;
+      } catch (error: any) {
+        console.error("PDF preparation error:", error);
+        throw new Error(`Failed to prepare PDF: ${error.message}`);
+      }
+    };
+
+    // Handle PDF file analysis
+    let pdfBase64: string | null = null;
+    let sanitizedResumeText: string | null = null;
+    let isPdfAnalysis = false;
+
+    if (file_path || file_url) {
+      // Download PDF from storage
+      try {
+        let pdfBuffer: ArrayBuffer;
+        
+        if (file_path) {
+          // Download from storage bucket
+          const { data: fileData, error: downloadError } = await supabase.storage
+            .from("resumes")
+            .download(file_path);
+          
+          if (downloadError) throw downloadError;
+          pdfBuffer = await fileData.arrayBuffer();
+        } else if (file_url) {
+          // Download from URL
+          const response = await fetch(file_url);
+          if (!response.ok) throw new Error(`Failed to fetch PDF: ${response.statusText}`);
+          pdfBuffer = await response.arrayBuffer();
+        } else {
+          throw new Error("No file path or URL provided");
+        }
+
+        // Prepare PDF for Vision API
+        console.log("Preparing PDF for Vision API...");
+        pdfBase64 = await preparePdfForVision(pdfBuffer);
+        console.log(`PDF prepared, size: ${pdfBase64.length} characters`);
+        isPdfAnalysis = true;
+      } catch (pdfError: any) {
+        console.error("PDF processing error:", pdfError);
+        return new Response(
+          JSON.stringify({ 
+            error: "Failed to process PDF file", 
+            details: pdfError.message 
+          }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    } else if (resume_text) {
+      sanitizedResumeText = sanitizeText(resume_text);
+    }
 
     // Initialize Google Gemini
     const geminiApiKey = Deno.env.get("GOOGLE_GEMINI_API_KEY");
@@ -154,8 +222,8 @@ serve(async (req) => {
     console.log("Initializing Gemini API...");
     const genAI = new GoogleGenerativeAI(geminiApiKey);
     
-    // Helper function to try generating content with different models
-    const tryGenerateContent = async (prompt: string) => {
+    // Helper function to try generating content with different models (supports Vision API)
+    const tryGenerateContent = async (prompt: string | Array<any>) => {
       // Use gemini-2.5-flash as primary (API key configured for this model)
       // Fallback to gemini-1.5-pro if gemini-2.5-flash fails
       const modelNames = ["gemini-2.5-flash", "gemini-1.5-pro"];
@@ -164,6 +232,8 @@ serve(async (req) => {
         try {
           console.log(`Trying model: ${modelName}`);
           const model = genAI.getGenerativeModel({ model: modelName });
+          
+          // If prompt is array, it includes images (Vision API)
           const result = await model.generateContent(prompt);
           console.log(`Successfully used model: ${modelName}`);
           return result;
@@ -181,10 +251,87 @@ serve(async (req) => {
     };
 
     // Build structured JSON prompt
-    let analysisPrompt = `Analyze this resume and provide a comprehensive ATS (Applicant Tracking System) compatibility assessment.
+    let analysisPrompt: string | Array<any>;
+    
+    if (isPdfAnalysis && pdfBase64) {
+      // PDF Vision Analysis - analyze layout and formatting
+      analysisPrompt = [
+        `Analyze this resume PDF and provide a comprehensive ATS (Applicant Tracking System) compatibility assessment.
+
+IMPORTANT: Analyze both the VISUAL LAYOUT and CONTENT of this resume. Pay attention to:
+- Layout structure (two-column, single-column, sections arrangement)
+- Formatting elements (colors, fonts, spacing, borders, styling)
+- Visual hierarchy and design elements
+- Content organization and structure
+
+Please provide a detailed analysis in the following EXACT JSON format (respond ONLY with valid JSON, no markdown):
+{
+  "ats_score": <number 0-100>,
+  "formatting_analysis": {
+    "layout_type": "two-column|single-column|other",
+    "sidebar_color": "<hex color if sidebar exists>",
+    "font_family": "<detected font family>",
+    "section_spacing": "tight|moderate|spacious",
+    "design_style": "professional|creative|minimal|classic"
+  },
+  "keyword_analysis": {
+    "found_keywords": ["list of important keywords found"],
+    "missing_keywords": ["list of important keywords missing"],
+    "keyword_score": <number 0-100>
+  },
+  "formatting_issues": [
+    {
+      "issue": "description of formatting problem",
+      "severity": "high|medium|low",
+      "recommendation": "how to fix it"
+    }
+  ],
+  "content_strengths": ["list of resume strengths"],
+  "content_improvements": [
+    {
+      "area": "section or aspect name",
+      "current_state": "what's currently there",
+      "suggestion": "how to improve",
+      "priority": "high|medium|low"
+    }
+  ],
+  "section_checks": {
+    "contact_info": {"present": true/false, "score": <number 0-100>, "issues": []},
+    "summary": {"present": true/false, "score": <number 0-100>, "issues": []},
+    "experience": {"present": true/false, "score": <number 0-100>, "issues": []},
+    "education": {"present": true/false, "score": <number 0-100>, "issues": []},
+    "skills": {"present": true/false, "score": <number 0-100>, "issues": []}
+  },
+  "action_items": [
+    {
+      "priority": 1,
+      "action": "specific actionable item",
+      "category": "formatting|keywords|content|sections",
+      "impact": "expected ATS score improvement"
+    }
+  ],
+  "formatting_preservation": {
+    "sections": ["list of section names in order"],
+    "styling": {
+      "colors": ["<hex colors used>"],
+      "fonts": ["<font families used>"],
+      "layout": "<layout description>"
+    }
+  }
+}`,
+        {
+          inlineData: {
+            data: pdfBase64,
+            mimeType: "application/pdf"
+          }
+        }
+      ];
+    } else {
+      // Text-based analysis
+      analysisPrompt = `Analyze this resume and provide a comprehensive ATS (Applicant Tracking System) compatibility assessment.
 
 RESUME TEXT:
-${sanitizedResumeText}
+${sanitizedResumeText || ""}
 
 Please provide a detailed analysis in the following EXACT JSON format (respond ONLY with valid JSON, no markdown):
 {
@@ -228,8 +375,8 @@ Please provide a detailed analysis in the following EXACT JSON format (respond O
 }`;
 
     // If job description provided, add matching analysis
-    if (job_description && job_description.trim().length > 0) {
-      analysisPrompt += `
+    if (sanitizedJobDescription && sanitizedJobDescription.trim().length > 0) {
+      const jobDescAddition = `
 
 JOB DESCRIPTION:
 ${sanitizedJobDescription}
@@ -250,17 +397,34 @@ Additionally, compare the resume against the job description and update the keyw
     }
   ]
 }`;
+
+      if (isPdfAnalysis && Array.isArray(analysisPrompt)) {
+        // For PDF analysis, update the first element (prompt text)
+        analysisPrompt[0] += jobDescAddition;
+      } else if (typeof analysisPrompt === 'string') {
+        analysisPrompt += jobDescAddition;
+      }
     }
 
-    analysisPrompt += `
+    // Add final instruction
+    const finalInstruction = `
 
 IMPORTANT: Respond ONLY with valid JSON. Do not include markdown code blocks, explanations, or any text outside the JSON object.`;
+    
+    if (isPdfAnalysis && Array.isArray(analysisPrompt)) {
+      analysisPrompt[0] += finalInstruction;
+    } else if (typeof analysisPrompt === 'string') {
+      analysisPrompt += finalInstruction;
+    }
 
     // Call Gemini API
     try {
       console.log("Calling Gemini API...");
-      console.log("Prompt length:", analysisPrompt.length);
-      console.log("Resume text length:", sanitizedResumeText.length);
+      if (isPdfAnalysis) {
+        console.log("PDF analysis mode - analyzing PDF file with Vision API");
+      } else {
+        console.log("Text analysis mode - text length:", sanitizedResumeText?.length || 0);
+      }
       
       const result = await tryGenerateContent(analysisPrompt);
       const response = await result.response;

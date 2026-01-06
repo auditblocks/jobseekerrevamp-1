@@ -47,6 +47,21 @@ interface AnalysisResult {
   matched_keywords: string[];
   created_at: string;
   payment_status: string;
+  formatting_analysis?: {
+    layout_type?: string;
+    sidebar_color?: string;
+    font_family?: string;
+    section_spacing?: string;
+    design_style?: string;
+  };
+  formatting_preservation?: {
+    sections?: string[];
+    styling?: {
+      colors?: string[];
+      fonts?: string[];
+      layout?: string;
+    };
+  };
 }
 
 interface ScanSettings {
@@ -73,6 +88,10 @@ const ResumeOptimizer = () => {
   const [optimizedResume, setOptimizedResume] = useState<string | null>(null);
   const [showOptimized, setShowOptimized] = useState(false);
   const [showTemplates, setShowTemplates] = useState(false);
+  const [uploadedFileUrl, setUploadedFileUrl] = useState<string | null>(null);
+  const [uploadedFilePath, setUploadedFilePath] = useState<string | null>(null);
+  const [uploadingFile, setUploadingFile] = useState(false);
+  const [originalFileType, setOriginalFileType] = useState<'pdf' | 'docx' | 'txt' | null>(null);
 
   const isProUser = profile?.subscription_tier === "PRO" || profile?.subscription_tier === "PRO_MAX";
 
@@ -132,22 +151,68 @@ const ResumeOptimizer = () => {
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      setSelectedFile(file);
-      
-      // Only read text files directly in the frontend
-      // For PDFs and DOCX, the text will be extracted by the backend after upload
-      if (file.type === "text/plain") {
-        const reader = new FileReader();
-        reader.onload = (event) => {
-          setResumeText(event.target?.result as string);
-        };
-        reader.readAsText(file);
-      } else {
-        // For PDF/DOCX, clear the text area - text will be loaded after upload
-        setResumeText("");
-        toast.info("PDF/DOCX files will be processed after upload. Text will be extracted automatically.");
-      }
+    if (!file) return;
+
+    setSelectedFile(file);
+    
+    // Determine file type
+    let fileType: 'pdf' | 'docx' | 'txt' = 'txt';
+    if (file.type === "application/pdf") {
+      fileType = 'pdf';
+    } else if (file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" || file.type.includes("msword")) {
+      fileType = 'docx';
+    }
+    setOriginalFileType(fileType);
+
+    // For PDF/DOCX files, upload to storage immediately
+    if (fileType === 'pdf' || fileType === 'docx') {
+      await handleFileUpload(file, fileType);
+    } else if (file.type === "text/plain") {
+      // Read text files directly
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setResumeText(event.target?.result as string);
+      };
+      reader.readAsText(file);
+      setOriginalFileType('txt');
+    }
+  };
+
+  const handleFileUpload = async (file: File, fileType: 'pdf' | 'docx') => {
+    if (!user?.id) {
+      toast.error("Please log in to upload files");
+      return;
+    }
+
+    setUploadingFile(true);
+    try {
+      const fileExt = file.name.split('.').pop() || (fileType === 'pdf' ? 'pdf' : 'docx');
+      const fileName = `${user.id}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+
+      // Upload to storage
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from("resumes")
+        .upload(fileName, file, {
+          contentType: file.type,
+          upsert: false
+        });
+
+      if (uploadError) throw uploadError;
+
+      // Get public URL (or create signed URL if bucket is private)
+      const { data: urlData } = supabase.storage
+        .from("resumes")
+        .getPublicUrl(fileName);
+
+      setUploadedFilePath(fileName);
+      setUploadedFileUrl(urlData.publicUrl);
+      setResumeText(""); // Clear text area for PDF/DOCX
+      toast.success("File uploaded successfully! Click 'Analyze' to proceed.");
+    } catch (error: any) {
+      console.error("Upload error:", error);
+      toast.error("Failed to upload file: " + error.message);
+    } finally {
+      setUploadingFile(false);
     }
   };
 
@@ -198,6 +263,9 @@ const ResumeOptimizer = () => {
           ats_score: 0, // Default score, will be updated after analysis
           payment_status: isProUser ? "completed" : "pending",
           amount_paid: isProUser ? 0 : scanPrice,
+          original_file_path: uploadedFilePath,
+          original_file_url: uploadedFileUrl,
+          file_type: originalFileType,
         })
         .select()
         .single();
@@ -336,13 +404,24 @@ const ResumeOptimizer = () => {
         }
       }
 
-      // Call analyze function
+      // Call analyze function - pass file_path for PDF/DOCX, resume_text for text
+      const analyzeBody: any = {
+        job_description: jobDescription || undefined,
+        analysis_id: finalAnalysisId,
+      };
+
+      if (uploadedFilePath && originalFileType) {
+        // For uploaded files, pass file path
+        analyzeBody.file_path = uploadedFilePath;
+      } else if (resumeText.trim()) {
+        // For text input, pass resume text
+        analyzeBody.resume_text = resumeText;
+      } else {
+        throw new Error("No resume content provided. Please upload a file or paste text.");
+      }
+
       const { data, error } = await supabase.functions.invoke("analyze-resume-ats", {
-        body: {
-          resume_text: resumeText,
-          job_description: jobDescription || undefined,
-          analysis_id: finalAnalysisId,
-        },
+        body: analyzeBody,
       });
 
       if (error) throw error;
@@ -506,6 +585,47 @@ const ResumeOptimizer = () => {
     toast.success("Resume downloaded!");
   };
 
+  const handleDownloadOriginal = async () => {
+    if (!uploadedFilePath && !uploadedFileUrl) {
+      toast.error("No original file available");
+      return;
+    }
+
+    try {
+      let fileBlob: Blob;
+      
+      if (uploadedFilePath) {
+        // Download from storage
+        const { data, error } = await supabase.storage
+          .from("resumes")
+          .download(uploadedFilePath);
+        
+        if (error) throw error;
+        fileBlob = data;
+      } else if (uploadedFileUrl) {
+        // Download from URL
+        const response = await fetch(uploadedFileUrl);
+        if (!response.ok) throw new Error("Failed to fetch file");
+        fileBlob = await response.blob();
+      } else {
+        throw new Error("No file available");
+      }
+
+      const url = URL.createObjectURL(fileBlob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = selectedFile?.name || `resume_${new Date().toISOString().split("T")[0]}.${originalFileType || 'pdf'}`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success("Original file downloaded!");
+    } catch (error: any) {
+      console.error("Download error:", error);
+      toast.error("Failed to download file: " + error.message);
+    }
+  };
+
   const getScoreColor = (score: number) => {
     if (score >= 80) return "text-green-500";
     if (score >= 60) return "text-yellow-500";
@@ -583,14 +703,27 @@ const ResumeOptimizer = () => {
                       variant="outline"
                       onClick={() => fileInputRef.current?.click()}
                       className="flex-1"
+                      disabled={uploadingFile}
                     >
-                      <Upload className="mr-2 h-4 w-4" />
-                      Upload File
+                      {uploadingFile ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Uploading...
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="mr-2 h-4 w-4" />
+                          Upload File
+                        </>
+                      )}
                     </Button>
                     {selectedFile && (
                       <Badge variant="secondary" className="flex items-center gap-2">
                         <FileText className="h-3 w-3" />
                         {selectedFile.name}
+                        {uploadedFilePath && (
+                          <CheckCircle2 className="h-3 w-3 text-green-500" />
+                        )}
                       </Badge>
                     )}
                   </div>
@@ -1000,7 +1133,19 @@ const ResumeOptimizer = () => {
               {currentAnalysis && (
                 <Card>
                   <CardHeader>
-                    <CardTitle>ATS Score</CardTitle>
+                    <div className="flex items-center justify-between">
+                      <CardTitle>ATS Score</CardTitle>
+                      {uploadedFilePath && originalFileType && (
+                        <Button
+                          onClick={handleDownloadOriginal}
+                          variant="outline"
+                          size="sm"
+                        >
+                          <Download className="mr-2 h-4 w-4" />
+                          Original {originalFileType.toUpperCase()}
+                        </Button>
+                      )}
+                    </div>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="text-center">
@@ -1093,6 +1238,7 @@ const ResumeOptimizer = () => {
         userLocation={profile?.location}
         userLinkedIn={profile?.linkedin_url}
         professionalTitle={profile?.professional_title}
+        formattingData={currentAnalysis?.formatting_analysis || currentAnalysis?.formatting_preservation || null}
       />
     </>
   );
