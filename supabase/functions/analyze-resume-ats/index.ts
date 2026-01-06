@@ -63,6 +63,13 @@ serve(async (req) => {
     let requestData: AnalyzeRequest;
     try {
       requestData = await req.json();
+      console.log("Request data received:", {
+        has_resume_text: !!requestData.resume_text,
+        has_file_path: !!requestData.file_path,
+        has_file_url: !!requestData.file_url,
+        has_analysis_id: !!requestData.analysis_id,
+        file_path: requestData.file_path,
+      });
     } catch (parseError: any) {
       console.error("Error parsing request body:", parseError);
       return new Response(
@@ -81,8 +88,16 @@ serve(async (req) => {
     }
 
     if (!resume_text && !file_path && !file_url) {
+      console.error("Validation failed: No resume content provided", {
+        resume_text: !!resume_text,
+        file_path: file_path,
+        file_url: file_url,
+      });
       return new Response(
-        JSON.stringify({ error: "Missing required field: resume_text, file_path, or file_url" }),
+        JSON.stringify({ 
+          error: "Missing required field: resume_text, file_path, or file_url",
+          details: "Please provide either resume text or upload a file"
+        }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -179,12 +194,22 @@ serve(async (req) => {
         
         if (file_path) {
           // Download from storage bucket
+          console.log("Downloading file from storage:", file_path);
           const { data: fileData, error: downloadError } = await supabase.storage
             .from("resumes")
             .download(file_path);
           
-          if (downloadError) throw downloadError;
+          if (downloadError) {
+            console.error("Storage download error:", downloadError);
+            throw new Error(`Failed to download file from storage: ${downloadError.message}`);
+          }
+          
+          if (!fileData) {
+            throw new Error("File data is null after download");
+          }
+          
           pdfBuffer = await fileData.arrayBuffer();
+          console.log("File downloaded successfully, size:", pdfBuffer.byteLength, "bytes");
         } else if (file_url) {
           // Download from URL
           const response = await fetch(file_url);
