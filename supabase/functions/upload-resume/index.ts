@@ -149,13 +149,21 @@ serve(async (req) => {
         // Extract text from PDF using pdfjs-dist
         console.log("Extracting text from PDF...");
         try {
-          const { getDocument, GlobalWorkerOptions } = await import("https://esm.sh/pdfjs-dist@3.11.174/build/pdf.mjs");
+          const pdfjs = await import("https://esm.sh/pdfjs-dist@3.11.174/build/pdf.mjs");
           
-          // Set worker source (required for pdfjs-dist in Deno)
-          GlobalWorkerOptions.workerSrc = "https://esm.sh/pdfjs-dist@3.11.174/build/pdf.worker.mjs";
+          // Check if GlobalWorkerOptions exists and set worker source
+          if (pdfjs.GlobalWorkerOptions) {
+            pdfjs.GlobalWorkerOptions.workerSrc = "https://esm.sh/pdfjs-dist@3.11.174/build/pdf.worker.mjs";
+          }
           
           // Load the PDF document
-          const pdfDocument = await getDocument(new Uint8Array(fileArrayBuffer)).promise;
+          const pdfDocument = await pdfjs.getDocument({ 
+            data: new Uint8Array(fileArrayBuffer),
+            useWorkerFetch: false,
+            isEvalSupported: false,
+            useSystemFonts: true
+          }).promise;
+          
           console.log("PDF loaded, pages:", pdfDocument.numPages);
           
           // Extract text from all pages
