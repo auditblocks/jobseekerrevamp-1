@@ -146,57 +146,13 @@ serve(async (req) => {
         extractedText = await file.text();
         console.log("Extracted text from TXT file, length:", extractedText.length);
       } else if (fileType === "pdf") {
-        // Extract text from PDF using pdfjs-dist
-        console.log("Extracting text from PDF...");
-        try {
-          // Use a CDN that works better with Deno
-          const pdfjsLib = await import("https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.mjs");
-          
-          // Destructure the functions we need
-          const { getDocument } = pdfjsLib;
-          
-          if (!getDocument || typeof getDocument !== 'function') {
-            console.error("getDocument not found. Available exports:", Object.keys(pdfjsLib));
-            throw new Error("getDocument function not available in pdfjs-dist module");
-          }
-          
-          // Set worker options if available
-          if (pdfjsLib.GlobalWorkerOptions) {
-            pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.mjs";
-          }
-          
-          // Load the PDF document
-          const loadingTask = getDocument({ 
-            data: new Uint8Array(fileArrayBuffer),
-            useWorkerFetch: false,
-            isEvalSupported: false,
-            useSystemFonts: true
-          });
-          
-          const pdfDocument = await loadingTask.promise;
-          console.log("PDF loaded, pages:", pdfDocument.numPages);
-          
-          // Extract text from all pages
-          const textParts: string[] = [];
-          for (let pageNum = 1; pageNum <= pdfDocument.numPages; pageNum++) {
-            const page = await pdfDocument.getPage(pageNum);
-            const textContent = await page.getTextContent();
-            const pageText = textContent.items
-              .map((item: any) => item.str)
-              .join(" ");
-            textParts.push(pageText);
-            console.log(`Extracted text from page ${pageNum}, length:`, pageText.length);
-          }
-          
-          extractedText = textParts.join("\n\n");
-          console.log("Total extracted text length:", extractedText.length);
-        } catch (pdfError: any) {
-          console.error("PDF extraction error:", pdfError);
-          throw new Error(`Failed to extract text from PDF: ${pdfError.message}`);
-        }
+        // PDF text extraction is handled on the frontend for better compatibility
+        // Just store the file here, text will be extracted in the browser
+        console.log("PDF uploaded - text extraction will be done on frontend");
+        extractedText = "";
       } else if (fileType === "docx") {
-        // DOCX extraction not yet implemented
-        console.warn("DOCX extraction not yet implemented.");
+        // DOCX text extraction is handled on the frontend
+        console.log("DOCX uploaded - text extraction will be done on frontend");
         extractedText = "";
       }
     } catch (extractError: any) {

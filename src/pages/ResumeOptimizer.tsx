@@ -153,8 +153,8 @@ const ResumeOptimizer = () => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    setSelectedFile(file);
-    
+      setSelectedFile(file);
+      
     // Determine file type
     let fileType: 'pdf' | 'docx' | 'txt' = 'txt';
     if (file.type === "application/pdf") {
@@ -169,11 +169,11 @@ const ResumeOptimizer = () => {
       await handleFileUpload(file, fileType);
     } else if (file.type === "text/plain") {
       // Read text files directly
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        setResumeText(event.target?.result as string);
-      };
-      reader.readAsText(file);
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          setResumeText(event.target?.result as string);
+        };
+        reader.readAsText(file);
       setOriginalFileType('txt');
     }
   };
@@ -207,45 +207,46 @@ const ResumeOptimizer = () => {
       setUploadedFilePath(fileName);
       setUploadedFileUrl(urlData.publicUrl);
       
-      // Extract text from PDF/DOCX using upload-resume function (workaround until edge function supports file_path)
-      if (fileType === 'pdf' || fileType === 'docx') {
+      // Extract text from PDF directly in the browser using PDF.js
+      if (fileType === 'pdf') {
         try {
-          toast.info("Extracting text from file...");
-          const formData = new FormData();
-          formData.append('file', file);
+          toast.info("Extracting text from PDF...");
           
-          const { data: uploadData, error: extractError } = await supabase.functions.invoke('upload-resume', {
-            body: formData,
-          });
+          // Dynamic import of PDF.js for browser
+          const pdfjsLib = await import('pdfjs-dist');
+          pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
           
-          if (extractError) {
-            console.error("Text extraction error:", extractError);
-            toast.warning("File uploaded but text extraction failed. You may need to paste the text manually.");
-            setResumeText("");
-          } else if (uploadData?.resume?.id) {
-            // Fetch the resume record to get extracted_text
-            const { data: resumeData, error: fetchError } = await supabase
-              .from("resumes")
-              .select("extracted_text")
-              .eq("id", uploadData.resume.id)
-              .single();
-            
-            if (!fetchError && resumeData?.extracted_text) {
-              setResumeText(resumeData.extracted_text);
-              toast.success("File uploaded and text extracted successfully! Click 'Analyze' to proceed.");
-            } else {
-              setResumeText("");
-              toast.success("File uploaded successfully! Click 'Analyze' to proceed.");
-            }
-          } else {
-            setResumeText("");
-            toast.success("File uploaded successfully! Click 'Analyze' to proceed.");
+          // Read the file as ArrayBuffer
+          const arrayBuffer = await file.arrayBuffer();
+          
+          // Load the PDF
+          const loadingTask = pdfjsLib.getDocument(new Uint8Array(arrayBuffer));
+          const pdf = await loadingTask.promise;
+          
+          // Extract text from all pages
+          const textParts: string[] = [];
+          for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+            const page = await pdf.getPage(pageNum);
+            const textContent = await page.getTextContent();
+            const pageText = textContent.items
+              .map((item: any) => item.str)
+              .join(' ');
+            textParts.push(pageText);
           }
+          
+          const extractedText = textParts.join('\n\n');
+          setResumeText(extractedText);
+          console.log("PDF text extracted, length:", extractedText.length);
+          toast.success("File uploaded and text extracted successfully! Click 'Analyze' to proceed.");
         } catch (extractError: any) {
-          console.error("Text extraction error:", extractError);
+          console.error("PDF text extraction error:", extractError);
+          toast.warning("File uploaded but text extraction failed. Analysis will use visual PDF analysis.");
           setResumeText("");
-          toast.success("File uploaded successfully! Click 'Analyze' to proceed.");
         }
+      } else if (fileType === 'docx') {
+        // For DOCX, just show a message - we'll handle it during analysis
+        toast.success("File uploaded successfully! Click 'Analyze' to proceed.");
+        setResumeText("");
       } else {
         setResumeText(""); // Clear text area for other file types
         toast.success("File uploaded successfully! Click 'Analyze' to proceed.");
@@ -450,8 +451,8 @@ const ResumeOptimizer = () => {
 
       // Call analyze function - pass file_path for PDF/DOCX, resume_text for text
       const analyzeBody: any = {
-        job_description: jobDescription || undefined,
-        analysis_id: finalAnalysisId,
+          job_description: jobDescription || undefined,
+          analysis_id: finalAnalysisId,
       };
 
       // TEMPORARY WORKAROUND: Since the deployed edge function doesn't support file_path yet,
@@ -786,8 +787,8 @@ const ResumeOptimizer = () => {
                         </>
                       ) : (
                         <>
-                          <Upload className="mr-2 h-4 w-4" />
-                          Upload File
+                      <Upload className="mr-2 h-4 w-4" />
+                      Upload File
                         </>
                       )}
                     </Button>
@@ -854,34 +855,34 @@ const ResumeOptimizer = () => {
                           Templates
                         </Button>
                       )}
-                      <Button
-                        onClick={handleAnalyze}
+                    <Button
+                      onClick={handleAnalyze}
                         disabled={loading || analyzing || processingPayment || (!resumeText.trim() && !uploadedFilePath)}
-                        size="lg"
-                        className={isProUser ? "bg-accent hover:bg-accent/90" : ""}
-                      >
-                        {processingPayment ? (
-                          <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Processing Payment...
-                          </>
-                        ) : analyzing ? (
-                          <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Analyzing...
-                          </>
-                        ) : isProUser ? (
-                          <>
-                            <Sparkles className="mr-2 h-4 w-4" />
-                            Analyze (Unlimited)
-                          </>
-                        ) : (
-                          <>
-                            <IndianRupee className="mr-2 h-4 w-4" />
-                            Pay & Analyze
-                          </>
-                        )}
-                      </Button>
+                      size="lg"
+                      className={isProUser ? "bg-accent hover:bg-accent/90" : ""}
+                    >
+                      {processingPayment ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Processing Payment...
+                        </>
+                      ) : analyzing ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Analyzing...
+                        </>
+                      ) : isProUser ? (
+                        <>
+                          <Sparkles className="mr-2 h-4 w-4" />
+                          Analyze (Unlimited)
+                        </>
+                      ) : (
+                        <>
+                          <IndianRupee className="mr-2 h-4 w-4" />
+                          Pay & Analyze
+                        </>
+                      )}
+                    </Button>
                     </div>
                   </div>
                 </CardContent>
@@ -1208,7 +1209,7 @@ const ResumeOptimizer = () => {
                 <Card>
                   <CardHeader>
                     <div className="flex items-center justify-between">
-                      <CardTitle>ATS Score</CardTitle>
+                    <CardTitle>ATS Score</CardTitle>
                       {uploadedFilePath && originalFileType && (
                         <Button
                           onClick={handleDownloadOriginal}
