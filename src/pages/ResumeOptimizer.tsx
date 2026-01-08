@@ -31,6 +31,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import SEOHead from "@/components/SEO/SEOHead";
 import { ResumeTemplates } from "@/components/resume/ResumeTemplates";
+import { ResumeTemplateBuilder } from "@/components/resume/ResumeTemplateBuilder";
+import { StructuredResumeData } from "@/types/resume";
 
 declare global {
   interface Window {
@@ -88,6 +90,9 @@ const ResumeOptimizer = () => {
   const [optimizedResume, setOptimizedResume] = useState<string | null>(null);
   const [showOptimized, setShowOptimized] = useState(false);
   const [showTemplates, setShowTemplates] = useState(false);
+  const [showTemplateBuilder, setShowTemplateBuilder] = useState(false);
+  const [structuredResumeData, setStructuredResumeData] = useState<StructuredResumeData | null>(null);
+  const [extractingData, setExtractingData] = useState(false);
   const [uploadedFileUrl, setUploadedFileUrl] = useState<string | null>(null);
   const [uploadedFilePath, setUploadedFilePath] = useState<string | null>(null);
   const [uploadingFile, setUploadingFile] = useState(false);
@@ -436,6 +441,33 @@ const ResumeOptimizer = () => {
     }
   };
 
+  const extractStructuredData = async (text: string) => {
+    if (!text.trim()) return;
+    
+    setExtractingData(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("extract-resume-data", {
+        body: { resume_text: text },
+      });
+
+      if (error) {
+        console.error("Data extraction error:", error);
+        toast.warning("Could not extract structured data. You can still use templates.");
+        return;
+      }
+
+      if (data?.success && data?.data) {
+        setStructuredResumeData(data.data);
+        console.log("Structured resume data extracted successfully");
+      }
+    } catch (error: any) {
+      console.error("Data extraction error:", error);
+      // Don't show error toast - this is optional functionality
+    } finally {
+      setExtractingData(false);
+    }
+  };
+
   const runAnalysis = async (analysisId?: string) => {
     setAnalyzing(true);
     try {
@@ -516,6 +548,11 @@ const ResumeOptimizer = () => {
       setShowOptimized(false);
       toast.success("Analysis completed!");
       fetchAnalysisHistory();
+
+      // Auto-extract structured data after analysis
+      if (resumeText.trim()) {
+        extractStructuredData(resumeText);
+      }
     } catch (error: any) {
       console.error("Analysis error:", error);
       toast.error("Failed to analyze resume: " + (error.message || "Unknown error"));
@@ -847,12 +884,19 @@ const ResumeOptimizer = () => {
                     <div className="flex gap-2">
                       {resumeText.trim() && (
                         <Button
-                          onClick={() => setShowTemplates(true)}
+                          onClick={() => {
+                            if (structuredResumeData) {
+                              setShowTemplateBuilder(true);
+                            } else {
+                              setShowTemplates(true);
+                            }
+                          }}
                           variant="outline"
                           size="lg"
+                          disabled={extractingData}
                         >
                           <Palette className="mr-2 h-4 w-4" />
-                          Templates
+                          {extractingData ? "Extracting Data..." : structuredResumeData ? "Edit & Choose Template" : "Templates"}
                         </Button>
                       )}
                     <Button
@@ -920,12 +964,19 @@ const ResumeOptimizer = () => {
                       />
                       <div className="mt-4 flex gap-2 flex-wrap">
                         <Button
-                          onClick={() => setShowTemplates(true)}
+                          onClick={() => {
+                            if (structuredResumeData) {
+                              setShowTemplateBuilder(true);
+                            } else {
+                              setShowTemplates(true);
+                            }
+                          }}
                           className="bg-accent hover:bg-accent/90"
                           size="sm"
+                          disabled={extractingData}
                         >
                           <Palette className="mr-2 h-4 w-4" />
-                          Choose Template
+                          {extractingData ? "Extracting..." : structuredResumeData ? "Edit & Choose Template" : "Choose Template"}
                         </Button>
                         <Button
                           onClick={() => {
@@ -1301,6 +1352,13 @@ const ResumeOptimizer = () => {
       </div>
 
       {/* Resume Templates Dialog */}
+      <ResumeTemplateBuilder
+        open={showTemplateBuilder}
+        onOpenChange={setShowTemplateBuilder}
+        initialData={structuredResumeData}
+        profilePhotoUrl={profile?.profile_photo_url}
+      />
+
       <ResumeTemplates
         originalResume={resumeText}
         optimizedResume={optimizedResume}
@@ -1312,6 +1370,7 @@ const ResumeOptimizer = () => {
         userPhone={profile?.phone}
         userLocation={profile?.location}
         userLinkedIn={profile?.linkedin_url}
+        structuredData={structuredResumeData}
         professionalTitle={profile?.professional_title}
         formattingData={currentAnalysis?.formatting_analysis || currentAnalysis?.formatting_preservation || null}
       />

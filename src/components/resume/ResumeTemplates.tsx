@@ -15,6 +15,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Download, Eye, FileText, FileDown } from "lucide-react";
 import { toast } from "sonner";
+import { StructuredResumeData } from "@/types/resume";
 
 export interface ResumeTemplate {
   id: string;
@@ -23,6 +24,7 @@ export interface ResumeTemplate {
   accentColor: string;
   description: string;
   hasPhoto: boolean;
+  templateType: "simple" | "creative";
 }
 
 export interface ParsedResume {
@@ -79,9 +81,39 @@ interface ResumeTemplatesProps {
     fonts?: string[];
     layout?: string;
   } | null;
+  structuredData?: StructuredResumeData | null;
 }
 
 const TEMPLATES: ResumeTemplate[] = [
+  // Simple Templates (Naukri-style)
+  {
+    id: "simple-classic",
+    name: "Simple Classic",
+    style: "Single-column ATS-friendly",
+    accentColor: "#000000",
+    description: "Clean, professional single-column layout perfect for ATS scanning",
+    hasPhoto: false,
+    templateType: "simple",
+  },
+  {
+    id: "simple-modern",
+    name: "Simple Modern",
+    style: "Single-column with subtle accents",
+    accentColor: "#2563EB",
+    description: "Modern single-column design with professional styling",
+    hasPhoto: false,
+    templateType: "simple",
+  },
+  {
+    id: "simple-minimal",
+    name: "Simple Minimal",
+    style: "Ultra-clean single-column",
+    accentColor: "#374151",
+    description: "Minimalist design focused on content, maximum ATS compatibility",
+    hasPhoto: false,
+    templateType: "simple",
+  },
+  // Creative Templates (Two-column)
   {
     id: "blue-sidebar",
     name: "Blue Sidebar Professional",
@@ -89,6 +121,7 @@ const TEMPLATES: ResumeTemplate[] = [
     accentColor: "#4A90E2",
     description: "Classic professional layout with light blue sidebar and photo",
     hasPhoto: true,
+    templateType: "creative",
   },
   {
     id: "purple-sidebar",
@@ -97,6 +130,7 @@ const TEMPLATES: ResumeTemplate[] = [
     accentColor: "#9B59B6",
     description: "Elegant design with purple sidebar and modern typography",
     hasPhoto: true,
+    templateType: "creative",
   },
   {
     id: "green-sidebar",
@@ -105,6 +139,7 @@ const TEMPLATES: ResumeTemplate[] = [
     accentColor: "#27AE60",
     description: "Modern layout with green accent and clean design",
     hasPhoto: true,
+    templateType: "creative",
   },
   {
     id: "minimal-no-photo",
@@ -113,6 +148,7 @@ const TEMPLATES: ResumeTemplate[] = [
     accentColor: "#34495E",
     description: "Clean minimal design without photo, perfect for ATS",
     hasPhoto: false,
+    templateType: "creative",
   },
   {
     id: "orange-sidebar",
@@ -121,6 +157,7 @@ const TEMPLATES: ResumeTemplate[] = [
     accentColor: "#E67E22",
     description: "Creative design with warm orange tones",
     hasPhoto: true,
+    templateType: "creative",
   },
   {
     id: "teal-sidebar",
@@ -129,6 +166,7 @@ const TEMPLATES: ResumeTemplate[] = [
     accentColor: "#16A085",
     description: "Contemporary design with teal accent color",
     hasPhoto: true,
+    templateType: "creative",
   },
 ];
 
@@ -145,6 +183,7 @@ export const ResumeTemplates = ({
   userLinkedIn,
   professionalTitle,
   formattingData,
+  structuredData,
 }: ResumeTemplatesProps) => {
   const [selectedTemplate, setSelectedTemplate] = useState<ResumeTemplate | null>(null);
   const [resumeSource, setResumeSource] = useState<"original" | "optimized">(
@@ -153,6 +192,36 @@ export const ResumeTemplates = ({
   const [previewOpen, setPreviewOpen] = useState(false);
 
   const currentResume = resumeSource === "optimized" && optimizedResume ? optimizedResume : originalResume;
+
+  // Convert structured data to ParsedResume format for template rendering
+  const convertStructuredToParsed = (data: StructuredResumeData): ParsedResume => {
+    return {
+      header: {
+        name: data.personalInfo.name,
+        email: data.personalInfo.email,
+        phone: data.personalInfo.phone,
+        location: data.personalInfo.location,
+        linkedin: data.personalInfo.linkedin,
+      },
+      professionalTitle: data.professionalTitle,
+      summary: data.summary,
+      experience: data.workExperience.map((exp) => ({
+        title: exp.jobTitle,
+        company: exp.company,
+        dates: `${exp.startDate} - ${exp.current ? "Present" : exp.endDate}`,
+        description: exp.description,
+      })),
+      education: data.education.map((edu) => ({
+        degree: edu.degree,
+        institution: edu.institution,
+        dates: edu.graduationDate,
+      })),
+      skills: data.skills,
+      projects: data.projects,
+      languages: data.languages,
+      certifications: data.certifications,
+    };
+  };
 
   // Enhanced parsing with better section detection
   const parseResumeContent = (text: string): ParsedResume => {
@@ -328,7 +397,10 @@ export const ResumeTemplates = ({
   };
 
   const generateTemplateHTML = (template: ResumeTemplate, resumeText: string, formatData?: typeof formattingData): string => {
-    const parsed = parseResumeContent(resumeText);
+    // Use structured data if available, otherwise parse from text
+    const parsed = structuredData 
+      ? convertStructuredToParsed(structuredData)
+      : parseResumeContent(resumeText);
     const { header, professionalTitle, summary, experience, education, skills, projects, languages, certifications } = parsed;
     
     // Use formatting data if available to preserve original format
@@ -346,6 +418,286 @@ export const ResumeTemplates = ({
         .replace(/'/g, "&#039;");
     };
 
+    // Format summary with proper paragraph breaks
+    const formatSummary = (text: string): string => {
+      if (!text) return "";
+      // Split by sentences and create paragraphs
+      const sentences = text.split(/(?<=[.!?])\s+/).filter(s => s.trim());
+      const paragraphs: string[] = [];
+      let currentPara = "";
+      
+      sentences.forEach((sentence, index) => {
+        currentPara += sentence + " ";
+        // Create paragraph every 2-3 sentences or at end
+        if ((index + 1) % 3 === 0 || index === sentences.length - 1) {
+          paragraphs.push(currentPara.trim());
+          currentPara = "";
+        }
+      });
+      
+      return paragraphs.length > 0 ? paragraphs.join("</p><p>") : text;
+    };
+
+    // Generate simple template HTML (Naukri-style)
+    if (template.templateType === "simple") {
+      const fontFamily = formatData?.font_family || 'Arial, sans-serif';
+      const accentColor = template.accentColor;
+      
+      return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Resume - ${escapeHtml(header.name || "Your Name")}</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { 
+      font-family: ${fontFamily}; 
+      line-height: 1.6; 
+      color: #000; 
+      background: #fff; 
+      padding: 40px;
+      max-width: 900px;
+      margin: 0 auto;
+    }
+    .header {
+      text-align: center;
+      margin-bottom: 30px;
+      padding-bottom: 20px;
+      border-bottom: 2px solid ${accentColor};
+    }
+    .name {
+      font-size: 32px;
+      font-weight: 700;
+      color: #000;
+      margin-bottom: 8px;
+    }
+    .title {
+      font-size: 18px;
+      color: #333;
+      margin-bottom: 12px;
+      font-weight: 500;
+    }
+    .contact-info {
+      font-size: 14px;
+      color: #555;
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 15px;
+    }
+    .contact-item {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .section {
+      margin-bottom: 25px;
+    }
+    .section-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: ${accentColor};
+      margin-bottom: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      border-bottom: 1px solid #ddd;
+      padding-bottom: 5px;
+    }
+    .summary-text {
+      font-size: 14px;
+      line-height: 1.8;
+      color: #333;
+      text-align: justify;
+    }
+    .summary-text p {
+      margin-bottom: 10px;
+    }
+    .experience-item, .education-item {
+      margin-bottom: 20px;
+    }
+    .job-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: start;
+      margin-bottom: 8px;
+    }
+    .job-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: #000;
+    }
+    .company {
+      font-size: 15px;
+      color: #333;
+      font-weight: 500;
+      margin-top: 2px;
+    }
+    .dates {
+      font-size: 13px;
+      color: #666;
+      white-space: nowrap;
+    }
+    .description {
+      margin-top: 10px;
+      padding-left: 20px;
+    }
+    .description ul {
+      list-style: none;
+      padding: 0;
+    }
+    .description li {
+      margin-bottom: 6px;
+      font-size: 14px;
+      color: #444;
+      position: relative;
+    }
+    .description li:before {
+      content: "•";
+      position: absolute;
+      left: -15px;
+      color: ${accentColor};
+      font-weight: bold;
+    }
+    .skills-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .skill-tag {
+      background: #f5f5f5;
+      color: #333;
+      padding: 6px 12px;
+      border-radius: 4px;
+      font-size: 13px;
+      border: 1px solid #ddd;
+    }
+    .project-item {
+      margin-bottom: 15px;
+    }
+    .project-name {
+      font-size: 16px;
+      font-weight: 600;
+      color: #000;
+      margin-bottom: 5px;
+    }
+    .project-description {
+      font-size: 14px;
+      color: #444;
+      line-height: 1.7;
+    }
+    @media print {
+      body { padding: 20px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="name">${escapeHtml(header.name || "Your Name")}</div>
+    ${professionalTitle ? `<div class="title">${escapeHtml(professionalTitle)}</div>` : ""}
+    <div class="contact-info">
+      ${header.email ? `<div class="contact-item">${escapeHtml(header.email)}</div>` : ""}
+      ${header.phone ? `<div class="contact-item">${escapeHtml(header.phone)}</div>` : ""}
+      ${header.location ? `<div class="contact-item">${escapeHtml(header.location)}</div>` : ""}
+      ${header.linkedin ? `<div class="contact-item"><a href="${escapeHtml(header.linkedin)}" style="color: ${accentColor};">${escapeHtml(header.linkedin)}</a></div>` : ""}
+    </div>
+  </div>
+
+  ${summary ? `
+  <div class="section">
+    <div class="section-title">Professional Summary</div>
+    <div class="summary-text"><p>${formatSummary(summary)}</p></div>
+  </div>
+  ` : ""}
+
+  ${experience.length > 0 ? `
+  <div class="section">
+    <div class="section-title">Work Experience</div>
+    ${experience.map((exp) => `
+      <div class="experience-item">
+        <div class="job-header">
+          <div>
+            <div class="job-title">${escapeHtml(exp.title)}</div>
+            ${exp.company ? `<div class="company">${escapeHtml(exp.company)}</div>` : ""}
+          </div>
+          ${exp.dates ? `<div class="dates">${escapeHtml(exp.dates)}</div>` : ""}
+        </div>
+        ${exp.description.length > 0 ? `
+        <div class="description">
+          <ul>
+            ${exp.description.map((desc) => `<li>${escapeHtml(desc)}</li>`).join("")}
+          </ul>
+        </div>
+        ` : ""}
+      </div>
+    `).join("")}
+  </div>
+  ` : ""}
+
+  ${education.length > 0 ? `
+  <div class="section">
+    <div class="section-title">Education</div>
+    ${education.map((edu) => `
+      <div class="education-item">
+        <div class="job-header">
+          <div>
+            <div class="job-title">${escapeHtml(edu.degree)}</div>
+            ${edu.institution ? `<div class="company">${escapeHtml(edu.institution)}</div>` : ""}
+          </div>
+          ${edu.dates ? `<div class="dates">${escapeHtml(edu.dates)}</div>` : ""}
+        </div>
+      </div>
+    `).join("")}
+  </div>
+  ` : ""}
+
+  ${skills.length > 0 ? `
+  <div class="section">
+    <div class="section-title">Skills</div>
+    <div class="skills-list">
+      ${skills.map((skill) => `<span class="skill-tag">${escapeHtml(skill)}</span>`).join("")}
+    </div>
+  </div>
+  ` : ""}
+
+  ${projects && projects.length > 0 ? `
+  <div class="section">
+    <div class="section-title">Projects</div>
+    ${projects.map((proj) => `
+      <div class="project-item">
+        <div class="project-name">${escapeHtml(proj.name)}</div>
+        <div class="project-description">${escapeHtml(proj.description)}</div>
+      </div>
+    `).join("")}
+  </div>
+  ` : ""}
+
+  ${certifications && certifications.length > 0 ? `
+  <div class="section">
+    <div class="section-title">Certifications</div>
+    <div class="description">
+      <ul>
+        ${certifications.map((cert) => `<li>${escapeHtml(cert)}</li>`).join("")}
+      </ul>
+    </div>
+  </div>
+  ` : ""}
+
+  ${languages && languages.length > 0 ? `
+  <div class="section">
+    <div class="section-title">Languages</div>
+    <div class="skills-list">
+      ${languages.map((lang) => `<span class="skill-tag">${escapeHtml(lang)}</span>`).join("")}
+    </div>
+  </div>
+  ` : ""}
+</body>
+</html>
+      `.trim();
+    }
+
+    // Creative template (two-column) HTML generation
     const photoHtml = template.hasPhoto && profilePhotoUrl 
       ? `<div class="photo-container">
           <img src="${escapeHtml(profilePhotoUrl)}" alt="${escapeHtml(header.name)}" class="profile-photo" />
@@ -628,7 +980,7 @@ export const ResumeTemplates = ({
       ${summary ? `
       <div class="section">
         <div class="section-title">Profile Summary</div>
-        <div class="summary-text">${escapeHtml(summary)}</div>
+        <div class="summary-text"><p>${formatSummary(summary)}</p></div>
       </div>
       ` : ""}
 
