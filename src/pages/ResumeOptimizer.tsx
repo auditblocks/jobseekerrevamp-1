@@ -441,10 +441,9 @@ const ResumeOptimizer = () => {
     }
   };
 
-  const extractStructuredData = async (text: string) => {
+  const extractStructuredData = async (text: string, showSuccessToast: boolean = true) => {
     if (!text.trim()) return;
     
-    setExtractingData(true);
     try {
       const { data, error } = await supabase.functions.invoke("extract-resume-data", {
         body: { resume_text: text },
@@ -452,19 +451,23 @@ const ResumeOptimizer = () => {
 
       if (error) {
         console.error("Data extraction error:", error);
-        toast.warning("Could not extract structured data. You can still use templates.");
+        // Don't show warning - extraction is optional, user can still use template builder
         return;
       }
 
       if (data?.success && data?.data) {
         setStructuredResumeData(data.data);
         console.log("Structured resume data extracted successfully");
+        if (showSuccessToast) {
+          toast.success("Resume data extracted successfully!");
+        }
+      } else {
+        console.log("No structured data returned from extraction");
       }
     } catch (error: any) {
       console.error("Data extraction error:", error);
       // Don't show error toast - this is optional functionality
-    } finally {
-      setExtractingData(false);
+      // Template builder will open with empty form
     }
   };
 
@@ -979,11 +982,35 @@ const ResumeOptimizer = () => {
                       />
                       <div className="mt-4 flex gap-2 flex-wrap">
                         <Button
-                          onClick={() => {
-                            if (structuredResumeData) {
+                          onClick={async () => {
+                            if (!optimizedResume) {
+                              // If no optimized resume, use existing structured data
+                              if (structuredResumeData) {
+                                setShowTemplateBuilder(true);
+                              } else {
+                                setShowTemplates(true);
+                              }
+                              return;
+                            }
+                            
+                            // Update resume text with optimized version
+                            setResumeText(optimizedResume);
+                            
+                            // Re-extract structured data from optimized resume to preserve formatting
+                            toast.info("Extracting structured data from optimized resume...");
+                            try {
+                              await extractStructuredData(optimizedResume, false);
+                              // Wait a moment for state to update, then open template builder
+                              setTimeout(() => {
+                                setShowTemplateBuilder(true);
+                                setShowOptimized(false);
+                                toast.success("Template builder opened with updated data!");
+                              }, 300);
+                            } catch (error) {
+                              // Even if extraction fails, open template builder
                               setShowTemplateBuilder(true);
-                            } else {
-                              setShowTemplates(true);
+                              setShowOptimized(false);
+                              toast.success("Template builder opened!");
                             }
                           }}
                           className="bg-accent hover:bg-accent/90"
@@ -991,18 +1018,29 @@ const ResumeOptimizer = () => {
                           disabled={extractingData}
                         >
                           <Palette className="mr-2 h-4 w-4" />
-                          {extractingData ? "Extracting..." : structuredResumeData ? "Edit & Choose Template" : "Choose Template"}
+                          {extractingData ? "Extracting..." : optimizedResume ? "Apply Changes & Open Template Builder" : structuredResumeData ? "Edit & Choose Template" : "Choose Template"}
                         </Button>
                         <Button
-                          onClick={() => {
+                          onClick={async () => {
+                            if (!optimizedResume) return;
+                            
+                            // Update resume text
                             setResumeText(optimizedResume);
                             setShowOptimized(false);
-                            toast.success("Optimized resume loaded for further editing");
+                            
+                            // Re-extract structured data from optimized resume to preserve formatting
+                            toast.info("Extracting structured data from optimized resume...");
+                            try {
+                              await extractStructuredData(optimizedResume, false);
+                              toast.success("Optimized resume loaded and structured data updated!");
+                            } catch (error) {
+                              toast.success("Optimized resume loaded for further editing");
+                            }
                           }}
                           variant="outline"
                           size="sm"
                         >
-                          Use as New Resume
+                          Apply Changes & Update Data
                         </Button>
                         <Button
                           onClick={() => setShowOptimized(false)}
@@ -1308,22 +1346,27 @@ const ResumeOptimizer = () => {
                       {/* Template Builder Button */}
                       <Button
                         onClick={async () => {
-                          if (!structuredResumeData && resumeText.trim()) {
+                          if (!resumeText.trim()) {
+                            toast.error("Please provide resume text first");
+                            return;
+                          }
+
+                          // If we don't have structured data yet, try to extract it
+                          if (!structuredResumeData) {
+                            setExtractingData(true);
                             try {
                               await extractStructuredData(resumeText);
-                              // Open template builder after extraction completes
-                              // Use a small delay to ensure state is updated
-                              setTimeout(() => {
-                                setShowTemplateBuilder(true);
-                              }, 100);
                             } catch (error) {
-                              toast.error("Failed to extract structured data");
+                              // Extraction failed, but we'll still open the builder
+                              console.log("Data extraction failed, opening template builder with empty form");
+                            } finally {
+                              setExtractingData(false);
                             }
-                          } else if (structuredResumeData) {
-                            setShowTemplateBuilder(true);
-                          } else {
-                            toast.error("Please provide resume text first");
                           }
+
+                          // Always open template builder, even if extraction failed
+                          // The builder can work with empty/partial data
+                          setShowTemplateBuilder(true);
                         }}
                         variant="outline"
                         className="h-auto flex-col items-center justify-center p-6 space-y-2 hover:bg-accent/10 hover:border-accent"
@@ -1334,7 +1377,9 @@ const ResumeOptimizer = () => {
                         <span className="text-xs text-muted-foreground text-center">
                           {extractingData 
                             ? "Extracting data..." 
-                            : "Auto-fill form with extracted data"}
+                            : structuredResumeData
+                              ? "Edit with auto-filled data"
+                              : "Open builder (manual entry available)"}
                         </span>
                       </Button>
 

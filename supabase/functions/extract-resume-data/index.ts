@@ -99,8 +99,8 @@ serve(async (req) => {
       throw lastError || new Error("All models failed");
     };
 
-    // Build extraction prompt
-    const extractionPrompt = `Extract structured data from the following resume text. Parse all information accurately and organize it into the specified JSON format.
+    // Build extraction prompt with emphasis on preserving formatting
+    const extractionPrompt = `Extract structured data from the following resume text. CRITICALLY IMPORTANT: Preserve the original formatting, structure, and professional presentation style of the resume.
 
 Resume Text:
 ${resume_text}
@@ -109,55 +109,61 @@ Please extract and structure the resume data in the following EXACT JSON format 
 
 {
   "personalInfo": {
-    "name": "Full name from resume",
+    "name": "Full name from resume (preserve exact capitalization)",
     "email": "Email address",
-    "phone": "Phone number",
-    "location": "City, State/Country",
+    "phone": "Phone number (preserve formatting with dashes/spaces as shown)",
+    "location": "City, State/Country (preserve exact format)",
     "linkedin": "LinkedIn URL if present",
     "website": "Personal website if present"
   },
-  "professionalTitle": "Job title or professional designation if mentioned",
-  "summary": "Professional summary or objective (full text, well-formatted)",
+  "professionalTitle": "Job title or professional designation (preserve exact capitalization and formatting)",
+  "summary": "Professional summary or objective (preserve paragraph structure, line breaks, and formatting - keep as single well-formatted string)",
   "workExperience": [
     {
-      "jobTitle": "Job title",
-      "company": "Company name",
-      "location": "Location if mentioned",
-      "startDate": "Start date (MM/YYYY or YYYY format)",
-      "endDate": "End date (MM/YYYY or YYYY format) or 'Present' if current",
+      "jobTitle": "Job title (preserve exact capitalization)",
+      "company": "Company name (preserve exact capitalization)",
+      "location": "Location if mentioned (preserve format)",
+      "startDate": "Start date (MM/YYYY or YYYY format - preserve original format)",
+      "endDate": "End date (MM/YYYY or YYYY format) or 'Present' if current (preserve original format)",
       "current": true/false,
-      "description": ["Bullet point 1", "Bullet point 2", ...]
+      "description": ["Bullet point 1 (preserve exact wording and formatting)", "Bullet point 2", ...]
     }
   ],
   "education": [
     {
-      "degree": "Degree name (e.g., Bachelor of Science in Computer Science)",
-      "institution": "University/College name",
-      "location": "Location if mentioned",
-      "graduationDate": "Graduation date (MM/YYYY or YYYY)",
-      "gpa": "GPA if mentioned"
+      "degree": "Degree name (preserve exact capitalization and format, e.g., 'Bachelor of Science in Computer Science')",
+      "institution": "University/College name (preserve exact capitalization)",
+      "location": "Location if mentioned (preserve format)",
+      "graduationDate": "Graduation date (MM/YYYY or YYYY - preserve original format)",
+      "gpa": "GPA if mentioned (preserve format)"
     }
   ],
-  "skills": ["Skill 1", "Skill 2", ...],
+  "skills": ["Skill 1 (preserve exact capitalization)", "Skill 2", ...],
   "projects": [
     {
-      "name": "Project name",
-      "description": "Project description",
+      "name": "Project name (preserve exact capitalization)",
+      "description": "Project description (preserve formatting and structure)",
       "technologies": ["Tech 1", "Tech 2"] if mentioned,
-      "duration": "Duration if mentioned"
+      "duration": "Duration if mentioned (preserve format)"
     }
   ],
-  "certifications": ["Certification 1", "Certification 2", ...] if present,
+  "certifications": ["Certification 1 (preserve exact format)", "Certification 2", ...] if present,
   "languages": ["Language 1", "Language 2", ...] if present
 }
 
-IMPORTANT:
-- Extract ALL information accurately
-- For dates, use consistent format (prefer MM/YYYY)
-- For work experience, split description into individual bullet points
-- If a field is not found, use empty string for strings, empty array for arrays
-- Ensure all dates are properly formatted
-- Extract professional title from header or summary if available
+CRITICAL EXTRACTION RULES:
+1. PRESERVE FORMATTING: Maintain the exact formatting, capitalization, punctuation, and structure from the original resume
+2. PRESERVE STRUCTURE: Keep section order, bullet point formatting, and paragraph structure exactly as shown
+3. PRESERVE CAPITALIZATION: Keep all proper nouns, job titles, company names, and section headers exactly as written
+4. PRESERVE DATES: Maintain the exact date format used in the original (MM/YYYY, YYYY, etc.)
+5. PRESERVE CONTENT: Extract ALL information accurately without modification
+6. For work experience descriptions: Preserve each bullet point as a separate array item, maintaining exact wording
+7. For summary: Keep as a single well-formatted string preserving paragraph structure and line breaks
+8. For dates: Use consistent format (prefer MM/YYYY) but preserve original if different
+9. If a field is not found, use empty string for strings, empty array for arrays
+10. Extract professional title from header or summary if available, preserving exact capitalization
+
+The goal is to extract data while maintaining the professional, polished appearance and formatting of the original resume.
 `;
 
     console.log("Calling Gemini API for data extraction...");
