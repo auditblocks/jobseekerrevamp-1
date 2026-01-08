@@ -80,23 +80,30 @@ serve(async (req) => {
 
     const { resume_text, file_path, file_url, job_description, analysis_id } = requestData;
 
-    if (!analysis_id) {
+    if (!analysis_id || (typeof analysis_id === 'string' && analysis_id.trim() === '')) {
       return new Response(
         JSON.stringify({ error: "Missing required field: analysis_id" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    if (!resume_text && !file_path && !file_url) {
+    // Validate resume content - check for empty strings and invalid data URLs
+    const hasResumeText = resume_text && typeof resume_text === 'string' && resume_text.trim().length > 0;
+    const hasFilePath = file_path && typeof file_path === 'string' && file_path.trim().length > 0;
+    const hasFileUrl = file_url && typeof file_url === 'string' && file_url.trim().length > 0 && 
+                       !file_url.startsWith('data:;base64,') && // Filter out invalid data URLs
+                       !file_url.startsWith('data:;base64,='); // Filter out empty data URLs
+
+    if (!hasResumeText && !hasFilePath && !hasFileUrl) {
       console.error("Validation failed: No resume content provided", {
-        resume_text: !!resume_text,
-        file_path: file_path,
-        file_url: file_url,
+        resume_text: resume_text ? `${typeof resume_text} (length: ${typeof resume_text === 'string' ? resume_text.length : 'N/A'})` : 'null/undefined',
+        file_path: file_path || 'null/undefined',
+        file_url: file_url || 'null/undefined',
       });
       return new Response(
         JSON.stringify({ 
           error: "Missing required field: resume_text, file_path, or file_url",
-          details: "Please provide either resume text or upload a file"
+          details: "Please provide either resume text (non-empty) or upload a file with a valid path/URL"
         }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
@@ -187,12 +194,12 @@ serve(async (req) => {
     let sanitizedResumeText: string | null = null;
     let isPdfAnalysis = false;
 
-    if (file_path || file_url) {
+    if (hasFilePath || hasFileUrl) {
       // Download PDF from storage
       try {
         let pdfBuffer: ArrayBuffer;
         
-        if (file_path) {
+        if (hasFilePath && file_path) {
           // Download from storage bucket
           console.log("Downloading file from storage:", file_path);
           const { data: fileData, error: downloadError } = await supabase.storage
@@ -210,13 +217,20 @@ serve(async (req) => {
           
           pdfBuffer = await fileData.arrayBuffer();
           console.log("File downloaded successfully, size:", pdfBuffer.byteLength, "bytes");
-        } else if (file_url) {
-          // Download from URL
+        } else if (hasFileUrl && file_url) {
+          // Download from URL - validate it's not a data URL
+          if (file_url.startsWith('data:')) {
+            throw new Error("Invalid file URL: data URLs are not supported. Please use a file path or public URL.");
+          }
+          console.log("Downloading file from URL:", file_url);
           const response = await fetch(file_url);
-          if (!response.ok) throw new Error(`Failed to fetch PDF: ${response.statusText}`);
+          if (!response.ok) {
+            throw new Error(`Failed to fetch PDF: ${response.status} ${response.statusText}`);
+          }
           pdfBuffer = await response.arrayBuffer();
+          console.log("File downloaded from URL successfully, size:", pdfBuffer.byteLength, "bytes");
         } else {
-          throw new Error("No file path or URL provided");
+          throw new Error("No valid file path or URL provided");
         }
 
         // Prepare PDF for Vision API
@@ -234,8 +248,11 @@ serve(async (req) => {
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-    } else if (resume_text) {
+    } else if (hasResumeText && resume_text) {
       sanitizedResumeText = sanitizeText(resume_text);
+      if (!sanitizedResumeText || sanitizedResumeText.trim().length === 0) {
+        throw new Error("Resume text is empty after sanitization");
+      }
     }
 
     // Initialize Google Gemini

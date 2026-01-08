@@ -483,21 +483,36 @@ const ResumeOptimizer = () => {
 
       // Call analyze function - pass file_path for PDF/DOCX, resume_text for text
       const analyzeBody: any = {
-          job_description: jobDescription || undefined,
+          job_description: jobDescription?.trim() || undefined,
           analysis_id: finalAnalysisId,
       };
 
       // TEMPORARY WORKAROUND: Since the deployed edge function doesn't support file_path yet,
       // we extract text from PDF and send it as resume_text
       // TODO: Once edge function is deployed with file_path support, we can use file_path directly
-      if (resumeText.trim()) {
+      const trimmedResumeText = resumeText?.trim() || '';
+      if (trimmedResumeText.length > 0) {
         // Use extracted text (from PDF upload or manual input)
-        analyzeBody.resume_text = resumeText;
-        console.log("Sending analysis request with resume_text (length):", resumeText.length);
+        analyzeBody.resume_text = trimmedResumeText;
+        console.log("Sending analysis request with resume_text (length):", trimmedResumeText.length);
       } else if (uploadedFilePath && originalFileType) {
         // Fallback: if no text extracted, try file_path (will work once edge function is updated)
-        analyzeBody.file_path = uploadedFilePath;
-        console.log("Sending analysis request with file_path:", uploadedFilePath, "file_type:", originalFileType);
+        // Only send file_path if it's a valid non-empty string
+        if (uploadedFilePath.trim().length > 0) {
+          analyzeBody.file_path = uploadedFilePath.trim();
+          console.log("Sending analysis request with file_path:", uploadedFilePath, "file_type:", originalFileType);
+        } else {
+          throw new Error("Invalid file path. Please upload a file again.");
+        }
+      } else if (uploadedFileUrl && originalFileType) {
+        // Last resort: try file_url if available and valid
+        const trimmedUrl = uploadedFileUrl.trim();
+        if (trimmedUrl.length > 0 && !trimmedUrl.startsWith('data:;base64')) {
+          analyzeBody.file_url = trimmedUrl;
+          console.log("Sending analysis request with file_url:", trimmedUrl, "file_type:", originalFileType);
+        } else {
+          throw new Error("Invalid file URL. Please upload a file again.");
+        }
       } else {
         throw new Error("No resume content provided. Please upload a file or paste text.");
       }

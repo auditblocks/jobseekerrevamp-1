@@ -698,7 +698,14 @@ export const ResumeTemplates = ({
     }
 
     // Creative template (two-column) HTML generation
-    const photoHtml = template.hasPhoto && profilePhotoUrl 
+    // Validate profilePhotoUrl - filter out empty strings and invalid data URLs
+    const isValidPhotoUrl = profilePhotoUrl && 
+                            typeof profilePhotoUrl === 'string' && 
+                            profilePhotoUrl.trim().length > 0 &&
+                            !profilePhotoUrl.startsWith('data:;base64') &&
+                            !profilePhotoUrl.startsWith('data:;base64,=');
+    
+    const photoHtml = template.hasPhoto && isValidPhotoUrl
       ? `<div class="photo-container">
           <img src="${escapeHtml(profilePhotoUrl)}" alt="${escapeHtml(header.name)}" class="profile-photo" />
         </div>`

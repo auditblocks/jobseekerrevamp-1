@@ -264,7 +264,14 @@ const Settings = () => {
         .from("avatars")
         .getPublicUrl(filePath);
 
-      const photoUrl = `${urlData.publicUrl}?t=${Date.now()}`;
+      // Validate the URL before using it
+      const photoUrl = urlData?.publicUrl 
+        ? `${urlData.publicUrl}?t=${Date.now()}`
+        : null;
+      
+      if (!photoUrl) {
+        throw new Error("Failed to generate photo URL");
+      }
 
       const { error: updateError } = await supabase
         .from("profiles")
