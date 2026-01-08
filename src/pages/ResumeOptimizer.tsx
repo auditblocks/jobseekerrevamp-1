@@ -1266,6 +1266,102 @@ const ResumeOptimizer = () => {
                   </CardContent>
                 </Card>
               )}
+
+              {/* Post-Analysis Actions */}
+              {currentAnalysis && !showOptimized && (
+                <Card className="border-2 border-accent/50 bg-accent/5">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Palette className="h-5 w-5 text-accent" />
+                      Next Steps
+                    </CardTitle>
+                    <CardDescription>
+                      Choose how you want to proceed with your resume
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {/* Choose Template Button */}
+                      <Button
+                        onClick={() => {
+                          if (structuredResumeData) {
+                            setShowTemplateBuilder(true);
+                          } else {
+                            setShowTemplates(true);
+                          }
+                        }}
+                        variant="outline"
+                        className="h-auto flex-col items-center justify-center p-6 space-y-2 hover:bg-accent/10 hover:border-accent"
+                        disabled={extractingData}
+                      >
+                        <Palette className="h-8 w-8 text-accent mb-2" />
+                        <span className="font-semibold">Choose Template</span>
+                        <span className="text-xs text-muted-foreground text-center">
+                          {extractingData 
+                            ? "Extracting data..." 
+                            : structuredResumeData 
+                              ? "Edit & choose from templates"
+                              : "Select a professional template"}
+                        </span>
+                      </Button>
+
+                      {/* Template Builder Button */}
+                      <Button
+                        onClick={async () => {
+                          if (!structuredResumeData && resumeText.trim()) {
+                            try {
+                              await extractStructuredData(resumeText);
+                              // Open template builder after extraction completes
+                              // Use a small delay to ensure state is updated
+                              setTimeout(() => {
+                                setShowTemplateBuilder(true);
+                              }, 100);
+                            } catch (error) {
+                              toast.error("Failed to extract structured data");
+                            }
+                          } else if (structuredResumeData) {
+                            setShowTemplateBuilder(true);
+                          } else {
+                            toast.error("Please provide resume text first");
+                          }
+                        }}
+                        variant="outline"
+                        className="h-auto flex-col items-center justify-center p-6 space-y-2 hover:bg-accent/10 hover:border-accent"
+                        disabled={extractingData || !resumeText.trim()}
+                      >
+                        <FileText className="h-8 w-8 text-accent mb-2" />
+                        <span className="font-semibold">Template Builder</span>
+                        <span className="text-xs text-muted-foreground text-center">
+                          {extractingData 
+                            ? "Extracting data..." 
+                            : "Auto-fill form with extracted data"}
+                        </span>
+                      </Button>
+
+                      {/* Manual Editing Button */}
+                      <Button
+                        onClick={() => {
+                          // Scroll to the resume text area
+                          const textarea = document.querySelector('textarea[placeholder*="paste your resume text"]') as HTMLElement;
+                          if (textarea) {
+                            textarea.focus();
+                            textarea.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                          }
+                          toast.info("You can now edit your resume text above");
+                        }}
+                        variant="outline"
+                        className="h-auto flex-col items-center justify-center p-6 space-y-2 hover:bg-accent/10 hover:border-accent"
+                      >
+                        <Wand2 className="h-8 w-8 text-accent mb-2" />
+                        <span className="font-semibold">Manual Editing</span>
+                        <span className="text-xs text-muted-foreground text-center">
+                          Edit resume text in form fields
+                        </span>
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
             </div>
 
             {/* Right Sidebar */}
