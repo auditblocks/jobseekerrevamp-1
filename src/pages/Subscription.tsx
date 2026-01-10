@@ -57,7 +57,7 @@ const getPlanLevel = (planName: string): number => {
 
 const Subscription = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, refreshProfile: refreshGlobalProfile } = useAuth();
   const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
   const [loadingPlans, setLoadingPlans] = useState(true);
   const [processingPayment, setProcessingPayment] = useState<string | null>(null);
@@ -194,8 +194,9 @@ const Subscription = () => {
             // Payment verified successfully
             toast.success("Subscription upgraded successfully!");
             
-            // Refresh profile to get updated subscription tier
+            // Refresh both local and global profile to get updated subscription tier
             await fetchProfile();
+            await refreshGlobalProfile();
             
             // Navigate to dashboard
             setTimeout(() => {

@@ -9,6 +9,7 @@ interface AuthContextType {
   profile: any | null;
   isSuperadmin: boolean;
   signOut: () => Promise<void>;
+  refreshProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -18,6 +19,7 @@ const AuthContext = createContext<AuthContextType>({
   profile: null,
   isSuperadmin: false,
   signOut: async () => {},
+  refreshProfile: async () => {},
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -180,8 +182,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsSuperadmin(false);
   };
 
+  // Public function to refresh profile (e.g., after subscription upgrade)
+  const refreshProfile = async () => {
+    if (user?.id) {
+      await fetchProfile(user.id);
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, session, loading, profile, isSuperadmin, signOut }}>
+    <AuthContext.Provider value={{ user, session, loading, profile, isSuperadmin, signOut, refreshProfile }}>
       {children}
     </AuthContext.Provider>
   );
