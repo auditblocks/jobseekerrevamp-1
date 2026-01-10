@@ -34,12 +34,34 @@ interface SubscriptionPlan {
   daily_limit: number;
 }
 
+// Plan hierarchy for upgrade/downgrade logic (higher index = higher tier)
+const PLAN_HIERARCHY: Record<string, number> = {
+  "FREE": 0,
+  "free": 0,
+  "PRO": 1,
+  "pro": 1,
+  "PRO_MAX": 2,
+  "pro_max": 2,
+  "PROMAX": 2,
+  "promax": 2,
+};
+
+const getPlanLevel = (planName: string): number => {
+  // Normalize the plan name and find its level
+  const normalized = planName.toUpperCase().replace(/[\s_-]/g, '_');
+  if (normalized.includes('PRO_MAX') || normalized.includes('PROMAX')) return 2;
+  if (normalized.includes('PRO')) return 1;
+  if (normalized.includes('FREE')) return 0;
+  return PLAN_HIERARCHY[planName] ?? -1;
+};
+
 const Subscription = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
   const [loadingPlans, setLoadingPlans] = useState(true);
   const [processingPayment, setProcessingPayment] = useState<string | null>(null);
+  const [isYearly, setIsYearly] = useState(false);
   const [profile, setProfile] = useState({
     subscriptionTier: "FREE",
   });
@@ -116,18 +138,18 @@ const Subscription = () => {
     }
   };
 
-  const handleUpgradePlan = async (plan: SubscriptionPlan) => {
-    if (!user?.id || plan.price === 0) return;
+  const handleUpgradePlan = async (plan: SubscriptionPlan, priceToCharge: number) => {
+    if (!user?.id || priceToCharge === 0) return;
 
     setProcessingPayment(plan.id);
     try {
-      // Create Razorpay order
+      // Create Razorpay order with the correct price (monthly or yearly)
       const { data: orderData, error: orderError } = await supabase.functions.invoke(
         "create-razorpay-order",
         {
           body: {
             plan_id: plan.id,
-            amount: plan.price,
+            amount: priceToCharge,
           },
         }
       );
@@ -137,12 +159,13 @@ const Subscription = () => {
         throw new Error("Failed to create payment order");
       }
 
+      const billingPeriod = isYearly ? "Yearly" : "Monthly";
       const options = {
         key: orderData.key_id,
         amount: orderData.amount,
         currency: orderData.currency,
         name: "JobSeeker",
-        description: `Subscription: ${plan.display_name || plan.name}`,
+        description: `${plan.display_name || plan.name} - ${billingPeriod} Subscription`,
         order_id: orderData.order_id,
         image: "/icon-192.png", // Add logo to payment modal
         handler: async (response: any) => {
@@ -183,10 +206,9 @@ const Subscription = () => {
             const errorMessage = error?.message || "Payment verification failed. Please contact support.";
             toast.error(`Payment verification failed: ${errorMessage}`);
             
-            // Navigate to order history so user can see their payment status
-            setTimeout(() => {
-              navigate("/order-history");
-            }, 2000);
+            // Stay on subscription page and refresh profile
+            // User can try again or contact support
+            await fetchProfile();
           } finally {
             setProcessingPayment(null);
           }
@@ -241,31 +263,61 @@ const Subscription = () => {
   };
 
   const convertToPricingPlans = (): PricingPlan[] => {
+    const currentTierLevel = getPlanLevel(profile.subscriptionTier);
+    
     return plans.map((plan, index) => {
       const monthlyPrice = plan.price;
       const yearlyPrice = (plan.price === 0 || plan.duration_days === 0) 
         ? 0 
-        : (plan.duration_days === 30 ? monthlyPrice * 12 : monthlyPrice * 12);
-      const isCurrent = profile.subscriptionTier === plan.id;
+        : Math.round(monthlyPrice * 12 * 0.8); // 20% discount for yearly
+      
+      // Get this plan's tier level
+      const planLevel = getPlanLevel(plan.name);
+      
+      // Check if this is the current plan by comparing tier levels and names
+      const isCurrent = planLevel === currentTierLevel && currentTierLevel >= 0;
+      
+      // Check if this is a downgrade (lower tier than current)
+      const isDowngrade = planLevel < currentTierLevel && planLevel >= 0;
+      
+      // Check if this is an upgrade (higher tier than current)
+      const isUpgrade = planLevel > currentTierLevel;
+      
+      // Determine button text
+      let buttonText = plan.button_text || "Upgrade";
+      if (isCurrent) {
+        buttonText = plan.button_disabled_text || "Current Plan";
+      } else if (isDowngrade) {
+        buttonText = "Not Available";
+      } else if (plan.price === 0) {
+        buttonText = "Free Plan";
+      }
+      
+      // Determine if button should be disabled
+      // Disabled if: current plan, downgrade, free plan, or processing payment
+      const isDisabled = isCurrent || isDowngrade || processingPayment === plan.id || plan.price === 0;
+      
+      // Calculate the price to charge based on yearly toggle
+      const priceToCharge = isYearly ? yearlyPrice : monthlyPrice;
       
       return {
         id: plan.id,
         name: plan.display_name || plan.name,
         monthlyPrice: monthlyPrice,
-        yearlyPrice: yearlyPrice > 0 ? Math.round(yearlyPrice * 0.8) : 0, // 20% discount for yearly
+        yearlyPrice: yearlyPrice,
         features: plan.features || [],
         isPopular: plan.is_recommended || false,
         accent: getAccentColor(plan.name, index),
         isCurrent: isCurrent,
-        buttonText: isCurrent 
-          ? (plan.button_disabled_text || "Current Plan")
-          : (plan.button_text || "Upgrade"),
+        buttonText: buttonText,
         onButtonClick: () => {
-          if (!isCurrent && plan.price > 0) {
-            handleUpgradePlan(plan);
+          if (!isDisabled && isUpgrade && priceToCharge > 0) {
+            handleUpgradePlan(plan, priceToCharge);
+          } else if (isDowngrade) {
+            toast.info("You cannot downgrade your subscription until it expires.");
           }
         },
-        disabled: isCurrent || processingPayment === plan.id || plan.price === 0,
+        disabled: isDisabled,
         loading: processingPayment === plan.id,
       };
     });
@@ -315,7 +367,7 @@ const Subscription = () => {
                 Choose Your Plan
               </h1>
               <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-                Select the perfect subscription plan for your job search needs. Upgrade or downgrade anytime.
+                Select the perfect subscription plan for your job search needs. Upgrade anytime to unlock more features.
               </p>
             </motion.div>
           </div>
@@ -337,6 +389,8 @@ const Subscription = () => {
                   plans={convertToPricingPlans()}
                   className="bg-transparent min-h-0"
                   showYearlyToggle={true}
+                  isYearly={isYearly}
+                  onYearlyChange={setIsYearly}
                 />
               </div>
             )}

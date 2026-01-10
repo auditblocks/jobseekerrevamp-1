@@ -24,6 +24,8 @@ interface PricingProps {
     plans: PricingPlan[];
     className?: string;
     showYearlyToggle?: boolean;
+    isYearly?: boolean;
+    onYearlyChange?: (isYearly: boolean) => void;
 }
 
 // Counter Component
@@ -303,15 +305,30 @@ export const PricingContainer = ({
     title = "Pricing Plans", 
     plans, 
     className = "",
-    showYearlyToggle = true 
+    showYearlyToggle = true,
+    isYearly: controlledIsYearly,
+    onYearlyChange
 }: PricingProps) => {
-    const [isYearly, setIsYearly] = useState(false);
+    // Use internal state if not controlled from parent
+    const [internalIsYearly, setInternalIsYearly] = useState(false);
+    
+    // Use controlled state if provided, otherwise use internal state
+    const isYearly = controlledIsYearly !== undefined ? controlledIsYearly : internalIsYearly;
+    
+    const handleToggle = () => {
+        const newValue = !isYearly;
+        if (onYearlyChange) {
+            onYearlyChange(newValue);
+        } else {
+            setInternalIsYearly(newValue);
+        }
+    };
 
     return (
         <div className={`min-h-screen bg-[#f0f0f0] p-4 sm:p-6 lg:p-8 relative overflow-hidden rounded-[12px] ${className}`}>
             <PricingHeader title={title} />
             {showYearlyToggle && (
-                <PricingToggle isYearly={isYearly} onToggle={() => setIsYearly(!isYearly)} />
+                <PricingToggle isYearly={isYearly} onToggle={handleToggle} />
             )}
             <BackgroundEffects />
 
