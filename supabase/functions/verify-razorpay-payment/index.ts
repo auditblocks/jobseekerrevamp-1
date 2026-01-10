@@ -54,7 +54,22 @@ serve(async (req) => {
       throw new Error("Unauthorized");
     }
 
-    const { razorpay_order_id, razorpay_payment_id, razorpay_signature }: PaymentVerification = await req.json();
+    const payload = await req.json();
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature }: PaymentVerification = payload || {} as PaymentVerification;
+
+    // Validate payload before computing HMAC
+    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+      console.error("Missing required Razorpay fields", {
+        payload_keys: Object.keys(payload || {}),
+        order_id: razorpay_order_id,
+        payment_id: razorpay_payment_id,
+        signature: razorpay_signature ? razorpay_signature.slice(0, 8) + "..." : undefined,
+      });
+      return new Response(
+        JSON.stringify({ error: "Missing Razorpay verification fields" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     // Verify signature using Web Crypto API
     const body = razorpay_order_id + "|" + razorpay_payment_id;
