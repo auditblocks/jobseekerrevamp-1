@@ -61,7 +61,13 @@ serve(async (req) => {
     const expectedSignature = await createHmac(razorpayKeySecret, body);
 
     if (expectedSignature !== razorpay_signature) {
-      console.error("Signature verification failed");
+      // Log enough detail to debug, without leaking secrets
+      console.error("Signature verification failed", {
+        order_id: razorpay_order_id,
+        payment_id: razorpay_payment_id,
+        provided_signature: razorpay_signature?.slice(0, 8) + "...",
+        expected_signature: expectedSignature?.slice(0, 8) + "...",
+      });
       throw new Error("Invalid payment signature");
     }
 
