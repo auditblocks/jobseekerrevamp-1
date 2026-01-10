@@ -49,6 +49,10 @@ const Subscription = () => {
     const script = document.createElement("script");
     script.src = "https://checkout.razorpay.com/v1/checkout.js";
     script.async = true;
+    script.onerror = () => {
+      console.error("Failed to load Razorpay SDK");
+      toast.error("Payment system not available. Please refresh and try again.");
+    };
     document.body.appendChild(script);
     return () => {
       if (document.body.contains(script)) {
@@ -140,9 +144,12 @@ const Subscription = () => {
         name: "JobSeeker",
         description: `Subscription: ${plan.display_name || plan.name}`,
         order_id: orderData.order_id,
+        image: "/icon-192.png", // Add logo to payment modal
         handler: async (response: any) => {
           try {
-            const { error: verifyError } = await supabase.functions.invoke(
+            console.log("Payment successful, verifying...", response);
+            
+            const { data: verifyData, error: verifyError } = await supabase.functions.invoke(
               "verify-razorpay-payment",
               {
                 body: {
@@ -154,13 +161,32 @@ const Subscription = () => {
               }
             );
 
-            if (verifyError) throw verifyError;
+            console.log("Verification response:", { data: verifyData, error: verifyError });
+
+            if (verifyError) {
+              console.error("Verification error:", verifyError);
+              throw verifyError;
+            }
+
+            // Payment verified successfully
             toast.success("Subscription upgraded successfully!");
-            fetchProfile();
-            navigate("/dashboard");
+            
+            // Refresh profile to get updated subscription tier
+            await fetchProfile();
+            
+            // Navigate to dashboard
+            setTimeout(() => {
+              navigate("/dashboard");
+            }, 500);
           } catch (error: any) {
             console.error("Payment verification error:", error);
-            toast.error("Payment verification failed: " + error.message);
+            const errorMessage = error?.message || "Payment verification failed. Please contact support.";
+            toast.error(`Payment verification failed: ${errorMessage}`);
+            
+            // Navigate to order history so user can see their payment status
+            setTimeout(() => {
+              navigate("/order-history");
+            }, 2000);
           } finally {
             setProcessingPayment(null);
           }
@@ -173,12 +199,30 @@ const Subscription = () => {
         },
         modal: {
           ondismiss: () => {
+            console.log("Payment modal dismissed by user");
+            toast.info("Payment cancelled");
             setProcessingPayment(null);
           },
+          escape: true,
+          confirm_close: true,
+          animation: true,
         },
+        retry: {
+          enabled: true,
+          max_count: 3,
+        },
+        timeout: 300, // 5 minutes
       };
 
       const razorpay = new window.Razorpay(options);
+      
+      // Add error handler for Razorpay
+      razorpay.on('payment.failed', function (response: any) {
+        console.error("Payment failed:", response.error);
+        toast.error(`Payment failed: ${response.error.description || 'Unknown error'}`);
+        setProcessingPayment(null);
+      });
+      
       razorpay.open();
     } catch (error: any) {
       console.error("Payment error:", error);
