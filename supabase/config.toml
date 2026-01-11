@@ -80,3 +80,6 @@ verify_jwt = false
 
 [functions.optimize-resume]
 verify_jwt = false
+
+[functions.cleanup-expired-cooldowns]
+verify_jwt = false

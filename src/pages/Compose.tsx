@@ -36,7 +36,9 @@ import {
   CheckCircle2,
   AlertCircle,
   Loader2,
-  Unlink
+  Unlink,
+  Ban,
+  AlertTriangle
 } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
@@ -65,6 +67,14 @@ interface EmailLimit {
   tier: string;
 }
 
+interface EmailCooldown {
+  id: string;
+  user_id: string;
+  recruiter_email: string;
+  blocked_until: string;
+  email_count: number;
+}
+
 const Compose = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -89,6 +99,8 @@ const Compose = () => {
   const [isLoadingLimits, setIsLoadingLimits] = useState(true);
   const [attachments, setAttachments] = useState<File[]>([]);
   const [showTemplateDialog, setShowTemplateDialog] = useState(false);
+  const [cooldowns, setCooldowns] = useState<EmailCooldown[]>([]);
+  const [isLoadingCooldowns, setIsLoadingCooldowns] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Fetch recruiters and domains from database
@@ -143,6 +155,35 @@ const Compose = () => {
 
     fetchData();
   }, []);
+
+  // Fetch active cooldowns
+  useEffect(() => {
+    const fetchCooldowns = async () => {
+      if (!user?.id) {
+        setIsLoadingCooldowns(false);
+        return;
+      }
+
+      try {
+        const now = new Date().toISOString();
+        const { data, error } = await supabase
+          .from("email_cooldowns")
+          .select("*")
+          .eq("user_id", user.id)
+          .gt("blocked_until", now);
+
+        if (error) throw error;
+
+        setCooldowns(data || []);
+      } catch (error) {
+        console.error("Error fetching cooldowns:", error);
+      } finally {
+        setIsLoadingCooldowns(false);
+      }
+    };
+
+    fetchCooldowns();
+  }, [user?.id]);
 
   // Fetch email limits based on subscription tier
   useEffect(() => {
@@ -353,6 +394,28 @@ const Compose = () => {
     return tierOrder.indexOf(recruiterTierValue) <= tierOrder.indexOf(userTier);
   };
 
+  // Helper function to get cooldown info for a recruiter
+  const getCooldownInfo = (email: string) => {
+    const cooldown = cooldowns.find(c => 
+      c.recruiter_email.toLowerCase() === email.toLowerCase()
+    );
+    if (!cooldown) return null;
+    
+    const blockedUntil = new Date(cooldown.blocked_until);
+    const now = new Date();
+    if (blockedUntil <= now) return null;
+    
+    const daysRemaining = Math.ceil(
+      (blockedUntil.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
+    );
+    return { blockedUntil, daysRemaining };
+  };
+
+  // Check if a recruiter is blocked
+  const isRecruiterBlocked = (email: string) => {
+    return getCooldownInfo(email) !== null;
+  };
+
   // Handle recruiter selection from URL parameter
   useEffect(() => {
     const recruiterId = searchParams.get("recruiter");
@@ -384,10 +447,30 @@ const Compose = () => {
     return matchesSearch && matchesDomain && matchesTier;
   });
 
+  // Count blocked recruiters in selection
+  const blockedInSelection = selectedRecruiters.filter(id => {
+    const recruiter = recruiters.find(r => r.id === id);
+    return recruiter && isRecruiterBlocked(recruiter.email);
+  }).length;
+
+  // Get available (non-blocked) recruiters
+  const availableRecruiters = filteredRecruiters.filter(r => !isRecruiterBlocked(r.email));
+
   const toggleRecruiter = (id: string) => {
+    const recruiter = recruiters.find(r => r.id === id);
+    if (recruiter && isRecruiterBlocked(recruiter.email)) {
+      const cooldownInfo = getCooldownInfo(recruiter.email);
+      toast.error(`This recruiter is blocked for ${cooldownInfo?.daysRemaining} more day(s)`);
+      return;
+    }
     setSelectedRecruiters((prev) =>
       prev.includes(id) ? prev.filter((r) => r !== id) : [...prev, id]
     );
+  };
+
+  const handleSelectAvailable = () => {
+    setSelectedRecruiters(availableRecruiters.map(r => r.id));
+    toast.success(`Selected ${availableRecruiters.length} available recruiter(s)`);
   };
 
   const handleAddAttachment = () => {
@@ -521,6 +604,15 @@ Best regards,
 
       toast.success(`Sent email to ${successCount} recipients!`);
       setSelectedRecruiters([]);
+      
+      // Refresh cooldowns after sending
+      const now = new Date().toISOString();
+      const { data } = await supabase
+        .from("email_cooldowns")
+        .select("*")
+        .eq("user_id", user.id)
+        .gt("blocked_until", now);
+      setCooldowns(data || []);
     } catch (error: any) {
       console.error("Send error:", error);
       toast.error(error.message || "Failed to send emails");
@@ -678,6 +770,23 @@ Best regards,
                 </Card>
               )}
 
+              {/* Blocked Recruiters Warning */}
+              {blockedInSelection > 0 && (
+                <Card className="border-warning/30 bg-warning/5 backdrop-blur">
+                  <CardContent className="flex items-center gap-3 py-4">
+                    <AlertTriangle className="h-5 w-5 text-warning shrink-0" />
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-warning">
+                        {blockedInSelection} selected recruiter(s) are blocked by cooldown
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        These recruiters cannot receive emails yet. They will be skipped when sending.
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
               <Card className="border-border/50 bg-card/50 backdrop-blur">
                 <CardHeader>
                   <div className="flex items-center justify-between">
@@ -819,6 +928,15 @@ Best regards,
                         )}
                       </SelectContent>
                     </Select>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-xs sm:text-sm"
+                      onClick={handleSelectAvailable}
+                      disabled={availableRecruiters.length === 0}
+                    >
+                      Select Available ({availableRecruiters.length})
+                    </Button>
                     {selectedRecruiters.length === filteredRecruiters.length && filteredRecruiters.length > 0 ? (
                       <Button
                         variant="ghost"
@@ -851,46 +969,65 @@ Best regards,
                         <p className="text-sm">No recruiters found</p>
                       </div>
                     ) : (
-                      filteredRecruiters.map((recruiter) => (
-                        <div
-                          key={recruiter.id}
-                          onClick={() => toggleRecruiter(recruiter.id)}
-                          className={`p-3 rounded-lg border cursor-pointer transition-all ${
-                            selectedRecruiters.includes(recruiter.id)
-                              ? "border-accent/50 bg-accent/10"
-                              : "border-border/50 bg-background/30 hover:border-border"
-                          }`}
-                        >
-                          <div className="flex items-start gap-3">
-                            <Checkbox
-                              checked={selectedRecruiters.includes(recruiter.id)}
-                              onCheckedChange={() => toggleRecruiter(recruiter.id)}
-                            />
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2">
-                                <User className="h-4 w-4 text-muted-foreground" />
-                                <span className="font-medium text-sm truncate">{recruiter.name}</span>
-                              </div>
-                              {recruiter.company && (
-                                <div className="flex items-center gap-2 mt-1">
-                                  <Building2 className="h-3 w-3 text-muted-foreground" />
-                                  <span className="text-xs text-muted-foreground truncate">
-                                    {recruiter.company}
-                                  </span>
+                      filteredRecruiters.map((recruiter) => {
+                        const cooldownInfo = getCooldownInfo(recruiter.email);
+                        const isBlocked = cooldownInfo !== null;
+                        
+                        return (
+                          <div
+                            key={recruiter.id}
+                            onClick={() => toggleRecruiter(recruiter.id)}
+                            className={`p-3 rounded-lg border transition-all ${
+                              isBlocked
+                                ? "border-destructive/30 bg-destructive/5 opacity-60 cursor-not-allowed"
+                                : selectedRecruiters.includes(recruiter.id)
+                                  ? "border-accent/50 bg-accent/10 cursor-pointer"
+                                  : "border-border/50 bg-background/30 hover:border-border cursor-pointer"
+                            }`}
+                          >
+                            <div className="flex items-start gap-3">
+                              <Checkbox
+                                checked={selectedRecruiters.includes(recruiter.id)}
+                                onCheckedChange={() => toggleRecruiter(recruiter.id)}
+                                disabled={isBlocked}
+                              />
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <User className="h-4 w-4 text-muted-foreground" />
+                                  <span className="font-medium text-sm truncate">{recruiter.name}</span>
+                                  {isBlocked && (
+                                    <Badge variant="destructive" className="text-xs shrink-0">
+                                      <Ban className="h-3 w-3 mr-1" />
+                                      {cooldownInfo.daysRemaining}d
+                                    </Badge>
+                                  )}
                                 </div>
+                                {recruiter.company && (
+                                  <div className="flex items-center gap-2 mt-1">
+                                    <Building2 className="h-3 w-3 text-muted-foreground" />
+                                    <span className="text-xs text-muted-foreground truncate">
+                                      {recruiter.company}
+                                    </span>
+                                  </div>
+                                )}
+                                <p className="text-xs text-muted-foreground mt-1 truncate">
+                                  {recruiter.email}
+                                </p>
+                                {isBlocked && (
+                                  <p className="text-xs text-destructive mt-1">
+                                    Blocked for {cooldownInfo.daysRemaining} more day(s)
+                                  </p>
+                                )}
+                              </div>
+                              {!isBlocked && recruiter.domain && (
+                                <Badge variant="secondary" className="text-xs shrink-0">
+                                  {recruiter.domain}
+                                </Badge>
                               )}
-                              <p className="text-xs text-muted-foreground mt-1 truncate">
-                                {recruiter.email}
-                              </p>
                             </div>
-                            {recruiter.domain && (
-                              <Badge variant="secondary" className="text-xs shrink-0">
-                                {recruiter.domain}
-                              </Badge>
-                            )}
                           </div>
-                        </div>
-                      ))
+                        );
+                      })
                     )}
                   </div>
                 </CardContent>

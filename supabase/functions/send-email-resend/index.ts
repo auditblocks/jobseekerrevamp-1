@@ -7,6 +7,8 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+const COOLDOWN_DAYS = 7;
+
 interface EmailRequest {
   to: string;
   subject: string;
@@ -42,6 +44,24 @@ serve(async (req) => {
     }
 
     const { to, subject, body, from_name }: EmailRequest = await req.json();
+
+    // CHECK COOLDOWN - Prevent spamming same recruiter
+    const now = new Date().toISOString();
+    const recruiterEmailLower = to.toLowerCase();
+    
+    const { data: cooldownRecord } = await supabase
+      .from("email_cooldowns")
+      .select("*")
+      .eq("user_id", user.id)
+      .eq("recruiter_email", recruiterEmailLower)
+      .gt("blocked_until", now)
+      .maybeSingle();
+
+    if (cooldownRecord) {
+      const blockedUntil = new Date(cooldownRecord.blocked_until);
+      const daysRemaining = Math.ceil((blockedUntil.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+      throw new Error(`You cannot email this recruiter for ${daysRemaining} more day(s). Cooldown expires on ${blockedUntil.toLocaleDateString()}.`);
+    }
 
     const resend = new Resend(resendApiKey);
 
@@ -187,6 +207,38 @@ serve(async (req) => {
           })
           .eq("id", threadId);
       }
+    }
+
+    // CREATE/UPDATE COOLDOWN after successful send
+    const blockedUntil = new Date();
+    blockedUntil.setDate(blockedUntil.getDate() + COOLDOWN_DAYS);
+    
+    const { data: existingCooldown } = await supabase
+      .from("email_cooldowns")
+      .select("*")
+      .eq("user_id", user.id)
+      .eq("recruiter_email", recruiterEmailLower)
+      .maybeSingle();
+
+    if (existingCooldown) {
+      // Update existing cooldown
+      await supabase
+        .from("email_cooldowns")
+        .update({
+          blocked_until: blockedUntil.toISOString(),
+          email_count: existingCooldown.email_count + 1,
+        })
+        .eq("id", existingCooldown.id);
+    } else {
+      // Create new cooldown
+      await supabase
+        .from("email_cooldowns")
+        .insert({
+          user_id: user.id,
+          recruiter_email: recruiterEmailLower,
+          blocked_until: blockedUntil.toISOString(),
+          email_count: 1,
+        });
     }
 
     return new Response(

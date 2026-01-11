@@ -47,6 +47,7 @@ const AdminUserActivity = lazy(() => import("./pages/admin/AdminUserActivity"));
 const AdminEmailCampaigns = lazy(() => import("./pages/admin/AdminEmailCampaigns"));
 const AdminScraperConfig = lazy(() => import("./pages/admin/AdminScraperConfig"));
 const AdminOrderHistory = lazy(() => import("./pages/admin/AdminOrderHistory"));
+const AdminEmailCooldowns = lazy(() => import("./pages/admin/AdminEmailCooldowns"));
 
 // Loading fallback component
 const PageLoader = () => (
@@ -111,6 +112,7 @@ const App = () => (
               <Route path="/admin/email-campaigns" element={<AdminEmailCampaigns />} />
               <Route path="/admin/scraper" element={<AdminScraperConfig />} />
               <Route path="/admin/order-history" element={<AdminOrderHistory />} />
+              <Route path="/admin/email-cooldowns" element={<AdminEmailCooldowns />} />
                 
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                 <Route path="*" element={<NotFound />} />

@@ -6,6 +6,13 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Table,
   TableBody,
   TableCell,
@@ -27,7 +34,8 @@ import {
   Loader2,
   IndianRupee,
   Calendar,
-  CreditCard
+  CreditCard,
+  Filter
 } from "lucide-react";
 import { toast } from "sonner";
 import SEOHead from "@/components/SEO/SEOHead";
@@ -60,6 +68,7 @@ const OrderHistory = () => {
   const { user, loading: authLoading } = useAuth();
   const [orders, setOrders] = useState<OrderHistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [statusFilter, setStatusFilter] = useState<string>("completed");
   const [stats, setStats] = useState({
     totalOrders: 0,
     completedOrders: 0,
@@ -106,7 +115,7 @@ const OrderHistory = () => {
       // Type cast the data to match our interface
       setOrders((data || []) as OrderHistoryItem[]);
 
-      // Calculate stats
+      // Calculate stats (always from all orders, not filtered)
       const totalOrders = data?.length || 0;
       const completedOrders = data?.filter((o) => o.status === "completed").length || 0;
       const totalSpent = data?.reduce((sum, o) => {
@@ -186,6 +195,12 @@ const OrderHistory = () => {
     );
   };
 
+  // Filter orders based on status filter
+  const filteredOrders = orders.filter((order) => {
+    if (statusFilter === "all") return true;
+    return order.status === statusFilter;
+  });
+
   if (authLoading || loading) {
     return (
       <>
@@ -242,23 +257,40 @@ const OrderHistory = () => {
             animate={{ opacity: 1, y: 0 }}
             className="mb-8"
           >
-            <div className="flex items-center gap-4 mb-4">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => navigate("/settings")}
-                className="shrink-0"
-              >
-                <ArrowLeft className="h-5 w-5" />
-              </Button>
-              <div>
-                <h1 className="text-3xl font-bold flex items-center gap-2">
-                  <Receipt className="h-8 w-8" />
-                  Order History
-                </h1>
-                <p className="text-muted-foreground mt-1">
-                  View all your subscription purchases and receipts
-                </p>
+            <div className="flex items-center justify-between gap-4 mb-4">
+              <div className="flex items-center gap-4">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => navigate("/settings")}
+                  className="shrink-0"
+                >
+                  <ArrowLeft className="h-5 w-5" />
+                </Button>
+                <div>
+                  <h1 className="text-3xl font-bold flex items-center gap-2">
+                    <Receipt className="h-8 w-8" />
+                    Order History
+                  </h1>
+                  <p className="text-muted-foreground mt-1">
+                    View all your subscription purchases and receipts
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="w-[180px]">
+                    <Filter className="h-4 w-4 mr-2" />
+                    <SelectValue placeholder="Filter by status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Orders</SelectItem>
+                    <SelectItem value="completed">Completed (Success)</SelectItem>
+                    <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="failed">Failed</SelectItem>
+                    <SelectItem value="refunded">Refunded</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
           </motion.div>
@@ -317,7 +349,7 @@ const OrderHistory = () => {
           </div>
 
           {/* Orders Table */}
-          {orders.length === 0 ? (
+          {filteredOrders.length === 0 ? (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -326,14 +358,21 @@ const OrderHistory = () => {
               <Card>
                 <CardContent className="flex flex-col items-center justify-center py-16">
                   <Receipt className="h-16 w-16 text-muted-foreground mb-4" />
-                  <h3 className="text-xl font-semibold mb-2">No Orders Yet</h3>
+                  <h3 className="text-xl font-semibold mb-2">
+                    {orders.length === 0 ? "No Orders Yet" : "No Orders Found"}
+                  </h3>
                   <p className="text-muted-foreground text-center mb-6 max-w-md">
-                    You haven't made any subscription purchases yet. Browse our plans to get started.
+                    {orders.length === 0 
+                      ? "You haven't made any subscription purchases yet. Browse our plans to get started."
+                      : `No orders found with status: ${statusFilter === "completed" ? "Completed" : statusFilter}.`
+                    }
                   </p>
-                  <Button onClick={() => navigate("/subscription")}>
-                    <CreditCard className="mr-2 h-4 w-4" />
-                    View Plans
-                  </Button>
+                  {orders.length === 0 && (
+                    <Button onClick={() => navigate("/subscription")}>
+                      <CreditCard className="mr-2 h-4 w-4" />
+                      View Plans
+                    </Button>
+                  )}
                 </CardContent>
               </Card>
             </motion.div>
@@ -368,7 +407,7 @@ const OrderHistory = () => {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {orders.map((order) => (
+                        {filteredOrders.map((order) => (
                           <TableRow key={order.id}>
                             <TableCell className="font-mono text-xs">
                               {order.razorpay_order_id || order.id.substring(0, 8)}
@@ -416,7 +455,7 @@ const OrderHistory = () => {
                 transition={{ delay: 0.4 }}
                 className="md:hidden space-y-4"
               >
-                {orders.map((order) => (
+                {filteredOrders.map((order) => (
                   <Card key={order.id}>
                     <CardHeader>
                       <div className="flex items-start justify-between">
