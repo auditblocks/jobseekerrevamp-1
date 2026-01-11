@@ -225,20 +225,64 @@ const Compose = () => {
         }
 
         // Get the daily limit from subscription plan
-        const { data: planData, error: planError } = await supabase
+        // Use trim to handle potential whitespace issues
+        let cleanTier = tier.trim();
+
+        let { data: planData, error: planError } = await supabase
           .from("subscription_plans")
           .select("daily_limit")
-          .eq("id", tier)
+          .eq("id", cleanTier)
           .maybeSingle();
 
-        // Default limits if plan not found
-        const dailyLimit = planData?.daily_limit ?? (tier === "FREE" ? 5 : tier === "PRO" ? 50 : 100);
+        // If strict ID match fails, try to match by name or display_name
+        if (!planData) {
+          // Normalize the tier (e.g., "Pro Plan" -> "Pro Plan")
+          // We search case-insensitively against name and display_name
+          const { data: matchedPlan } = await supabase
+            .from("subscription_plans")
+            .select("daily_limit")
+            .or(`id.ilike.%${cleanTier}%,name.ilike.%${cleanTier}%,display_name.ilike.%${cleanTier}%`)
+            .limit(1)
+            .maybeSingle();
+
+          if (matchedPlan) {
+            planData = matchedPlan;
+          } else {
+            // Fallback: if we can't find it by strict string match, try our normalization heuristic
+            // E.g. if tier is "Pro Plan", normalized is "PRO".
+            const normalized = normalizeTier(cleanTier);
+            // Now look for a plan that might be named "PRO" or "Pro"
+            if (normalized !== "FREE") {
+              const { data: heuristicPlan } = await supabase
+                .from("subscription_plans")
+                .select("daily_limit")
+                .or(`id.ilike.%${normalized}%,name.ilike.%${normalized}%,display_name.ilike.%${normalized}%`)
+                .limit(1)
+                .maybeSingle();
+
+              if (heuristicPlan) {
+                planData = heuristicPlan;
+              }
+            }
+          }
+        }
+
+        // Default limits if plan not found - fallback to safe defaults matching user expectations
+        // Use normalized tier for standardizing the fallback check
+        const normalizedFallback = normalizeTier(cleanTier);
+
+        const dailyLimit = planData?.daily_limit ?? (
+          normalizedFallback === "FREE" ? 5 :
+            normalizedFallback === "PRO" ? 20 :
+              normalizedFallback === "PRO_MAX" ? 100 :
+                5 // Ultimate safety fallback
+        );
 
         setEmailLimit({
           dailyLimit,
           dailySent,
           remaining: Math.max(0, dailyLimit - dailySent),
-          tier,
+          tier: cleanTier,
         });
       } catch (error) {
         console.error("Error fetching email limits:", error);
@@ -281,7 +325,7 @@ const Compose = () => {
         setIsCheckingGmail(false);
         return;
       }
-      
+
       try {
         const { data, error } = await supabase
           .from("profiles")
@@ -311,7 +355,7 @@ const Compose = () => {
 
       if (code && state === "gmail_oauth") {
         setIsConnectingGmail(true);
-        
+
         // Clear URL params
         window.history.replaceState({}, document.title, window.location.pathname);
 
@@ -353,7 +397,7 @@ const Compose = () => {
     // Only request gmail.send scope to avoid CASA assessment requirement
     // Note: gmail.readonly was removed as it requires CASA security assessment
     const scope = encodeURIComponent("https://www.googleapis.com/auth/gmail.send");
-    
+
     const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
       `client_id=${googleClientId}` +
       `&redirect_uri=${encodeURIComponent(redirectUri)}` +
@@ -368,14 +412,14 @@ const Compose = () => {
 
   const handleDisconnectGmail = async () => {
     if (!user?.id) return;
-    
+
     setIsDisconnectingGmail(true);
     try {
       const { error } = await supabase
         .from("profiles")
-        .update({ 
+        .update({
           google_refresh_token: null,
-          gmail_token_refreshed_at: null 
+          gmail_token_refreshed_at: null
         })
         .eq("id", user.id);
 
@@ -391,26 +435,53 @@ const Compose = () => {
     }
   };
 
+  // Helper function to normalize tier names to standard enum values
+  const normalizeTier = (tier: string | null): string => {
+    if (!tier) return "FREE";
+    const clean = tier.trim().toUpperCase();
+
+    // Check standard enum first
+    if (["FREE", "PRO", "PRO_MAX"].includes(clean)) return clean;
+
+    // Heuristic matching for dynamic plan names
+    if (clean.includes("PRO") && clean.includes("MAX")) return "PRO_MAX";
+    if (clean.includes("PRO")) return "PRO";
+    if (clean.includes("FREE")) return "FREE";
+
+    return "FREE"; // Default fallback
+  };
+
   // Helper function to check if user can access recruiter based on tier
   const canAccessRecruiter = (recruiterTier: string | null) => {
-    const userTier = profile?.subscription_tier || "FREE";
+    // Get raw tier from profile
+    const rawUserTier = profile?.subscription_tier || "FREE";
+
+    // Helper to resolve the effective tier level
+    // If we have a 'daily_limit' from the fetched emailLimit state, we can hint the tier from that too?
+    // But emailLimit might not be loaded yet. Safer to normalize the string.
+
+    const userTier = normalizeTier(rawUserTier);
+    const recruiterTierValue = normalizeTier(recruiterTier);
+
     const tierOrder = ["FREE", "PRO", "PRO_MAX"];
-    const recruiterTierValue = recruiterTier || "FREE";
+    const userTierIndex = tierOrder.indexOf(userTier);
+    const recruiterTierIndex = tierOrder.indexOf(recruiterTierValue);
+
     // User can access recruiters at their tier or below
-    return tierOrder.indexOf(recruiterTierValue) <= tierOrder.indexOf(userTier);
+    return recruiterTierIndex <= userTierIndex;
   };
 
   // Helper function to get cooldown info for a recruiter
   const getCooldownInfo = (email: string) => {
-    const cooldown = cooldowns.find(c => 
+    const cooldown = cooldowns.find(c =>
       c.recruiter_email.toLowerCase() === email.toLowerCase()
     );
     if (!cooldown) return null;
-    
+
     const blockedUntil = new Date(cooldown.blocked_until);
     const now = new Date();
     if (blockedUntil <= now) return null;
-    
+
     const daysRemaining = Math.ceil(
       (blockedUntil.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
     );
@@ -443,7 +514,7 @@ const Compose = () => {
   }, [searchParams, recruiters, selectedRecruiters, navigate, isLoadingRecruiters]);
 
   const filteredRecruiters = recruiters.filter((r) => {
-    const matchesSearch = 
+    const matchesSearch =
       r.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       r.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (r.company?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false);
@@ -556,11 +627,11 @@ Best regards,
     }
 
     setIsSending(true);
-    
+
     try {
       const selectedRecruiterData = recruiters.filter(r => selectedRecruiters.includes(r.id));
       let successCount = 0;
-      
+
       for (const recruiter of selectedRecruiterData) {
         const { error } = await supabase.functions.invoke("send-email-gmail", {
           body: {
@@ -581,7 +652,7 @@ Best regards,
       if (user?.id && successCount > 0) {
         const today = new Date().toISOString().split("T")[0];
         const newCount = (emailLimit?.dailySent || 0) + successCount;
-        
+
         // Get current total and update both counts
         const { data: currentProfile } = await supabase
           .from("profiles")
@@ -610,7 +681,7 @@ Best regards,
 
       toast.success(`Sent email to ${successCount} recipients!`);
       setSelectedRecruiters([]);
-      
+
       // Refresh cooldowns after sending
       const now = new Date().toISOString();
       const { data } = await supabase
@@ -653,15 +724,14 @@ Best regards,
               </div>
               <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto justify-end">
                 {emailLimit && (
-                  <Badge 
-                    variant="outline" 
-                    className={`text-xs ${
-                      emailLimit.remaining <= 0 
-                        ? "text-destructive border-destructive/30" 
-                        : emailLimit.remaining <= 3 
-                          ? "text-warning border-warning/30" 
-                          : "text-success border-success/30"
-                    }`}
+                  <Badge
+                    variant="outline"
+                    className={`text-xs ${emailLimit.remaining <= 0
+                      ? "text-destructive border-destructive/30"
+                      : emailLimit.remaining <= 3
+                        ? "text-warning border-warning/30"
+                        : "text-success border-success/30"
+                      }`}
                   >
                     <span className="hidden sm:inline">{emailLimit.remaining}/{emailLimit.dailyLimit} emails left today</span>
                     <span className="sm:hidden">{emailLimit.remaining}/{emailLimit.dailyLimit}</span>
@@ -670,11 +740,11 @@ Best regards,
                 <Badge variant="outline" className="text-xs text-accent border-accent/30">
                   {selectedRecruiters.length} selected
                 </Badge>
-                <Button 
-                  variant="hero" 
+                <Button
+                  variant="hero"
                   size="sm"
                   className="text-xs sm:text-sm"
-                  onClick={handleSend} 
+                  onClick={handleSend}
                   disabled={!isGmailConnected || isSending || (emailLimit?.remaining || 0) <= 0}
                 >
                   {isSending ? (
@@ -721,12 +791,12 @@ Best regards,
                     <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
                       <div className="flex-1">
                         <p className="text-sm text-muted-foreground">
-                          Connect your Gmail account to enable email sending through our platform. 
+                          Connect your Gmail account to enable email sending through our platform.
                           Your account is connected securely via Gmail and you can disconnect anytime.
                         </p>
                       </div>
-                      <Button 
-                        variant="accent" 
+                      <Button
+                        variant="accent"
                         onClick={handleConnectGmail}
                         disabled={isConnectingGmail}
                         className="shrink-0"
@@ -978,18 +1048,17 @@ Best regards,
                       filteredRecruiters.map((recruiter) => {
                         const cooldownInfo = getCooldownInfo(recruiter.email);
                         const isBlocked = cooldownInfo !== null;
-                        
+
                         return (
                           <div
                             key={recruiter.id}
                             onClick={() => toggleRecruiter(recruiter.id)}
-                            className={`p-3 rounded-lg border transition-all ${
-                              isBlocked
-                                ? "border-destructive/30 bg-destructive/5 opacity-60 cursor-not-allowed"
-                                : selectedRecruiters.includes(recruiter.id)
-                                  ? "border-accent/50 bg-accent/10 cursor-pointer"
-                                  : "border-border/50 bg-background/30 hover:border-border cursor-pointer"
-                            }`}
+                            className={`p-3 rounded-lg border transition-all ${isBlocked
+                              ? "border-destructive/30 bg-destructive/5 opacity-60 cursor-not-allowed"
+                              : selectedRecruiters.includes(recruiter.id)
+                                ? "border-accent/50 bg-accent/10 cursor-pointer"
+                                : "border-border/50 bg-background/30 hover:border-border cursor-pointer"
+                              }`}
                           >
                             <div className="flex items-start gap-3">
                               <Checkbox
