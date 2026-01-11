@@ -14,7 +14,58 @@ CREATE EXTENSION IF NOT EXISTS pg_cron;
 CREATE EXTENSION IF NOT EXISTS pg_net;
 
 -- ===========================================
--- PART 2: SCHEDULE CLEANUP JOB
+-- PART 2: CREATE CONFIG TABLE FOR CRON SETTINGS
+-- ===========================================
+
+-- Create a simple config table to store Supabase URL and anon key
+CREATE TABLE IF NOT EXISTS public.cron_config (
+  id TEXT PRIMARY KEY DEFAULT 'default',
+  supabase_url TEXT NOT NULL,
+  anon_key TEXT NOT NULL,
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Enable RLS on config table
+ALTER TABLE public.cron_config ENABLE ROW LEVEL SECURITY;
+
+-- Only service role can access config (for cron jobs)
+-- Regular users cannot read or modify this
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'cron_config' AND policyname = 'Service role only for cron_config') THEN
+    CREATE POLICY "Service role only for cron_config"
+    ON public.cron_config FOR ALL
+    USING (false)
+    WITH CHECK (false);
+  END IF;
+END $$;
+
+-- Create a SECURITY DEFINER function to get config (bypasses RLS)
+CREATE OR REPLACE FUNCTION public.get_cron_config()
+RETURNS TABLE(supabase_url TEXT, anon_key TEXT)
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+STABLE
+AS $$
+  SELECT supabase_url, anon_key FROM public.cron_config WHERE id = 'default';
+$$;
+
+-- Insert default values (UPDATE THESE WITH YOUR ACTUAL VALUES)
+-- Replace 'ypmyzbtgossmizklszek' with your project ID
+-- Replace 'YOUR_ANON_KEY' with your actual anon key from Supabase Dashboard
+INSERT INTO public.cron_config (id, supabase_url, anon_key)
+VALUES (
+  'default',
+  'https://ypmyzbtgossmizklszek.supabase.co',
+  'YOUR_ANON_KEY_HERE'  -- ⚠️ REPLACE THIS WITH YOUR ACTUAL ANON KEY
+)
+ON CONFLICT (id) DO UPDATE SET
+  supabase_url = EXCLUDED.supabase_url,
+  anon_key = EXCLUDED.anon_key,
+  updated_at = NOW();
+
+-- ===========================================
+-- PART 3: SCHEDULE CLEANUP JOB
 -- ===========================================
 
 -- Schedule daily cleanup at 9 AM UTC
@@ -26,10 +77,10 @@ SELECT cron.schedule(
   '0 9 * * *', -- Every day at 9:00 AM UTC
   $$
   SELECT net.http_post(
-    url := current_setting('app.settings.supabase_url') || '/functions/v1/cleanup-expired-cooldowns',
+    url := (SELECT supabase_url FROM public.get_cron_config()) || '/functions/v1/cleanup-expired-cooldowns',
     headers := jsonb_build_object(
       'Content-Type', 'application/json',
-      'Authorization', 'Bearer ' || current_setting('app.settings.supabase_anon_key')
+      'Authorization', 'Bearer ' || (SELECT anon_key FROM public.get_cron_config())
     ),
     body := '{}'::jsonb
   ) AS request_id;
@@ -37,15 +88,18 @@ SELECT cron.schedule(
 );
 
 -- ===========================================
--- PART 3: CONFIGURATION SETTINGS
+-- PART 4: UPDATE CONFIG VALUES
 -- ===========================================
 
--- Note: You need to set these configuration values manually:
--- ALTER DATABASE postgres SET app.settings.supabase_url = 'https://YOUR_PROJECT_ID.supabase.co';
--- ALTER DATABASE postgres SET app.settings.supabase_anon_key = 'YOUR_ANON_KEY';
+-- To update the Supabase URL and anon key, run:
+-- UPDATE public.cron_config 
+-- SET supabase_url = 'https://YOUR_PROJECT_ID.supabase.co',
+--     anon_key = 'YOUR_ANON_KEY',
+--     updated_at = NOW()
+-- WHERE id = 'default';
 
 -- ===========================================
--- PART 4: VERIFY CRON JOB
+-- PART 5: VERIFY CRON JOB
 -- ===========================================
 
 -- Query to check if cron job is scheduled:
@@ -57,18 +111,21 @@ SELECT cron.schedule(
 -- ) ORDER BY start_time DESC LIMIT 10;
 
 -- ===========================================
--- PART 5: MANUAL CLEANUP (FOR TESTING)
+-- PART 6: MANUAL CLEANUP (FOR TESTING)
 -- ===========================================
 
 -- To manually trigger the cleanup function for testing:
 -- SELECT net.http_post(
---   url := 'https://YOUR_PROJECT_ID.supabase.co/functions/v1/cleanup-expired-cooldowns',
---   headers := '{"Content-Type": "application/json", "Authorization": "Bearer YOUR_ANON_KEY"}'::jsonb,
+--   url := (SELECT supabase_url FROM public.get_cron_config()) || '/functions/v1/cleanup-expired-cooldowns',
+--   headers := jsonb_build_object(
+--     'Content-Type', 'application/json',
+--     'Authorization', 'Bearer ' || (SELECT anon_key FROM public.get_cron_config())
+--   ),
 --   body := '{}'::jsonb
 -- ) AS request_id;
 
 -- ===========================================
--- PART 6: UNSCHEDULE (IF NEEDED)
+-- PART 7: UNSCHEDULE (IF NEEDED)
 -- ===========================================
 
 -- To remove the cron job:

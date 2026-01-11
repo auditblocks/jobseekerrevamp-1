@@ -145,9 +145,15 @@ const Compose = () => {
 
         console.log(`Fetched ${allRecruiters.length} total recruiters`);
         setRecruiters(allRecruiters);
-      } catch (error) {
+      } catch (error: any) {
         console.error("Error fetching data:", error);
-        toast.error("Failed to load data");
+        console.error("Error details:", {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code
+        });
+        toast.error(`Failed to load data: ${error.message || 'Unknown error'}`);
       } finally {
         setIsLoadingRecruiters(false);
       }

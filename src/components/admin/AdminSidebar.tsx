@@ -12,7 +12,8 @@ import {
   Sliders,
   Activity,
   Mail,
-  Receipt
+  Receipt,
+  Ban
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
@@ -42,6 +43,7 @@ const mainItems = [
 
 const managementItems = [
   { title: "Email Campaigns", url: "/admin/email-campaigns", icon: Mail },
+  { title: "Email Cooldowns", url: "/admin/email-cooldowns", icon: Ban },
   { title: "Scraper", url: "/admin/scraper", icon: Globe },
   { title: "Domains", url: "/admin/domains", icon: Globe },
   { title: "Subscriptions", url: "/admin/subscriptions", icon: CreditCard },
