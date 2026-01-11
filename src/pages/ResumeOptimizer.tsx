@@ -8,13 +8,13 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { 
-  ArrowLeft, 
-  FileText, 
-  Sparkles, 
-  Upload, 
-  Loader2, 
-  CheckCircle2, 
+import {
+  ArrowLeft,
+  FileText,
+  Sparkles,
+  Upload,
+  Loader2,
+  CheckCircle2,
   XCircle,
   FileSearch,
   IndianRupee,
@@ -75,7 +75,7 @@ const ResumeOptimizer = () => {
   const navigate = useNavigate();
   const { user, profile } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  
+
   const [resumeText, setResumeText] = useState("");
   const [jobDescription, setJobDescription] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -98,7 +98,11 @@ const ResumeOptimizer = () => {
   const [uploadingFile, setUploadingFile] = useState(false);
   const [originalFileType, setOriginalFileType] = useState<'pdf' | 'docx' | 'txt' | null>(null);
 
-  const isProUser = profile?.subscription_tier === "PRO" || profile?.subscription_tier === "PRO_MAX";
+  const isProUser = (() => {
+    if (!profile?.subscription_tier) return false;
+    const tier = profile.subscription_tier.trim().toUpperCase();
+    return ["PRO", "PRO_MAX"].includes(tier) || tier.includes("PRO");
+  })();
 
   // Load Razorpay script
   useEffect(() => {
@@ -158,8 +162,8 @@ const ResumeOptimizer = () => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-      setSelectedFile(file);
-      
+    setSelectedFile(file);
+
     // Determine file type
     let fileType: 'pdf' | 'docx' | 'txt' = 'txt';
     if (file.type === "application/pdf") {
@@ -174,11 +178,11 @@ const ResumeOptimizer = () => {
       await handleFileUpload(file, fileType);
     } else if (file.type === "text/plain") {
       // Read text files directly
-        const reader = new FileReader();
-        reader.onload = (event) => {
-          setResumeText(event.target?.result as string);
-        };
-        reader.readAsText(file);
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setResumeText(event.target?.result as string);
+      };
+      reader.readAsText(file);
       setOriginalFileType('txt');
     }
   };
@@ -211,23 +215,23 @@ const ResumeOptimizer = () => {
 
       setUploadedFilePath(fileName);
       setUploadedFileUrl(urlData.publicUrl);
-      
+
       // Extract text from PDF directly in the browser using PDF.js
       if (fileType === 'pdf') {
         try {
           toast.info("Extracting text from PDF...");
-          
+
           // Dynamic import of PDF.js for browser
           const pdfjsLib = await import('pdfjs-dist');
           pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
-          
+
           // Read the file as ArrayBuffer
           const arrayBuffer = await file.arrayBuffer();
-          
+
           // Load the PDF
           const loadingTask = pdfjsLib.getDocument(new Uint8Array(arrayBuffer));
           const pdf = await loadingTask.promise;
-          
+
           // Extract text from all pages
           const textParts: string[] = [];
           for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
@@ -238,7 +242,7 @@ const ResumeOptimizer = () => {
               .join(' ');
             textParts.push(pageText);
           }
-          
+
           const extractedText = textParts.join('\n\n');
           setResumeText(extractedText);
           console.log("PDF text extracted, length:", extractedText.length);
@@ -408,7 +412,7 @@ const ResumeOptimizer = () => {
             );
 
             if (verifyError) throw verifyError;
-            
+
             toast.success("Payment successful! Analyzing resume...");
             // Run analysis after payment
             await runAnalysis(analysisId);
@@ -443,7 +447,7 @@ const ResumeOptimizer = () => {
 
   const extractStructuredData = async (text: string, showSuccessToast: boolean = true) => {
     if (!text.trim()) return;
-    
+
     try {
       const { data, error } = await supabase.functions.invoke("extract-resume-data", {
         body: { resume_text: text },
@@ -486,8 +490,8 @@ const ResumeOptimizer = () => {
 
       // Call analyze function - pass file_path for PDF/DOCX, resume_text for text
       const analyzeBody: any = {
-          job_description: jobDescription?.trim() || undefined,
-          analysis_id: finalAnalysisId,
+        job_description: jobDescription?.trim() || undefined,
+        analysis_id: finalAnalysisId,
       };
 
       // TEMPORARY WORKAROUND: Since the deployed edge function doesn't support file_path yet,
@@ -605,7 +609,7 @@ const ResumeOptimizer = () => {
       // Collect selected suggestions
       const analysisResult = currentAnalysis.analysis_result || {};
       const allSuggestions: any[] = [];
-      
+
       // Get action items
       const actionItems = analysisResult.action_items || [];
       actionItems.forEach((item: any, idx: number) => {
@@ -681,7 +685,7 @@ const ResumeOptimizer = () => {
         setOptimizedResume(data.optimized_resume_text);
         setShowOptimized(true);
         toast.success(`Applied ${data.applied_suggestions_count} suggestions successfully!`);
-        
+
         // Update current analysis to include optimized text
         setCurrentAnalysis({
           ...currentAnalysis,
@@ -702,7 +706,7 @@ const ResumeOptimizer = () => {
 
   const handleDownloadOptimized = () => {
     if (!optimizedResume) return;
-    
+
     const blob = new Blob([optimizedResume], { type: "text/plain" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -723,13 +727,13 @@ const ResumeOptimizer = () => {
 
     try {
       let fileBlob: Blob;
-      
+
       if (uploadedFilePath) {
         // Download from storage
         const { data, error } = await supabase.storage
           .from("resumes")
           .download(uploadedFilePath);
-        
+
         if (error) throw error;
         fileBlob = data;
       } else if (uploadedFileUrl) {
@@ -842,8 +846,8 @@ const ResumeOptimizer = () => {
                         </>
                       ) : (
                         <>
-                      <Upload className="mr-2 h-4 w-4" />
-                      Upload File
+                          <Upload className="mr-2 h-4 w-4" />
+                          Upload File
                         </>
                       )}
                     </Button>
@@ -893,7 +897,7 @@ const ResumeOptimizer = () => {
                         {isProUser ? "Unlimited Free Scans" : `Pay ₹${scanPrice} per Scan`}
                       </h3>
                       <p className="text-sm text-muted-foreground">
-                        {isProUser 
+                        {isProUser
                           ? "As a PRO user, you get unlimited ATS resume scans"
                           : "FREE users pay per scan. Upgrade to PRO for unlimited scans"
                         }
@@ -917,34 +921,34 @@ const ResumeOptimizer = () => {
                           {extractingData ? "Extracting Data..." : structuredResumeData ? "Edit & Choose Template" : "Templates"}
                         </Button>
                       )}
-                    <Button
-                      onClick={handleAnalyze}
+                      <Button
+                        onClick={handleAnalyze}
                         disabled={loading || analyzing || processingPayment || (!resumeText.trim() && !uploadedFilePath)}
-                      size="lg"
-                      className={isProUser ? "bg-accent hover:bg-accent/90" : ""}
-                    >
-                      {processingPayment ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Processing Payment...
-                        </>
-                      ) : analyzing ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Analyzing...
-                        </>
-                      ) : isProUser ? (
-                        <>
-                          <Sparkles className="mr-2 h-4 w-4" />
-                          Analyze (Unlimited)
-                        </>
-                      ) : (
-                        <>
-                          <IndianRupee className="mr-2 h-4 w-4" />
-                          Pay & Analyze
-                        </>
-                      )}
-                    </Button>
+                        size="lg"
+                        className={isProUser ? "bg-accent hover:bg-accent/90" : ""}
+                      >
+                        {processingPayment ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Processing Payment...
+                          </>
+                        ) : analyzing ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Analyzing...
+                          </>
+                        ) : isProUser ? (
+                          <>
+                            <Sparkles className="mr-2 h-4 w-4" />
+                            Analyze (Unlimited)
+                          </>
+                        ) : (
+                          <>
+                            <IndianRupee className="mr-2 h-4 w-4" />
+                            Pay & Analyze
+                          </>
+                        )}
+                      </Button>
                     </div>
                   </div>
                 </CardContent>
@@ -992,10 +996,10 @@ const ResumeOptimizer = () => {
                               }
                               return;
                             }
-                            
+
                             // Update resume text with optimized version
                             setResumeText(optimizedResume);
-                            
+
                             // Re-extract structured data from optimized resume to preserve formatting
                             toast.info("Extracting structured data from optimized resume...");
                             try {
@@ -1023,11 +1027,11 @@ const ResumeOptimizer = () => {
                         <Button
                           onClick={async () => {
                             if (!optimizedResume) return;
-                            
+
                             // Update resume text
                             setResumeText(optimizedResume);
                             setShowOptimized(false);
-                            
+
                             // Re-extract structured data from optimized resume to preserve formatting
                             toast.info("Extracting structured data from optimized resume...");
                             try {
@@ -1335,9 +1339,9 @@ const ResumeOptimizer = () => {
                         <Palette className="h-8 w-8 text-accent mb-2" />
                         <span className="font-semibold">Choose Template</span>
                         <span className="text-xs text-muted-foreground text-center">
-                          {extractingData 
-                            ? "Extracting data..." 
-                            : structuredResumeData 
+                          {extractingData
+                            ? "Extracting data..."
+                            : structuredResumeData
                               ? "Edit & choose from templates"
                               : "Select a professional template"}
                         </span>
@@ -1375,8 +1379,8 @@ const ResumeOptimizer = () => {
                         <FileText className="h-8 w-8 text-accent mb-2" />
                         <span className="font-semibold">Template Builder</span>
                         <span className="text-xs text-muted-foreground text-center">
-                          {extractingData 
-                            ? "Extracting data..." 
+                          {extractingData
+                            ? "Extracting data..."
                             : structuredResumeData
                               ? "Edit with auto-filled data"
                               : "Open builder (manual entry available)"}
@@ -1416,7 +1420,7 @@ const ResumeOptimizer = () => {
                 <Card>
                   <CardHeader>
                     <div className="flex items-center justify-between">
-                    <CardTitle>ATS Score</CardTitle>
+                      <CardTitle>ATS Score</CardTitle>
                       {uploadedFilePath && originalFileType && (
                         <Button
                           onClick={handleDownloadOriginal}
@@ -1437,7 +1441,7 @@ const ResumeOptimizer = () => {
                       <div className="text-sm text-muted-foreground mt-2">out of 100</div>
                     </div>
                     <Progress value={currentAnalysis.ats_score} className="h-3" />
-                    
+
                     <div className="space-y-3 pt-4 border-t">
                       <div>
                         <div className="flex justify-between text-sm mb-1">
