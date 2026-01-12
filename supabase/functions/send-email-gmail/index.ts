@@ -172,7 +172,7 @@ serve(async (req) => {
         status: "sent",
         sent_at: new Date().toISOString(),
         tracking_pixel_id: trackingPixelId,
-        message_id: gmailResult.id,
+        email_id: gmailResult.id,
         domain
       });
 
@@ -181,7 +181,7 @@ serve(async (req) => {
       user_id: user.id,
       recipient: to,
       subject,
-      status: "sent",
+      status: "Delivered", // Use 'Delivered' to match CHECK constraint, or 'Bounced'/'Opened'. 'Sent' is not in list according to migration.
       domain
     });
 
@@ -255,7 +255,7 @@ serve(async (req) => {
           sent_at: new Date().toISOString(),
           message_number: messageNumber,
           status: "sent",
-          gmail_message_id: gmailResult.id
+          metadata: { gmail_message_id: gmailResult.id }
         });
 
       if (messageError) {
