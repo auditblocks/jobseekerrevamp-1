@@ -93,12 +93,184 @@ serve(async (req) => {
       }
     }
 
-    // ... (rest of code) ...
-    // CRITICAL: The Gmail sending logic appears to be missing in this file.
-    // Adding placeholders to prevent build failures.
-    console.error("CRITICAL: Gmail sending logic is missing in this function!");
-    const gmailResult = { id: "missing_logic_placeholder" };
-    const trackingPixelId = "missing_logic_placeholder";
+    // Generate tracking pixel ID
+    const trackingPixelId = crypto.randomUUID();
+    const trackingPixelUrl = `${supabaseUrl}/functions/v1/track-email-open?id=${trackingPixelId}`;
+
+    const emailBodyWithTracking = `${body}
+<img src="${trackingPixelUrl}" width="1" height="1" style="display:none;" alt="" />`;
+
+    // 1. Refresh Access Token
+    const refreshTokenResponse = await fetch("https://oauth2.googleapis.com/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        client_id: Deno.env.get("GOOGLE_CLIENT_ID")!,
+        client_secret: Deno.env.get("GOOGLE_CLIENT_SECRET")!,
+        refresh_token: profile.google_refresh_token,
+        grant_type: "refresh_token",
+      }),
+    });
+
+    const tokenData = await refreshTokenResponse.json();
+    if (!tokenData.access_token) {
+      throw new Error(`Failed to refresh Google token: ${JSON.stringify(tokenData)}`);
+    }
+
+    const accessToken = tokenData.access_token;
+
+    // 2. Construct Email (Base64url encoded)
+    const utf8Subject = `=?utf-8?B?${btoa(unescape(encodeURIComponent(subject)))}?=`;
+    // Simple MIME structure
+    const messageParts = [
+      `From: me`,
+      `To: ${to}`,
+      `Subject: ${utf8Subject}`,
+      `MIME-Version: 1.0`,
+      `Content-Type: text/html; charset=utf-8`,
+      ``,
+      emailBodyWithTracking
+    ];
+
+    // Join with CRLF
+    const messageRaw = messageParts.join("\r\n");
+    // Base64url encoding for Gmail API
+    const encodedMessage = btoa(unescape(encodeURIComponent(messageRaw)))
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=+$/, '');
+
+    // 3. Send via Gmail API
+    const gmailResponse = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/messages/send", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        raw: encodedMessage,
+      }),
+    });
+
+    if (!gmailResponse.ok) {
+      const err = await gmailResponse.text();
+      throw new Error(`Gmail API failed: ${err}`);
+    }
+
+    const gmailResult = await gmailResponse.json();
+    console.log("Email sent via Gmail:", gmailResult);
+
+    // 4. Store tracking info
+    const domain = to.split("@")[1]?.split(".")[0] || "unknown";
+
+    await supabase
+      .from("email_tracking")
+      .insert({
+        user_id: user.id,
+        recipient: to,
+        subject,
+        status: "sent",
+        sent_at: new Date().toISOString(),
+        tracking_pixel_id: trackingPixelId,
+        message_id: gmailResult.id,
+        domain
+      });
+
+    // Store in email history
+    await supabase.from("email_history").insert({
+      user_id: user.id,
+      recipient: to,
+      subject,
+      status: "sent",
+      domain
+    });
+
+    // Create/Update Conversation Thread logic (same as Resend)
+    // Get recruiter info if available
+    const { data: recruiter } = await supabase
+      .from("recruiters")
+      .select("name, company")
+      .eq("email", to)
+      .single();
+
+    // Create or get conversation thread
+    let threadId: string;
+    const { data: existingThread } = await supabase
+      .from("conversation_threads")
+      .select("id, total_messages, user_messages_count")
+      .eq("user_id", user.id)
+      .eq("recruiter_email", to)
+      .single();
+
+    if (existingThread) {
+      threadId = existingThread.id;
+      // Update thread
+      await supabase
+        .from("conversation_threads")
+        .update({
+          last_activity_at: new Date().toISOString(),
+          last_user_message_at: new Date().toISOString(),
+          subject_line: subject,
+        })
+        .eq("id", threadId);
+    } else {
+      // Create new thread
+      const { data: newThread, error: threadError } = await supabase
+        .from("conversation_threads")
+        .insert({
+          user_id: user.id,
+          recruiter_email: to,
+          recruiter_name: recruiter?.name || recruiterName || null,
+          company_name: recruiter?.company || null,
+          subject_line: subject,
+          status: "active",
+          first_contact_at: new Date().toISOString(),
+          last_activity_at: new Date().toISOString(),
+          last_user_message_at: new Date().toISOString(),
+          total_messages: 0,
+          user_messages_count: 0,
+          recruiter_messages_count: 0,
+        })
+        .select()
+        .single();
+
+      if (threadError) {
+        console.error("Failed to create conversation thread:", threadError);
+      } else {
+        threadId = newThread.id;
+      }
+    }
+
+    // Create conversation message
+    if (threadId) {
+      const messageNumber = (existingThread?.total_messages || 0) + 1;
+      const { error: messageError } = await supabase
+        .from("conversation_messages")
+        .insert({
+          thread_id: threadId,
+          sender_type: "user",
+          subject: subject,
+          body_preview: body.substring(0, 200),
+          body_full: body,
+          sent_at: new Date().toISOString(),
+          message_number: messageNumber,
+          status: "sent",
+          gmail_message_id: gmailResult.id
+        });
+
+      if (messageError) {
+        console.error("Failed to create conversation message:", messageError);
+      } else {
+        // Update thread message counts
+        await supabase
+          .from("conversation_threads")
+          .update({
+            total_messages: messageNumber,
+            user_messages_count: (existingThread?.user_messages_count || 0) + 1,
+          })
+          .eq("id", threadId);
+      }
+    }
 
     // Fetch configured cooldown days
     let cooldownDays = 7; // Default
