@@ -32,13 +32,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
-import { 
-  Globe, 
-  Play, 
-  RefreshCw, 
-  Settings2, 
-  Clock, 
-  CheckCircle2, 
+import {
+  Globe,
+  Play,
+  RefreshCw,
+  Settings2,
+  Clock,
+  CheckCircle2,
   XCircle,
   Plus,
   Trash2,
@@ -80,6 +80,7 @@ interface ScrapingLog {
       tier: string;
       quality_score: number;
       source_url: string | null;
+      source_platform?: string;
       added: boolean;
     }>;
     countries?: string[];
@@ -141,10 +142,10 @@ export default function AdminScraperConfig() {
           .single();
 
         if (!error && newConfig) {
-          setConfigs([newConfig as ScraperConfig]);
+          setConfigs([newConfig as unknown as ScraperConfig]);
         }
       } else {
-        setConfigs(configsRes.data as ScraperConfig[]);
+        setConfigs(configsRes.data as unknown as ScraperConfig[]);
       }
 
       setLogs((logsRes.data || []) as ScrapingLog[]);
@@ -181,8 +182,8 @@ export default function AdminScraperConfig() {
   };
 
   const removeCountry = (configId: string, currentCountries: string[], countryToRemove: string) => {
-    updateConfig(configId, { 
-      target_countries: currentCountries.filter(c => c !== countryToRemove) 
+    updateConfig(configId, {
+      target_countries: currentCountries.filter(c => c !== countryToRemove)
     });
   };
 
@@ -197,8 +198,8 @@ export default function AdminScraperConfig() {
   };
 
   const removeSearchQuery = (configId: string, currentQueries: string[], queryToRemove: string) => {
-    updateConfig(configId, { 
-      search_queries: currentQueries.filter(q => q !== queryToRemove) 
+    updateConfig(configId, {
+      search_queries: currentQueries.filter(q => q !== queryToRemove)
     });
   };
 
@@ -346,7 +347,7 @@ export default function AdminScraperConfig() {
                       <div className="p-4 bg-muted/50 rounded-lg">
                         <p className="text-sm text-muted-foreground">Last Run</p>
                         <p className="font-medium">
-                          {config.last_run_at 
+                          {config.last_run_at
                             ? format(new Date(config.last_run_at), 'MMM d, HH:mm')
                             : 'Never'}
                         </p>
@@ -354,7 +355,7 @@ export default function AdminScraperConfig() {
                       <div className="p-4 bg-muted/50 rounded-lg">
                         <p className="text-sm text-muted-foreground">Last Success</p>
                         <p className="font-medium">
-                          {config.last_success_at 
+                          {config.last_success_at
                             ? format(new Date(config.last_success_at), 'MMM d, HH:mm')
                             : 'Never'}
                         </p>
@@ -551,12 +552,12 @@ export default function AdminScraperConfig() {
             <DialogHeader>
               <DialogTitle>Scraping Report</DialogTitle>
               <DialogDescription>
-                Detailed view of scraped recruiters from {selectedLog?.started_at 
+                Detailed view of scraped recruiters from {selectedLog?.started_at
                   ? format(new Date(selectedLog.started_at), 'MMM d, yyyy HH:mm')
                   : 'this scraping job'}
               </DialogDescription>
             </DialogHeader>
-            
+
             {selectedLog?.metadata?.scraped_recruiters ? (
               <div className="space-y-4">
                 <div className="grid grid-cols-4 gap-4 p-4 bg-muted/50 rounded-lg">
@@ -619,18 +620,25 @@ export default function AdminScraperConfig() {
                             )}
                           </TableCell>
                           <TableCell>
-                            {recruiter.source_url ? (
-                              <a 
-                                href={recruiter.source_url} 
-                                target="_blank" 
-                                rel="noopener noreferrer"
-                                className="text-accent hover:underline text-sm truncate max-w-[200px] block"
-                              >
-                                {recruiter.source_url}
-                              </a>
-                            ) : (
-                              "-"
-                            )}
+                            <div className="flex flex-col gap-1">
+                              {recruiter.source_platform && (
+                                <Badge variant="secondary" className="text-xs w-fit">
+                                  {recruiter.source_platform.includes('gemini') ? 'AI Extracted' : 'Regex'}
+                                </Badge>
+                              )}
+                              {recruiter.source_url ? (
+                                <a
+                                  href={recruiter.source_url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-accent hover:underline text-sm truncate max-w-[200px] block"
+                                >
+                                  {recruiter.source_url}
+                                </a>
+                              ) : (
+                                "-"
+                              )}
+                            </div>
                           </TableCell>
                         </TableRow>
                       ))}

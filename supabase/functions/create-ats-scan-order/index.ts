@@ -29,7 +29,7 @@ serve(async (req) => {
     if (!razorpayKeyId || !razorpayKeySecret) {
       console.error("Razorpay credentials not configured");
       return new Response(
-        JSON.stringify({ 
+        JSON.stringify({
           error: "Payment gateway not configured. Please contact support.",
           details: "RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET must be set in Supabase secrets"
         }),
@@ -46,7 +46,7 @@ serve(async (req) => {
     }
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
-    
+
     // Verify user
     const token = authHeader.replace("Bearer ", "");
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
@@ -54,10 +54,34 @@ serve(async (req) => {
       throw new Error("Unauthorized");
     }
 
-    const { analysis_id, amount }: ATSOrderRequest = await req.json();
+    const { analysis_id }: { analysis_id: string } = await req.json();
 
-    if (!analysis_id || !amount) {
-      throw new Error("Missing analysis_id or amount");
+    if (!analysis_id) {
+      throw new Error("Missing analysis_id");
+    }
+
+    // SECURITY FIX: Fetch price from settings instead of trusting client
+    const { data: settingsData, error: settingsError } = await supabase
+      .from("ats_scan_settings")
+      .select("setting_value")
+      .eq("setting_key", "scan_price")
+      .single();
+
+    let amount = 99; // Default fallback
+
+    if (!settingsError && settingsData?.setting_value) {
+      try {
+        // setting_value is stored as JSON
+        const settings = typeof settingsData.setting_value === 'string'
+          ? JSON.parse(settingsData.setting_value)
+          : settingsData.setting_value;
+
+        if (settings.amount) {
+          amount = Number(settings.amount);
+        }
+      } catch (e) {
+        console.error("Error parsing scan settings:", e);
+      }
     }
 
     // Verify analysis belongs to user

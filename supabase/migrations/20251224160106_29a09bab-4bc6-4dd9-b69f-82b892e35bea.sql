@@ -3,53 +3,63 @@
 -- =====================================================
 
 -- User Sessions policies
+DROP POLICY IF EXISTS "Users can view own sessions" ON public.user_sessions;
 CREATE POLICY "Users can view own sessions"
 ON public.user_sessions FOR SELECT
 TO authenticated
 USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can insert own sessions" ON public.user_sessions;
 CREATE POLICY "Users can insert own sessions"
 ON public.user_sessions FOR INSERT
 TO authenticated
 WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can update own sessions" ON public.user_sessions;
 CREATE POLICY "Users can update own sessions"
 ON public.user_sessions FOR UPDATE
 TO authenticated
 USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Superadmins can view all sessions" ON public.user_sessions;
 CREATE POLICY "Superadmins can view all sessions"
 ON public.user_sessions FOR SELECT
 TO authenticated
 USING (public.is_superadmin());
 
 -- User Activity Events policies
+DROP POLICY IF EXISTS "Users can view own activity events" ON public.user_activity_events;
 CREATE POLICY "Users can view own activity events"
 ON public.user_activity_events FOR SELECT
 TO authenticated
 USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can insert own activity events" ON public.user_activity_events;
 CREATE POLICY "Users can insert own activity events"
 ON public.user_activity_events FOR INSERT
 TO authenticated
 WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Superadmins can view all activity events" ON public.user_activity_events;
 CREATE POLICY "Superadmins can view all activity events"
 ON public.user_activity_events FOR SELECT
 TO authenticated
 USING (public.is_superadmin());
 
 -- User Engagement Metrics policies
+DROP POLICY IF EXISTS "Users can view own engagement metrics" ON public.user_engagement_metrics;
 CREATE POLICY "Users can view own engagement metrics"
 ON public.user_engagement_metrics FOR SELECT
 TO authenticated
 USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Superadmins can view all engagement metrics" ON public.user_engagement_metrics;
 CREATE POLICY "Superadmins can view all engagement metrics"
 ON public.user_engagement_metrics FOR SELECT
 TO authenticated
 USING (public.is_superadmin());
 
+DROP POLICY IF EXISTS "Superadmins can manage engagement metrics" ON public.user_engagement_metrics;
 CREATE POLICY "Superadmins can manage engagement metrics"
 ON public.user_engagement_metrics FOR ALL
 TO authenticated
@@ -57,11 +67,13 @@ USING (public.is_superadmin())
 WITH CHECK (public.is_superadmin());
 
 -- Page Analytics policies (superadmin only)
+DROP POLICY IF EXISTS "Superadmins can view page analytics" ON public.page_analytics;
 CREATE POLICY "Superadmins can view page analytics"
 ON public.page_analytics FOR SELECT
 TO authenticated
 USING (public.is_superadmin());
 
+DROP POLICY IF EXISTS "Superadmins can manage page analytics" ON public.page_analytics;
 CREATE POLICY "Superadmins can manage page analytics"
 ON public.page_analytics FOR ALL
 TO authenticated
@@ -69,32 +81,38 @@ USING (public.is_superadmin())
 WITH CHECK (public.is_superadmin());
 
 -- Notification Campaigns policies
+DROP POLICY IF EXISTS "Superadmins can view all campaigns" ON public.notification_campaigns;
 CREATE POLICY "Superadmins can view all campaigns"
 ON public.notification_campaigns FOR SELECT
 TO authenticated
 USING (public.is_superadmin());
 
+DROP POLICY IF EXISTS "Superadmins can insert campaigns" ON public.notification_campaigns;
 CREATE POLICY "Superadmins can insert campaigns"
 ON public.notification_campaigns FOR INSERT
 TO authenticated
 WITH CHECK (public.is_superadmin() AND created_by = auth.uid());
 
+DROP POLICY IF EXISTS "Superadmins can update campaigns" ON public.notification_campaigns;
 CREATE POLICY "Superadmins can update campaigns"
 ON public.notification_campaigns FOR UPDATE
 TO authenticated
 USING (public.is_superadmin());
 
+DROP POLICY IF EXISTS "Superadmins can delete campaigns" ON public.notification_campaigns;
 CREATE POLICY "Superadmins can delete campaigns"
 ON public.notification_campaigns FOR DELETE
 TO authenticated
 USING (public.is_superadmin());
 
 -- Notification Recipients policies
+DROP POLICY IF EXISTS "Superadmins can view all recipients" ON public.notification_recipients;
 CREATE POLICY "Superadmins can view all recipients"
 ON public.notification_recipients FOR SELECT
 TO authenticated
 USING (public.is_superadmin());
 
+DROP POLICY IF EXISTS "Superadmins can manage recipients" ON public.notification_recipients;
 CREATE POLICY "Superadmins can manage recipients"
 ON public.notification_recipients FOR ALL
 TO authenticated
@@ -102,32 +120,38 @@ USING (public.is_superadmin())
 WITH CHECK (public.is_superadmin());
 
 -- Push Subscriptions policies
+DROP POLICY IF EXISTS "Users can view own subscriptions" ON public.push_subscriptions;
 CREATE POLICY "Users can view own subscriptions"
 ON public.push_subscriptions FOR SELECT
 TO authenticated
 USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can insert own subscriptions" ON public.push_subscriptions;
 CREATE POLICY "Users can insert own subscriptions"
 ON public.push_subscriptions FOR INSERT
 TO authenticated
 WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can update own subscriptions" ON public.push_subscriptions;
 CREATE POLICY "Users can update own subscriptions"
 ON public.push_subscriptions FOR UPDATE
 TO authenticated
 USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can delete own subscriptions" ON public.push_subscriptions;
 CREATE POLICY "Users can delete own subscriptions"
 ON public.push_subscriptions FOR DELETE
 TO authenticated
 USING (auth.uid() = user_id);
 
 -- Push Notification Campaigns policies
+DROP POLICY IF EXISTS "Superadmins can view push campaigns" ON public.push_notification_campaigns;
 CREATE POLICY "Superadmins can view push campaigns"
 ON public.push_notification_campaigns FOR SELECT
 TO authenticated
 USING (public.is_superadmin());
 
+DROP POLICY IF EXISTS "Superadmins can manage push campaigns" ON public.push_notification_campaigns;
 CREATE POLICY "Superadmins can manage push campaigns"
 ON public.push_notification_campaigns FOR ALL
 TO authenticated
@@ -135,16 +159,19 @@ USING (public.is_superadmin())
 WITH CHECK (public.is_superadmin());
 
 -- Push Notification Events policies
+DROP POLICY IF EXISTS "Users can view own push events" ON public.push_notification_events;
 CREATE POLICY "Users can view own push events"
 ON public.push_notification_events FOR SELECT
 TO authenticated
 USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Superadmins can view all push events" ON public.push_notification_events;
 CREATE POLICY "Superadmins can view all push events"
 ON public.push_notification_events FOR SELECT
 TO authenticated
 USING (public.is_superadmin());
 
+DROP POLICY IF EXISTS "Superadmins can manage push events" ON public.push_notification_events;
 CREATE POLICY "Superadmins can manage push events"
 ON public.push_notification_events FOR ALL
 TO authenticated
@@ -152,11 +179,13 @@ USING (public.is_superadmin())
 WITH CHECK (public.is_superadmin());
 
 -- Scraping Logs policies (superadmin only)
+DROP POLICY IF EXISTS "Superadmins can view scraping logs" ON public.scraping_logs;
 CREATE POLICY "Superadmins can view scraping logs"
 ON public.scraping_logs FOR SELECT
 TO authenticated
 USING (public.is_superadmin());
 
+DROP POLICY IF EXISTS "Superadmins can manage scraping logs" ON public.scraping_logs;
 CREATE POLICY "Superadmins can manage scraping logs"
 ON public.scraping_logs FOR ALL
 TO authenticated
@@ -164,11 +193,13 @@ USING (public.is_superadmin())
 WITH CHECK (public.is_superadmin());
 
 -- Scraper Config policies (superadmin only)
+DROP POLICY IF EXISTS "Superadmins can view scraper config" ON public.scraper_config;
 CREATE POLICY "Superadmins can view scraper config"
 ON public.scraper_config FOR SELECT
 TO authenticated
 USING (public.is_superadmin());
 
+DROP POLICY IF EXISTS "Superadmins can manage scraper config" ON public.scraper_config;
 CREATE POLICY "Superadmins can manage scraper config"
 ON public.scraper_config FOR ALL
 TO authenticated
@@ -176,21 +207,25 @@ USING (public.is_superadmin())
 WITH CHECK (public.is_superadmin());
 
 -- Domain Recruiter Requests policies
+DROP POLICY IF EXISTS "Users can view own requests" ON public.domain_recruiter_requests;
 CREATE POLICY "Users can view own requests"
 ON public.domain_recruiter_requests FOR SELECT
 TO authenticated
 USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can insert own requests" ON public.domain_recruiter_requests;
 CREATE POLICY "Users can insert own requests"
 ON public.domain_recruiter_requests FOR INSERT
 TO authenticated
 WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Superadmins can view all requests" ON public.domain_recruiter_requests;
 CREATE POLICY "Superadmins can view all requests"
 ON public.domain_recruiter_requests FOR SELECT
 TO authenticated
 USING (public.is_superadmin());
 
+DROP POLICY IF EXISTS "Superadmins can manage requests" ON public.domain_recruiter_requests;
 CREATE POLICY "Superadmins can manage requests"
 ON public.domain_recruiter_requests FOR ALL
 TO authenticated
@@ -198,27 +233,32 @@ USING (public.is_superadmin())
 WITH CHECK (public.is_superadmin());
 
 -- Chatbot Conversations policies
+DROP POLICY IF EXISTS "Users can view own chatbot conversations" ON public.chatbot_conversations;
 CREATE POLICY "Users can view own chatbot conversations"
 ON public.chatbot_conversations FOR SELECT
 TO authenticated
 USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can insert own chatbot conversations" ON public.chatbot_conversations;
 CREATE POLICY "Users can insert own chatbot conversations"
 ON public.chatbot_conversations FOR INSERT
 TO authenticated
 WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Superadmins can view all chatbot conversations" ON public.chatbot_conversations;
 CREATE POLICY "Superadmins can view all chatbot conversations"
 ON public.chatbot_conversations FOR SELECT
 TO authenticated
 USING (public.is_superadmin());
 
 -- System Credentials policies (superadmin only)
+DROP POLICY IF EXISTS "Superadmins can view system credentials" ON public.system_credentials;
 CREATE POLICY "Superadmins can view system credentials"
 ON public.system_credentials FOR SELECT
 TO authenticated
 USING (public.is_superadmin());
 
+DROP POLICY IF EXISTS "Superadmins can manage system credentials" ON public.system_credentials;
 CREATE POLICY "Superadmins can manage system credentials"
 ON public.system_credentials FOR ALL
 TO authenticated

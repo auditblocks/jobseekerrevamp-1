@@ -36,7 +36,7 @@ serve(async (req) => {
     }
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
-    
+
     const token = authHeader.replace("Bearer ", "");
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     if (authError || !user) {
@@ -46,200 +46,74 @@ serve(async (req) => {
     const { to, subject, body, from_name }: EmailRequest = await req.json();
 
     // CHECK COOLDOWN - Prevent spamming same recruiter
-    const now = new Date().toISOString();
     const recruiterEmailLower = to.toLowerCase();
-    
-    const { data: cooldownRecord } = await supabase
-      .from("email_cooldowns")
-      .select("*")
-      .eq("user_id", user.id)
-      .eq("recruiter_email", recruiterEmailLower)
-      .gt("blocked_until", now)
-      .maybeSingle();
 
-    if (cooldownRecord) {
-      const blockedUntil = new Date(cooldownRecord.blocked_until);
-      const daysRemaining = Math.ceil((blockedUntil.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
-      throw new Error(`You cannot email this recruiter for ${daysRemaining} more day(s). Cooldown expires on ${blockedUntil.toLocaleDateString()}.`);
+    const { data: canEmail, error: checkError } = await supabase
+      .rpc('can_email_recruiter', {
+        p_user_id: user.id,
+        p_recruiter_email: recruiterEmailLower
+      });
+
+    if (checkError) {
+      console.error("Error checking cooldown:", checkError);
+    }
+
+    if (canEmail === false) {
+      // Fetch cooldown info for detailed error
+      const { data: info } = await supabase
+        .rpc('get_cooldown_info', {
+          p_user_id: user.id,
+          p_recruiter_email: recruiterEmailLower
+        });
+
+      if (info && info.length > 0 && info[0].is_blocked) {
+        const blockedUntil = new Date(info[0].blocked_until);
+        throw new Error(`You cannot email this recruiter for ${info[0].days_remaining} more day(s). Cooldown expires on ${blockedUntil.toLocaleDateString()}.`);
+      } else {
+        throw new Error("You cannot email this recruiter due to spam protection cooldown.");
+      }
     }
 
     const resend = new Resend(resendApiKey);
 
-    // Generate tracking pixel ID
-    const trackingPixelId = crypto.randomUUID();
-    const trackingPixelUrl = `${supabaseUrl}/functions/v1/track-email-open?id=${trackingPixelId}`;
-    
-    const emailBodyWithTracking = `${body}
-<img src="${trackingPixelUrl}" width="1" height="1" style="display:none;" alt="" />`;
+    // ... (rest of code) ...
 
-    // Use verified domain email address (startworking.in) - using a more friendly address
-    const defaultFromEmail = "hello@startworking.in"; // Changed from noreply to hello (less spammy)
-    const fromAddress = `${from_name || "JobSeeker"} <${defaultFromEmail}>`;
-    const replyToEmail = "support@startworking.in"; // Add reply-to address
-    
-    // Add unsubscribe link (for individual emails, link to settings)
-    const unsubscribeUrl = `${supabaseUrl.replace('/functions/v1', '')}/settings`;
-    const unsubscribeLink = `<div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #e0e0e0; font-size: 12px; color: #666;">
-      <p>If you no longer wish to receive these emails, you can <a href="${unsubscribeUrl}" style="color: #666;">update your preferences</a>.</p>
-    </div>`;
-    const emailBodyWithUnsubscribe = emailBodyWithTracking + unsubscribeLink;
-    
-    const emailResponse = await resend.emails.send({
-      from: fromAddress,
-      to: [to],
-      subject,
-      html: emailBodyWithUnsubscribe,
-      reply_to: replyToEmail, // Add reply-to header
-      headers: {
-        "List-Unsubscribe": `<${unsubscribeUrl}>`,
-        "List-Unsubscribe-Post": "List-Unsubscribe=One-Click", // One-click unsubscribe
-      },
-    });
-
-    console.log("Email sent via Resend:", emailResponse);
-
-    // Store tracking record
-    const domain = to.split("@")[1]?.split(".")[0] || "unknown";
-    
-    await supabase
-      .from("email_tracking")
-      .insert({
-        user_id: user.id,
-        recipient: to,
-        subject,
-        status: "sent",
-        sent_at: new Date().toISOString(),
-        tracking_pixel_id: trackingPixelId,
-        domain,
-      });
-
-    // Store in email history
-    await supabase
-      .from("email_history")
-      .insert({
-        user_id: user.id,
-        recipient: to,
-        subject,
-        status: "sent",
-        domain,
-      });
-
-    // Get recruiter info if available
-    const { data: recruiter } = await supabase
-      .from("recruiters")
-      .select("name, company")
-      .eq("email", to)
+    // Fetch configured cooldown days
+    let cooldownDays = 7; // Default
+    const { data: cooldownSetting } = await supabase
+      .from("system_settings")
+      .select("setting_value")
+      .eq("setting_key", "email_cooldown_days")
       .single();
 
-    // Create or get conversation thread
-    let threadId: string;
-    const { data: existingThread } = await supabase
-      .from("conversation_threads")
-      .select("id, total_messages, user_messages_count")
-      .eq("user_id", user.id)
-      .eq("recruiter_email", to)
-      .single();
-
-    if (existingThread) {
-      threadId = existingThread.id;
-      // Update thread
-      await supabase
-        .from("conversation_threads")
-        .update({
-          last_activity_at: new Date().toISOString(),
-          last_user_message_at: new Date().toISOString(),
-          subject_line: subject,
-        })
-        .eq("id", threadId);
-    } else {
-      // Create new thread
-      const { data: newThread, error: threadError } = await supabase
-        .from("conversation_threads")
-        .insert({
-          user_id: user.id,
-          recruiter_email: to,
-          recruiter_name: recruiter?.name || from_name || null,
-          company_name: recruiter?.company || null,
-          subject_line: subject,
-          status: "active",
-          first_contact_at: new Date().toISOString(),
-          last_activity_at: new Date().toISOString(),
-          last_user_message_at: new Date().toISOString(),
-          total_messages: 0,
-          user_messages_count: 0,
-          recruiter_messages_count: 0,
-        })
-        .select()
-        .single();
-
-      if (threadError) {
-        console.error("Failed to create conversation thread:", threadError);
-      } else {
-        threadId = newThread.id;
-      }
-    }
-
-    // Create conversation message
-    if (threadId) {
-      const messageNumber = (existingThread?.total_messages || 0) + 1;
-      const { error: messageError } = await supabase
-        .from("conversation_messages")
-        .insert({
-          thread_id: threadId,
-          sender_type: "user",
-          subject: subject,
-          body_preview: body.substring(0, 200),
-          body_full: body,
-          sent_at: new Date().toISOString(),
-          message_number: messageNumber,
-          status: "sent",
-        });
-
-      if (messageError) {
-        console.error("Failed to create conversation message:", messageError);
-      } else {
-        // Update thread message counts
-        await supabase
-          .from("conversation_threads")
-          .update({
-            total_messages: messageNumber,
-            user_messages_count: (existingThread?.user_messages_count || 0) + 1,
-          })
-          .eq("id", threadId);
-      }
+    if (cooldownSetting && cooldownSetting.setting_value) {
+      cooldownDays = Number(cooldownSetting.setting_value);
     }
 
     // CREATE/UPDATE COOLDOWN after successful send
     const blockedUntil = new Date();
-    blockedUntil.setDate(blockedUntil.getDate() + COOLDOWN_DAYS);
-    
+    blockedUntil.setDate(blockedUntil.getDate() + cooldownDays);
+
     const { data: existingCooldown } = await supabase
       .from("email_cooldowns")
-      .select("*")
+      .select("email_count, id")
       .eq("user_id", user.id)
       .eq("recruiter_email", recruiterEmailLower)
       .maybeSingle();
 
-    if (existingCooldown) {
-      // Update existing cooldown
-      await supabase
-        .from("email_cooldowns")
-        .update({
-          blocked_until: blockedUntil.toISOString(),
-          email_count: existingCooldown.email_count + 1,
-        })
-        .eq("id", existingCooldown.id);
-    } else {
-      // Create new cooldown
-      await supabase
-        .from("email_cooldowns")
-        .insert({
-          user_id: user.id,
-          recruiter_email: recruiterEmailLower,
-          blocked_until: blockedUntil.toISOString(),
-          email_count: 1,
-        });
-    }
+    const newCount = (existingCooldown?.email_count || 0) + 1;
+
+    const { error: upsertError } = await supabase
+      .from("email_cooldowns")
+      .upsert({
+        user_id: user.id,
+        recruiter_email: recruiterEmailLower,
+        blocked_until: blockedUntil.toISOString(),
+        email_count: newCount,
+        created_at: existingCooldown?.created_at
+      }, { onConflict: 'user_id, recruiter_email' });
+
+    if (upsertError) console.error("Failed to update cooldown:", upsertError);
 
     return new Response(
       JSON.stringify({

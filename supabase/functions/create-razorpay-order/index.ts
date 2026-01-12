@@ -29,7 +29,7 @@ serve(async (req) => {
     if (!razorpayKeyId || !razorpayKeySecret) {
       console.error("Razorpay credentials not configured");
       return new Response(
-        JSON.stringify({ 
+        JSON.stringify({
           error: "Payment gateway not configured. Please contact support.",
           details: "RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET must be set in Supabase secrets"
         }),
@@ -46,7 +46,7 @@ serve(async (req) => {
     }
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
-    
+
     // Verify user
     const token = authHeader.replace("Bearer ", "");
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
@@ -54,11 +54,26 @@ serve(async (req) => {
       throw new Error("Unauthorized");
     }
 
-    const { plan_id, amount }: OrderRequest = await req.json();
+    const { plan_id }: { plan_id: string } = await req.json();
 
-    if (!plan_id || !amount) {
-      throw new Error("Missing plan_id or amount");
+    if (!plan_id) {
+      throw new Error("Missing plan_id");
     }
+
+    // SECURITY FIX: Fetch plan details from database instead of trusting client amount
+    const { data: plan, error: planError } = await supabase
+      .from("subscription_plans")
+      .select("*")
+      .eq("id", plan_id)
+      .single();
+
+    if (planError || !plan) {
+      console.error("Plan not found or error:", planError);
+      throw new Error("Invalid plan selected");
+    }
+
+    // Use the reliable database amount
+    const amount = plan.price;
 
     // Create Razorpay order
     const credentials = btoa(`${razorpayKeyId}:${razorpayKeySecret}`);

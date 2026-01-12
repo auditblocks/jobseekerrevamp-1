@@ -5,7 +5,7 @@
 -- =====================================================
 -- USER SESSIONS TABLE
 -- =====================================================
-CREATE TABLE public.user_sessions (
+CREATE TABLE IF NOT EXISTS public.user_sessions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
     session_token TEXT NOT NULL UNIQUE,
@@ -36,7 +36,7 @@ CREATE INDEX idx_user_sessions_started_at ON public.user_sessions(started_at DES
 -- =====================================================
 -- USER ACTIVITY EVENTS TABLE
 -- =====================================================
-CREATE TABLE public.user_activity_events (
+CREATE TABLE IF NOT EXISTS public.user_activity_events (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
     session_id UUID REFERENCES public.user_sessions(id) ON DELETE CASCADE,
@@ -66,7 +66,7 @@ CREATE INDEX idx_user_activity_events_page_path ON public.user_activity_events(p
 -- =====================================================
 -- USER ENGAGEMENT METRICS TABLE
 -- =====================================================
-CREATE TABLE public.user_engagement_metrics (
+CREATE TABLE IF NOT EXISTS public.user_engagement_metrics (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
     metric_date DATE NOT NULL,
@@ -91,7 +91,7 @@ CREATE INDEX idx_user_engagement_metrics_metric_date ON public.user_engagement_m
 -- =====================================================
 -- PAGE ANALYTICS TABLE
 -- =====================================================
-CREATE TABLE public.page_analytics (
+CREATE TABLE IF NOT EXISTS public.page_analytics (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     page_path TEXT NOT NULL UNIQUE,
     page_title TEXT,
@@ -116,7 +116,7 @@ CREATE INDEX idx_page_analytics_page_path ON public.page_analytics(page_path);
 -- =====================================================
 -- NOTIFICATION CAMPAIGNS TABLE
 -- =====================================================
-CREATE TABLE public.notification_campaigns (
+CREATE TABLE IF NOT EXISTS public.notification_campaigns (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     subject TEXT NOT NULL,
     html_body TEXT NOT NULL,
@@ -143,7 +143,7 @@ CREATE INDEX idx_notification_campaigns_created_at ON public.notification_campai
 -- =====================================================
 -- NOTIFICATION RECIPIENTS TABLE
 -- =====================================================
-CREATE TABLE public.notification_recipients (
+CREATE TABLE IF NOT EXISTS public.notification_recipients (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     campaign_id UUID NOT NULL REFERENCES public.notification_campaigns(id) ON DELETE CASCADE,
     user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
@@ -164,7 +164,7 @@ CREATE INDEX idx_notification_recipients_status ON public.notification_recipient
 -- =====================================================
 -- PUSH SUBSCRIPTIONS TABLE
 -- =====================================================
-CREATE TABLE public.push_subscriptions (
+CREATE TABLE IF NOT EXISTS public.push_subscriptions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
     subscription JSONB NOT NULL,
@@ -181,7 +181,7 @@ CREATE INDEX idx_push_subscriptions_is_active ON public.push_subscriptions(is_ac
 -- =====================================================
 -- PUSH NOTIFICATION CAMPAIGNS TABLE
 -- =====================================================
-CREATE TABLE public.push_notification_campaigns (
+CREATE TABLE IF NOT EXISTS public.push_notification_campaigns (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     title TEXT NOT NULL,
     body TEXT NOT NULL,
@@ -212,7 +212,7 @@ CREATE INDEX idx_push_notification_campaigns_created_by ON public.push_notificat
 -- =====================================================
 -- PUSH NOTIFICATION EVENTS TABLE
 -- =====================================================
-CREATE TABLE public.push_notification_events (
+CREATE TABLE IF NOT EXISTS public.push_notification_events (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     campaign_id UUID REFERENCES public.push_notification_campaigns(id) ON DELETE CASCADE,
     user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -230,7 +230,7 @@ CREATE INDEX idx_push_notification_events_event_type ON public.push_notification
 -- =====================================================
 -- SCRAPING LOGS TABLE
 -- =====================================================
-CREATE TABLE public.scraping_logs (
+CREATE TABLE IF NOT EXISTS public.scraping_logs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     platform TEXT NOT NULL,
     records_found INTEGER DEFAULT 0,
@@ -252,7 +252,7 @@ CREATE INDEX idx_scraping_logs_created_at ON public.scraping_logs(created_at);
 -- =====================================================
 -- SCRAPER CONFIG TABLE
 -- =====================================================
-CREATE TABLE public.scraper_config (
+CREATE TABLE IF NOT EXISTS public.scraper_config (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     platform TEXT UNIQUE NOT NULL,
     is_enabled BOOLEAN DEFAULT true,
@@ -277,7 +277,7 @@ INSERT INTO public.scraper_config (platform, is_enabled, quota_per_day, rate_lim
 -- =====================================================
 -- DOMAIN RECRUITER REQUESTS TABLE
 -- =====================================================
-CREATE TABLE public.domain_recruiter_requests (
+CREATE TABLE IF NOT EXISTS public.domain_recruiter_requests (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
     request_type TEXT NOT NULL CHECK (request_type IN ('domain', 'recruiter')),
@@ -296,7 +296,7 @@ ALTER TABLE public.domain_recruiter_requests ENABLE ROW LEVEL SECURITY;
 -- =====================================================
 -- CHATBOT CONVERSATIONS TABLE
 -- =====================================================
-CREATE TABLE public.chatbot_conversations (
+CREATE TABLE IF NOT EXISTS public.chatbot_conversations (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
     message TEXT NOT NULL,
@@ -310,7 +310,7 @@ ALTER TABLE public.chatbot_conversations ENABLE ROW LEVEL SECURITY;
 -- =====================================================
 -- SYSTEM CREDENTIALS TABLE
 -- =====================================================
-CREATE TABLE public.system_credentials (
+CREATE TABLE IF NOT EXISTS public.system_credentials (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     integration_name TEXT NOT NULL UNIQUE,
     credentials JSONB NOT NULL,

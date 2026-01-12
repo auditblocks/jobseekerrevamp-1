@@ -33,21 +33,25 @@ ON public.email_cooldowns(user_id, recruiter_email);
 ALTER TABLE public.email_cooldowns ENABLE ROW LEVEL SECURITY;
 
 -- Policy: Users can view their own cooldowns
+DROP POLICY IF EXISTS "Users can view own cooldowns" ON public.email_cooldowns;
 CREATE POLICY "Users can view own cooldowns"
 ON public.email_cooldowns FOR SELECT
 USING (auth.uid() = user_id);
 
 -- Policy: Users can insert their own cooldowns (via edge functions)
+DROP POLICY IF EXISTS "Users can insert own cooldowns" ON public.email_cooldowns;
 CREATE POLICY "Users can insert own cooldowns"
 ON public.email_cooldowns FOR INSERT
 WITH CHECK (auth.uid() = user_id);
 
 -- Policy: Users can update their own cooldowns
+DROP POLICY IF EXISTS "Users can update own cooldowns" ON public.email_cooldowns;
 CREATE POLICY "Users can update own cooldowns"
 ON public.email_cooldowns FOR UPDATE
 USING (auth.uid() = user_id);
 
 -- Policy: Admins can view all cooldowns
+DROP POLICY IF EXISTS "Admins can view all cooldowns" ON public.email_cooldowns;
 CREATE POLICY "Admins can view all cooldowns"
 ON public.email_cooldowns FOR SELECT
 USING (
@@ -59,6 +63,7 @@ USING (
 );
 
 -- Policy: Admins can delete any cooldown
+DROP POLICY IF EXISTS "Admins can delete cooldowns" ON public.email_cooldowns;
 CREATE POLICY "Admins can delete cooldowns"
 ON public.email_cooldowns FOR DELETE
 USING (

@@ -57,7 +57,7 @@ INSERT INTO public.cron_config (id, supabase_url, anon_key)
 VALUES (
   'default',
   'https://ypmyzbtgossmizklszek.supabase.co',
-  'YOUR_ANON_KEY_HERE'  -- ⚠️ REPLACE THIS WITH YOUR ACTUAL ANON KEY
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlwbXl6YnRnb3NzbWl6a2xzemVrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY3NjYzMTYsImV4cCI6MjA4MjM0MjMxNn0.rYs4xutL53zMFdvDonyCxwfpGicrzIKAgo8-ohmPS6Q'  -- Updated with actual Anon Key
 )
 ON CONFLICT (id) DO UPDATE SET
   supabase_url = EXCLUDED.supabase_url,

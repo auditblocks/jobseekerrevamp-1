@@ -26,9 +26,9 @@ import {
 } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
-import { 
-  Ban, 
-  Trash2, 
+import {
+  Ban,
+  Trash2,
   Loader2,
   Search,
   Clock,
@@ -64,9 +64,47 @@ const AdminEmailCooldowns = () => {
     expired: 0,
   });
 
+  const [cooldownDays, setCooldownDays] = useState<number>(7);
+  const [isUpdatingSettings, setIsUpdatingSettings] = useState(false);
+
   useEffect(() => {
     fetchCooldowns();
+    fetchSettings();
   }, []);
+
+  const fetchSettings = async () => {
+    const { data, error } = await supabase
+      .from("system_settings")
+      .select("setting_value")
+      .eq("setting_key", "email_cooldown_days")
+      .single();
+
+    if (data && data.setting_value) {
+      setCooldownDays(Number(data.setting_value));
+    }
+  };
+
+  const handleUpdateSettings = async () => {
+    setIsUpdatingSettings(true);
+    try {
+      const { error } = await supabase
+        .from("system_settings")
+        .upsert({
+          setting_key: "email_cooldown_days",
+          setting_value: cooldownDays,
+          description: "Number of days before a user can email the same recruiter again",
+          updated_at: new Date().toISOString()
+        });
+
+      if (error) throw error;
+      toast.success("Cooldown configuration updated");
+    } catch (error: any) {
+      console.error("Error updating settings:", error);
+      toast.error("Failed to update settings");
+    } finally {
+      setIsUpdatingSettings(false);
+    }
+  };
 
   const fetchCooldowns = async () => {
     setLoading(true);
@@ -166,7 +204,7 @@ const AdminEmailCooldowns = () => {
   const getCooldownStatus = (blockedUntil: string) => {
     const blockedDate = new Date(blockedUntil);
     const now = new Date();
-    
+
     if (blockedDate <= now) {
       return {
         label: "Expired",
@@ -178,7 +216,7 @@ const AdminEmailCooldowns = () => {
     }
 
     const daysRemaining = Math.ceil((blockedDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-    
+
     return {
       label: `Active (${daysRemaining}d left)`,
       variant: "destructive" as const,
@@ -237,7 +275,39 @@ const AdminEmailCooldowns = () => {
           </motion.div>
 
           {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+            >
+              <Card className="bg-primary/5 border-primary/10">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Cooldown Setting</CardTitle>
+                  <Clock className="h-4 w-4 text-primary" />
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="number"
+                      value={cooldownDays}
+                      onChange={(e) => setCooldownDays(parseInt(e.target.value) || 0)}
+                      className="h-8 w-20 text-lg font-bold bg-background"
+                    />
+                    <span className="text-sm font-medium">days</span>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-8 w-8 p-0 ml-auto"
+                      onClick={handleUpdateSettings}
+                      disabled={isUpdatingSettings}
+                    >
+                      {isUpdatingSettings ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4 text-primary" />}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
