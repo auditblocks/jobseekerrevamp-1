@@ -51,7 +51,7 @@ const Recruiters = () => {
   const [recruiters, setRecruiters] = useState<Recruiter[]>([]);
   const [domains, setDomains] = useState<string[]>(["All"]);
   const [isLoading, setIsLoading] = useState(true);
-  
+
   const userTier = profile?.subscription_tier || "FREE";
 
   // Fetch recruiters and domains
@@ -115,9 +115,8 @@ const Recruiters = () => {
       (recruiter.company?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false);
     const matchesDomain = selectedDomain === "All" || recruiter.domain === selectedDomain;
     const matchesTier = !selectedTier || recruiter.tier === selectedTier;
-    // Filter by tier - only show recruiters user can access (unless they specifically filter by tier)
-    const matchesUserTier = selectedTier ? true : canAccessRecruiter(recruiter.tier);
-    return matchesSearch && matchesDomain && matchesTier && matchesUserTier;
+
+    return matchesSearch && matchesDomain && matchesTier;
   });
 
   const getQualityColor = (score: number | null) => {
@@ -260,9 +259,8 @@ const Recruiters = () => {
                     transition={{ delay: index * 0.05 }}
                   >
                     <Card
-                      className={`border-border/50 bg-card/50 transition-all h-full ${
-                        isLocked ? "opacity-60" : "hover:border-accent/50"
-                      }`}
+                      className={`border-border/50 bg-card/50 transition-all h-full ${isLocked ? "opacity-60" : "hover:border-accent/50"
+                        }`}
                     >
                       <CardContent className="p-6">
                         <div className="flex items-start gap-4">
