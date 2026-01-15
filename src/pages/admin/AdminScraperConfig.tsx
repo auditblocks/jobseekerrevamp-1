@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
@@ -38,6 +39,7 @@ import {
   RefreshCw,
   Settings2,
   Clock,
+  Calendar,
   CheckCircle2,
   XCircle,
   Plus,
@@ -59,6 +61,9 @@ interface ScraperConfig {
   last_run_at: string | null;
   last_success_at: string | null;
   last_scrape_count: number;
+  schedule_enabled: boolean;
+  schedule_time: string;
+  schedule_days: string[];
 }
 
 interface ScrapingLog {
@@ -134,9 +139,13 @@ export default function AdminScraperConfig() {
             is_enabled: true,
             auto_scrape_enabled: false,
             target_countries: ['IN', 'US'],
+
             search_queries: [],
             quota_per_day: 50,
             rate_limit_per_minute: 10,
+            schedule_enabled: false,
+            schedule_time: '02:00:00',
+            schedule_days: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'],
           })
           .select()
           .single();
@@ -273,6 +282,10 @@ export default function AdminScraperConfig() {
             <TabsTrigger value="config">
               <Settings2 className="h-4 w-4 mr-2" />
               Configuration
+            </TabsTrigger>
+            <TabsTrigger value="schedule">
+              <Calendar className="h-4 w-4 mr-2" />
+              Schedule
             </TabsTrigger>
             <TabsTrigger value="logs">
               <Clock className="h-4 w-4 mr-2" />
@@ -477,6 +490,71 @@ export default function AdminScraperConfig() {
                 </Card>
               ))
             )}
+
+          </TabsContent>
+
+          <TabsContent value="schedule">
+            {configs.map((config) => (
+              <Card key={config.id}>
+                <CardHeader>
+                  <CardTitle>Auto-Scrape Schedule</CardTitle>
+                  <CardDescription>Configure when the automatic scraping job runs (UTC time)</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
+                    <div className="space-y-0.5">
+                      <Label className="text-base font-medium">Enable Schedule</Label>
+                      <p className="text-sm text-muted-foreground">
+                        Run the scraper automatically on selected days
+                      </p>
+                    </div>
+                    <Switch
+                      checked={config.schedule_enabled}
+                      onCheckedChange={(checked) => updateConfig(config.id, { schedule_enabled: checked })}
+                    />
+                  </div>
+
+                  <div className="grid gap-6 md:grid-cols-2">
+                    <div className="space-y-3">
+                      <Label className="text-base font-medium">Run Time (UTC)</Label>
+                      <Input
+                        type="time"
+                        value={config.schedule_time || '02:00'}
+                        onChange={(e) => updateConfig(config.id, { schedule_time: e.target.value })}
+                        className="w-[150px]"
+                      />
+                      <p className="text-sm text-muted-foreground">
+                        The job will run at this time on scheduled days
+                      </p>
+                    </div>
+
+                    <div className="space-y-3">
+                      <Label className="text-base font-medium">Active Days</Label>
+                      <div className="grid grid-cols-2 gap-4">
+                        {['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map((day) => (
+                          <div key={day} className="flex items-center space-x-2">
+                            <Checkbox
+                              id={`day-${day}`}
+                              checked={(config.schedule_days || []).includes(day)}
+                              onCheckedChange={(checked) => {
+                                const current = config.schedule_days || [];
+                                const updated = checked
+                                  ? [...current, day]
+                                  : current.filter((d) => d !== day);
+                                updateConfig(config.id, { schedule_days: updated });
+                              }}
+                            />
+                            <Label htmlFor={`day-${day}`} className="capitalize cursor-pointer">
+                              {day}
+                            </Label>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
           </TabsContent>
 
           <TabsContent value="logs">
