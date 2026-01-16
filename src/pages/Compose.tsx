@@ -40,10 +40,11 @@ import {
   Ban,
   AlertTriangle
 } from "lucide-react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useQuery } from "@tanstack/react-query";
 
 interface Recruiter {
   id: string;
@@ -77,6 +78,7 @@ interface EmailCooldown {
 
 const Compose = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
   const { user, profile } = useAuth();
   const [subject, setSubject] = useState("");
@@ -102,6 +104,35 @@ const Compose = () => {
   const [cooldowns, setCooldowns] = useState<EmailCooldown[]>([]);
   const [isLoadingCooldowns, setIsLoadingCooldowns] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Fetch templates for dialog
+  const { data: templates = [] } = useQuery({
+    queryKey: ["email-templates"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("email_templates")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        console.error("Error fetching templates:", error);
+        return [];
+      }
+      return data;
+    },
+    enabled: showTemplateDialog,
+  });
+
+  // Handle template from navigation state
+  useEffect(() => {
+    if (location.state?.template) {
+      setSubject(location.state.template.subject);
+      setBody(location.state.template.body);
+      // Clear state ensuring we don't re-apply on refresh if we could (React Router doesn't persist state on refresh usually, but good practice to acknowledge)
+      window.history.replaceState({}, document.title);
+      toast.success(`Template "${location.state.template.name}" applied!`);
+    }
+  }, [location.state]);
 
   // Fetch recruiters and domains from database
   useEffect(() => {
@@ -173,14 +204,14 @@ const Compose = () => {
       try {
         const now = new Date().toISOString();
         const { data, error } = await supabase
-          .from("email_cooldowns")
+          .from("email_cooldowns" as any)
           .select("*")
           .eq("user_id", user.id)
           .gt("blocked_until", now);
 
         if (error) throw error;
 
-        setCooldowns(data || []);
+        setCooldowns((data as unknown as EmailCooldown[]) || []);
       } catch (error) {
         console.error("Error fetching cooldowns:", error);
       } finally {
@@ -684,11 +715,11 @@ Best regards,
       // Refresh cooldowns after sending
       const now = new Date().toISOString();
       const { data } = await supabase
-        .from("email_cooldowns")
+        .from("email_cooldowns" as any)
         .select("*")
         .eq("user_id", user.id)
         .gt("blocked_until", now);
-      setCooldowns(data || []);
+      setCooldowns((data as unknown as EmailCooldown[]) || []);
     } catch (error: any) {
       console.error("Send error:", error);
       toast.error(error.message || "Failed to send emails");
@@ -1121,46 +1152,35 @@ Best regards,
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 mt-4">
-            {[
-              {
-                id: 1,
-                name: "Software Engineer Outreach",
-                subject: "Experienced Software Engineer - Open to Opportunities",
-                body: "Dear {{recruiterName}},\n\nI hope this email finds you well. My name is {{userName}}, and I am a software engineer with expertise in full-stack development, cloud technologies, and agile methodologies.\n\nI am reaching out to express my interest in potential opportunities at {{companyName}}. With over 5 years of experience in the industry, I have successfully delivered scalable applications and led cross-functional teams.\n\nI would welcome the opportunity to discuss how my skills and experience align with your team's needs. Please let me know if you would like to schedule a conversation.\n\nBest regards,\n{{userName}}",
-              },
-              {
-                id: 2,
-                name: "Data Science Position",
-                subject: "Data Scientist with ML Expertise",
-                body: "Hi {{recruiterName}},\n\nI'm reaching out regarding potential data science opportunities at {{companyName}}. As a data scientist with expertise in machine learning, statistical analysis, and data visualization, I'm excited about the possibility of contributing to your team.\n\nMy experience includes building predictive models, analyzing large datasets, and translating complex data insights into actionable business recommendations.\n\nI would love to learn more about your team's projects and how I might contribute. Thank you for your time and consideration.\n\nBest regards,\n{{userName}}",
-              },
-              {
-                id: 3,
-                name: "Follow-Up Template",
-                subject: "Following Up - {{jobTitle}} Position",
-                body: "Hi {{recruiterName}},\n\nI wanted to follow up on my previous email regarding the {{jobTitle}} position. I remain very interested in this opportunity and would appreciate any updates you might have.\n\nI'm confident that my background in [relevant skills] would make me a valuable addition to your team. I'm happy to provide any additional information or schedule a call at your convenience.\n\nThank you for your consideration.\n\nBest regards,\n{{userName}}",
-              },
-            ].map((template) => (
-              <Card
-                key={template.id}
-                className="cursor-pointer hover:border-accent transition-colors"
-                onClick={() => handleSelectTemplate(template)}
-              >
-                <CardContent className="p-4">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <h4 className="font-semibold text-foreground mb-1">{template.name}</h4>
-                      <p className="text-sm text-muted-foreground mb-2">
-                        <strong>Subject:</strong> {template.subject}
-                      </p>
-                      <p className="text-xs text-muted-foreground line-clamp-2">
-                        {template.body.substring(0, 150)}...
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+            <div className="space-y-3 mt-4">
+              {templates.length === 0 ? (
+                <div className="text-center py-4 text-muted-foreground">
+                  <p>No templates found. Create one in the Templates page.</p>
+                </div>
+              ) : (
+                templates.map((template: any) => (
+                  <Card
+                    key={template.id}
+                    className="cursor-pointer hover:border-accent transition-colors"
+                    onClick={() => handleSelectTemplate(template)}
+                  >
+                    <CardContent className="p-4">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <h4 className="font-semibold text-foreground mb-1">{template.name}</h4>
+                          <p className="text-sm text-muted-foreground mb-2">
+                            <strong>Subject:</strong> {template.subject}
+                          </p>
+                          <p className="text-xs text-muted-foreground line-clamp-2">
+                            {template.body.substring(0, 150)}...
+                          </p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))
+              )}
+            </div>
           </div>
         </DialogContent>
       </Dialog>
