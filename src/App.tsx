@@ -45,6 +45,7 @@ const AdminRequests = lazy(() => import("./pages/admin/AdminRequests"));
 const AdminDashboardConfig = lazy(() => import("./pages/admin/AdminDashboardConfig"));
 const AdminUserActivity = lazy(() => import("./pages/admin/AdminUserActivity"));
 const AdminEmailCampaigns = lazy(() => import("./pages/admin/AdminEmailCampaigns"));
+const AdminWhatsappCampaigns = lazy(() => import("./pages/admin/AdminWhatsappCampaigns"));
 const AdminScraperConfig = lazy(() => import("./pages/admin/AdminScraperConfig"));
 const AdminOrderHistory = lazy(() => import("./pages/admin/AdminOrderHistory"));
 const AdminEmailCooldowns = lazy(() => import("./pages/admin/AdminEmailCooldowns"));
@@ -89,7 +90,7 @@ const App = () => (
                 <Route path="/subscription" element={<Subscription />} />
                 <Route path="/order-history" element={<OrderHistory />} />
                 <Route path="/notifications" element={<Notifications />} />
-                
+
                 {/* Legal & Info Pages */}
                 <Route path="/about" element={<About />} />
                 <Route path="/contact" element={<Contact />} />
@@ -97,7 +98,7 @@ const App = () => (
                 <Route path="/privacy-policy" element={<PrivacyPolicy />} />
                 <Route path="/terms-of-service" element={<TermsOfService />} />
                 <Route path="/cancellations-and-refunds" element={<CancellationsAndRefunds />} />
-                
+
                 {/* Admin Routes */}
                 <Route path="/admin" element={<AdminDashboard />} />
                 <Route path="/admin/users" element={<AdminUsers />} />
@@ -108,12 +109,13 @@ const App = () => (
                 <Route path="/admin/notifications" element={<AdminNotifications />} />
                 <Route path="/admin/requests" element={<AdminRequests />} />
                 <Route path="/admin/dashboard-config" element={<AdminDashboardConfig />} />
-              <Route path="/admin/user-activity" element={<AdminUserActivity />} />
-              <Route path="/admin/email-campaigns" element={<AdminEmailCampaigns />} />
-              <Route path="/admin/scraper" element={<AdminScraperConfig />} />
-              <Route path="/admin/order-history" element={<AdminOrderHistory />} />
-              <Route path="/admin/email-cooldowns" element={<AdminEmailCooldowns />} />
-                
+                <Route path="/admin/user-activity" element={<AdminUserActivity />} />
+                <Route path="/admin/email-campaigns" element={<AdminEmailCampaigns />} />
+                <Route path="/admin/whatsapp-campaigns" element={<AdminWhatsappCampaigns />} />
+                <Route path="/admin/scraper" element={<AdminScraperConfig />} />
+                <Route path="/admin/order-history" element={<AdminOrderHistory />} />
+                <Route path="/admin/email-cooldowns" element={<AdminEmailCooldowns />} />
+
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                 <Route path="*" element={<NotFound />} />
               </Routes>

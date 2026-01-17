@@ -1,9 +1,9 @@
-import { 
-  LayoutDashboard, 
-  Users, 
-  UserSearch, 
-  BarChart3, 
-  Settings, 
+import {
+  LayoutDashboard,
+  Users,
+  UserSearch,
+  BarChart3,
+  Settings,
   Globe,
   CreditCard,
   Bell,
@@ -13,7 +13,8 @@ import {
   Activity,
   Mail,
   Receipt,
-  Ban
+  Ban,
+  MessageSquare
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
@@ -43,6 +44,7 @@ const mainItems = [
 
 const managementItems = [
   { title: "Email Campaigns", url: "/admin/email-campaigns", icon: Mail },
+  { title: "WhatsApp Campaigns", url: "/admin/whatsapp-campaigns", icon: MessageSquare },
   { title: "Email Cooldowns", url: "/admin/email-cooldowns", icon: Ban },
   { title: "Scraper", url: "/admin/scraper", icon: Globe },
   { title: "Domains", url: "/admin/domains", icon: Globe },
@@ -89,8 +91,8 @@ export function AdminSidebar() {
             <SidebarMenu>
               {mainItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton 
-                    asChild 
+                  <SidebarMenuButton
+                    asChild
                     isActive={isActive(item.url)}
                     tooltip={item.title}
                   >
@@ -111,8 +113,8 @@ export function AdminSidebar() {
             <SidebarMenu>
               {managementItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton 
-                    asChild 
+                  <SidebarMenuButton
+                    asChild
                     isActive={isActive(item.url)}
                     tooltip={item.title}
                   >
