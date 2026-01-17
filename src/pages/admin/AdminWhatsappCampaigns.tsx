@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { Helmet } from "react-helmet-async";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
     Table,
     TableBody,
@@ -37,11 +38,16 @@ import {
     Loader2,
     Users,
     MessageSquare,
-    AlertCircle
+    AlertCircle,
+    Upload,
+    FileSpreadsheet,
+    X,
 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { CampaignUserSelector } from "@/components/admin/CampaignUserSelector";
+import Papa from "papaparse";
+import { useDropzone } from "react-dropzone";
 
 interface WhatsappCampaign {
     id: string;
@@ -55,6 +61,11 @@ interface WhatsappCampaign {
     completed_at: string | null;
 }
 
+interface CSVRecipient {
+    name: string;
+    phone: string;
+}
+
 export default function AdminWhatsappCampaigns() {
     const [campaigns, setCampaigns] = useState<WhatsappCampaign[]>([]);
     const [loading, setLoading] = useState(true);
@@ -64,6 +75,8 @@ export default function AdminWhatsappCampaigns() {
     const [templateName, setTemplateName] = useState("");
     const [templateLanguage, setTemplateLanguage] = useState("en_US");
     const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
+    const [csvRecipients, setCsvRecipients] = useState<CSVRecipient[]>([]);
+    const [campaignSource, setCampaignSource] = useState<"users" | "csv">("users");
     const [isSending, setIsSending] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
 
@@ -95,7 +108,9 @@ export default function AdminWhatsappCampaigns() {
             return;
         }
 
-        if (selectedUsers.length === 0) {
+        const totalRecipients = campaignSource === "users" ? selectedUsers.length : csvRecipients.length;
+
+        if (totalRecipients === 0) {
             toast.error("Please select at least one recipient");
             return;
         }
@@ -112,7 +127,7 @@ export default function AdminWhatsappCampaigns() {
                     template_name: templateName,
                     template_language: templateLanguage,
                     status: "draft",
-                    total_recipients: selectedUsers.length,
+                    total_recipients: totalRecipients,
                     created_by: user.id,
                 })
                 .select()
@@ -120,51 +135,65 @@ export default function AdminWhatsappCampaigns() {
 
             if (campaignError) throw campaignError;
 
-            // 2. Insert recipients into junction table
-            const recipientRecords = selectedUsers.map(userId => ({
-                campaign_id: campaign.id,
-                user_id: userId,
-                status: 'pending'
-            }));
+            // Prepare Payload
+            let finalRecipients: any[] = [];
 
-            // Need to fetch phone numbers? 
-            // The edge function fetches them, but we should insert the rows first.
-            // But passing phone_number to the insert requires fetching it first.
-            // Let's modify the flow: 
-            // We insert basic rows. If the schema enforces NOT NULL phone_number, we must fetch it.
-            // My migration said `phone_number text not null`. So yes, fetch first.
+            if (campaignSource === "users") {
+                // Fetch details for selected users
+                const { data: userDetails } = await supabase
+                    .from("profiles")
+                    .select("id, phone_number, name")
+                    .in("id", selectedUsers) as any;
 
-            const { data: userDetails } = await supabase
-                .from("profiles")
-                .select("id, phone_number")
-                .in("id", selectedUsers) as any;
+                if (!userDetails) throw new Error("Could not fetch user details");
 
-            if (!userDetails) throw new Error("Could not fetch user details");
-
-            const validRecipients = (userDetails as any[]).filter(u => u.phone_number).map(u => ({
-                campaign_id: campaign.id,
-                user_id: u.id,
-                phone_number: u.phone_number,
-                status: 'pending'
-            }));
-
-            if (validRecipients.length === 0) {
-                throw new Error("No selected users have a phone number");
+                finalRecipients = (userDetails as any[])
+                    .filter(u => u.phone_number)
+                    .map(u => ({
+                        campaign_id: campaign.id,
+                        user_id: u.id,
+                        phone_number: u.phone_number,
+                        recipient_name: u.name,
+                        status: 'pending'
+                    }));
+            } else {
+                // Use CSV data
+                finalRecipients = csvRecipients.map(r => ({
+                    campaign_id: campaign.id,
+                    user_id: null, // Guest
+                    phone_number: r.phone,
+                    recipient_name: r.name,
+                    status: 'pending'
+                }));
             }
 
+            if (finalRecipients.length === 0) {
+                throw new Error("No valid recipients found (missing phone numbers?)");
+            }
+
+            // 2. Insert into DB
             const { error: recipientsError } = await (supabase as any)
                 .from("whatsapp_campaign_recipients")
-                .insert(validRecipients);
+                .insert(finalRecipients);
 
             if (recipientsError) throw recipientsError;
 
             // 3. Invoke Edge Function
             const { data: sessionData } = await supabase.auth.getSession();
 
+            // Prepare payload for edge function
+            // We need to send { user_id, phone_number, name } 
+
+            const edgeFunctionPayload = finalRecipients.map(r => ({
+                user_id: r.user_id,
+                phone_number: r.phone_number,
+                name: r.recipient_name
+            }));
+
             const { error: sendError } = await supabase.functions.invoke("send-whatsapp-campaign", {
                 body: {
                     campaign_id: campaign.id,
-                    recipient_ids: validRecipients.map(r => r.user_id),
+                    recipients: edgeFunctionPayload,
                     template_name: templateName,
                     template_language: templateLanguage
                 },
@@ -179,6 +208,7 @@ export default function AdminWhatsappCampaigns() {
             setShowCreateDialog(false);
             setTemplateName("");
             setSelectedUsers([]);
+            setCsvRecipients([]);
             fetchCampaigns();
         } catch (error: any) {
             console.error("Error creating campaign:", error);
@@ -187,6 +217,53 @@ export default function AdminWhatsappCampaigns() {
             setIsSending(false);
         }
     };
+
+    const onDrop = useCallback((acceptedFiles: File[]) => {
+        const file = acceptedFiles[0];
+        if (!file) return;
+
+        Papa.parse(file, {
+            header: true,
+            skipEmptyLines: true,
+            complete: (results) => {
+                const parsedData: CSVRecipient[] = [];
+                const errors: string[] = [];
+
+                results.data.forEach((row: any, index: number) => {
+                    // Normalize keys to lowercase for flexibility
+                    const nameKey = Object.keys(row).find(k => k.toLowerCase().includes('name'));
+                    const phoneKey = Object.keys(row).find(k => k.toLowerCase().includes('phone') || k.toLowerCase().includes('mobile') || k.toLowerCase().includes('contact'));
+
+                    if (nameKey && phoneKey) {
+                        const name = row[nameKey];
+                        const phone = row[phoneKey];
+                        if (name && phone) {
+                            parsedData.push({ name, phone });
+                        }
+                    }
+                });
+
+                if (parsedData.length === 0) {
+                    toast.error("Could not parse valid recipients. Ensure CSV has 'Name' and 'Phone' columns.");
+                } else {
+                    setCsvRecipients(parsedData);
+                    toast.success(`Parsed ${parsedData.length} recipients successfully`);
+                }
+            },
+            error: (error) => {
+                toast.error(`CSV Parsing Error: ${error.message}`);
+            }
+        });
+    }, []);
+
+    const { getRootProps, getInputProps, isDragActive } = useDropzone({
+        onDrop,
+        accept: {
+            'text/csv': ['.csv'],
+            'application/vnd.ms-excel': ['.csv']
+        },
+        multiple: false
+    });
 
     const getStatusColor = (status: string) => {
         switch (status) {
@@ -297,10 +374,6 @@ export default function AdminWhatsappCampaigns() {
                             <DialogTitle>Create WhatsApp Campaign</DialogTitle>
                             <DialogDescription>
                                 Send a template message to multiple users.
-                                <div className="mt-2 p-2 bg-yellow-500/10 text-yellow-600 rounded-md border border-yellow-500/20 text-xs flex gap-2">
-                                    <AlertCircle className="h-4 w-4" />
-                                    Ensure you have created this template in Meta Business Manager first.
-                                </div>
                             </DialogDescription>
                         </DialogHeader>
 
@@ -329,15 +402,84 @@ export default function AdminWhatsappCampaigns() {
                                 </div>
                             </div>
 
-                            <div className="space-y-2">
-                                <Label>Recipients ({selectedUsers.length})</Label>
-                                <div className="border rounded-md p-2 max-h-60 overflow-y-auto">
-                                    <CampaignUserSelector
-                                        selectedUsers={selectedUsers}
-                                        onUsersChange={setSelectedUsers}
-                                    />
-                                </div>
-                            </div>
+                            <Tabs value={campaignSource} onValueChange={(v) => setCampaignSource(v as any)} className="w-full">
+                                <TabsList className="grid w-full grid-cols-2">
+                                    <TabsTrigger value="users">Select Users</TabsTrigger>
+                                    <TabsTrigger value="csv">Upload CSV</TabsTrigger>
+                                </TabsList>
+                                <TabsContent value="users" className="space-y-4 pt-4">
+                                    <div className="space-y-2">
+                                        <Label>Recipients ({selectedUsers.length})</Label>
+                                        <div className="border rounded-md p-2 max-h-60 overflow-y-auto">
+                                            <CampaignUserSelector
+                                                selectedUsers={selectedUsers}
+                                                onUsersChange={setSelectedUsers}
+                                            />
+                                        </div>
+                                    </div>
+                                </TabsContent>
+                                <TabsContent value="csv" className="space-y-4 pt-4">
+                                    <div
+                                        {...getRootProps()}
+                                        className={`
+                                            border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors
+                                            ${isDragActive ? 'border-primary bg-primary/10' : 'border-muted-foreground/25 hover:border-primary/50'}
+                                        `}
+                                    >
+                                        <input {...getInputProps()} />
+                                        <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                                            <Upload className="h-8 w-8 mb-2" />
+                                            {csvRecipients.length > 0 ? (
+                                                <div className="text-primary font-medium">
+                                                    <FileSpreadsheet className="h-4 w-4 inline mr-2" />
+                                                    {csvRecipients.length} recipients loaded from CSV
+                                                </div>
+                                            ) : (
+                                                <>
+                                                    <p className="font-medium">Drag & drop a CSV file here</p>
+                                                    <p className="text-xs">Required Columns: Name, Phone</p>
+                                                </>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {csvRecipients.length > 0 && (
+                                        <div className="border rounded-md max-h-40 overflow-y-auto">
+                                            <Table>
+                                                <TableHeader>
+                                                    <TableRow>
+                                                        <TableHead className="w-[100px]">#</TableHead>
+                                                        <TableHead>Name</TableHead>
+                                                        <TableHead className="text-right">Phone</TableHead>
+                                                    </TableRow>
+                                                </TableHeader>
+                                                <TableBody>
+                                                    {csvRecipients.slice(0, 10).map((r, i) => (
+                                                        <TableRow key={i}>
+                                                            <TableCell className="font-medium">{i + 1}</TableCell>
+                                                            <TableCell>{r.name}</TableCell>
+                                                            <TableCell className="text-right">{r.phone}</TableCell>
+                                                        </TableRow>
+                                                    ))}
+                                                    {csvRecipients.length > 10 && (
+                                                        <TableRow>
+                                                            <TableCell colSpan={3} className="text-center text-xs text-muted-foreground">
+                                                                ...and {csvRecipients.length - 10} more
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    )}
+                                                </TableBody>
+                                            </Table>
+                                        </div>
+                                    )}
+                                    <div className="flex justify-end">
+                                        <Button variant="ghost" size="sm" onClick={(e) => {
+                                            e.stopPropagation();
+                                            setCsvRecipients([]);
+                                        }}>Clear CSV</Button>
+                                    </div>
+                                </TabsContent>
+                            </Tabs>
                         </div>
 
                         <DialogFooter>

@@ -9,7 +9,15 @@ const corsHeaders = {
 
 interface WhatsappPayload {
     campaign_id: string;
-    recipient_ids: string[]; // List of user UUIDs
+    // Previously we used recipient_ids (user IDs)
+    // Now we accept an array of structured objects
+    recipients: {
+        user_id?: string;
+        phone_number: string;
+        name: string;
+    }[];
+    // Backward compatibility support if frontend sends old format
+    recipient_ids?: string[];
     template_name: string;
     template_language: string;
 }
@@ -25,25 +33,39 @@ serve(async (req) => {
             Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
         );
 
-        const { campaign_id, recipient_ids, template_name, template_language } =
-            await req.json() as WhatsappPayload;
+        const payload = await req.json() as WhatsappPayload;
 
-        if (!campaign_id || !recipient_ids || !recipient_ids.length) {
-            throw new Error("Missing required fields");
+        // Normalize recipients
+        let finalRecipients = [];
+
+        if (payload.recipients && payload.recipients.length > 0) {
+            // New format with raw data
+            finalRecipients = payload.recipients;
+        } else if (payload.recipient_ids && payload.recipient_ids.length > 0) {
+            // Legacy format: need to fetch from profiles
+            const { data: users, error: userError } = await supabaseClient
+                .from("profiles")
+                .select("id, phone_number, name")
+                .in("id", payload.recipient_ids);
+
+            if (userError || !users) {
+                throw new Error("Failed to fetch user details");
+            }
+
+            finalRecipients = users
+                .filter(u => u.phone_number)
+                .map(u => ({
+                    user_id: u.id,
+                    phone_number: u.phone_number,
+                    name: u.name
+                }));
+        } else {
+            throw new Error("Missing recipients");
         }
 
-        // 1. Fetch recipient details (phone numbers)
-        const { data: users, error: userError } = await supabaseClient
-            .from("profiles")
-            .select("id, phone_number, name")
-            .in("id", recipient_ids);
-
-        if (userError || !users) {
-            throw new Error("Failed to fetch user details");
+        if (!payload.campaign_id) {
+            throw new Error("Missing campaign_id");
         }
-
-        // Filter valid phone numbers
-        const validUsers = users.filter((u) => u.phone_number);
 
         // 2. Update campaign status to 'sending'
         await supabaseClient
@@ -52,16 +74,13 @@ serve(async (req) => {
                 status: "sending",
                 started_at: new Date().toISOString()
             })
-            .eq("id", campaign_id);
+            .eq("id", payload.campaign_id);
 
         const META_ACCESS_TOKEN = Deno.env.get("WHATSAPP_ACCESS_TOKEN");
         const PHONE_NUMBER_ID = Deno.env.get("WHATSAPP_PHONE_NUMBER_ID");
 
         if (!META_ACCESS_TOKEN || !PHONE_NUMBER_ID) {
             console.error("Missing WhatsApp credentials");
-            // We continue to simulate success for the UI if in dev/demo mode, 
-            // but typically we should throw. 
-            // For now let's throw to be strict.
             throw new Error("Server configuration error: Missing WhatsApp credentials");
         }
 
@@ -70,14 +89,11 @@ serve(async (req) => {
         let failedCount = 0;
 
         // 3. Send messages
-        for (const user of validUsers) {
+        for (const recipient of finalRecipients) {
             try {
-                // Format phone number (remove +, spaces, ensure country code if needed)
-                // Meta requires country code without +. Assuming input might vary, simple cleanup here.
-                // A robust solution would use libphonenumber-js
-                const cleanPhone = user.phone_number.replace(/[^0-9]/g, "");
+                const cleanPhone = recipient.phone_number.replace(/[^0-9]/g, "");
 
-                console.log(`Sending to ${user.name} (${cleanPhone})...`);
+                console.log(`Sending to ${recipient.name} (${cleanPhone})...`);
 
                 const response = await fetch(
                     `https://graph.facebook.com/v17.0/${PHONE_NUMBER_ID}/messages`,
@@ -92,9 +108,9 @@ serve(async (req) => {
                             to: cleanPhone,
                             type: "template",
                             template: {
-                                name: template_name,
+                                name: payload.template_name,
                                 language: {
-                                    code: template_language || "en_US",
+                                    code: payload.template_language || "en_US",
                                 },
                             },
                         }),
@@ -110,78 +126,58 @@ serve(async (req) => {
                 // Success
                 sentCount++;
                 results.push({
-                    user_id: user.id,
+                    user_id: recipient.user_id || null, // Allow null for guests
+                    phone_number: recipient.phone_number,
+                    name: recipient.name,
                     status: "sent",
                     message_id: data.messages?.[0]?.id
                 });
 
             } catch (err: any) {
-                console.error(`Failed to send to ${user.id}:`, err);
+                console.error(`Failed to send to ${recipient.name}:`, err);
                 failedCount++;
                 results.push({
-                    user_id: user.id,
+                    user_id: recipient.user_id || null, // Allow null
+                    phone_number: recipient.phone_number,
+                    name: recipient.name,
                     status: "failed",
                     error: err.message
                 });
             }
         }
 
-        // 4. Update individual recipient records
-        const recipientRecords = results.map(res => ({
-            campaign_id: campaign_id,
-            user_id: res.user_id,
-            // We might not have phone number here easily without re-mapping, 
-            // but for bulk insert we need it. 
-            // A better way is to iterate and push to array earlier.
-            // For simplicity, we skip phone_number in this update logic 
-            // assuming it was inserted at creation or we fetch it again. 
-            // Actually the schema requires phone_number. 
-            // Let's assume the frontend or previous step pre-fills the recipients table?
-            // IF NOT, we must insert them now.
-            // The implementation plan implies we insert them now or update them.
+        // 4. Update stats in database
+        // We assume the rows are already inserted as 'pending' by the frontend?
+        // If we support CSV, the frontend might batch insert them first.
+        // If not, we should insert logs here.
+        // To match previous implementation logic, we'll try to update if exists (by user_id + campaign_id) 
+        // OR if we have message_id. 
+        // BUT since we now have "CSV guests" who don't have user_ids, we can't easily matching by user_id.
+        // The reliable way is: Frontend inserts all recipients with status 'pending' and we update them.
+        // HOWEVER, for simplicity (and since `whatsapp_campaign_recipients` ID is not known here), 
+        // let's blindly UPDATE based on (campaign_id, phone_number).
+        // This assumes phone_number is unique per campaign (reasonable).
 
-            // Let's correct: The best practice is to insert "pending" records BEFORE calling this function,
-            // then this function updates them.
-            // However, existing Email Campaigns inserts recipients in frontend into a junction table.
-            // Let's assume the frontend has ALREADY inserted rows into 'whatsapp_campaign_recipients' with status 'pending'.
+        // We will attempt to update status for each result.
+        // Since we can't easily batch update with different values without a procedure, loop update is easiest for V1.
 
-            // Wait, the plan says: `Backend... Iterates... Updates stats`.
-            // So we should UPDATE the status of existing recipient rows.
-            status: res.status,
-            message_id: res.message_id,
-            error_details: res.error,
-            updated_at: new Date().toISOString()
-        }));
+        for (const res of results) {
+            // Try to update existing record by phone number in this campaign
+            // If it doesn't exist (maybe frontend didn't insert it?), we could insert it, 
+            // but let's stick to the contract that frontend prepares the DB.
 
-        // Batch update is tricky in Supabase without a custom RPC or looping.
-        // We will loop for now or use upsert if we had all data.
-        // To be efficient, let's just update the Campaign Stats and log logs.
-
-        // For specific recipient status updates, we can try to upsert if we have their phone numbers.
-        // Re-mapping phone numbers from `validUsers`
-        const upsertPayload = results.map(res => {
-            const u = validUsers.find(v => v.id === res.user_id);
-            return {
-                campaign_id,
-                user_id: res.user_id,
-                phone_number: u?.phone_number || "",
-                status: res.status,
-                message_id: res.message_id,
-                error_details: res.error
-            };
-        });
-
-        if (upsertPayload.length > 0) {
-            const { error: upsertError } = await supabaseClient
+            const { error: updateError } = await supabaseClient
                 .from("whatsapp_campaign_recipients")
-                .upsert(upsertPayload, { onConflict: 'campaign_id, user_id' }); // Requires unique constraint on this pair? 
-            // The PK is ID. usage of onConflict requires a unique constraint.
-            // My schema defined PK as ID. I should probably add a unique constraint or just insert.
-            // If I just insert, I get duplicates if run twice. 
-            // Let's assume for V1 we just insert the log.
+                .update({
+                    status: res.status,
+                    message_id: res.message_id,
+                    error_details: res.error,
+                    updated_at: new Date().toISOString()
+                })
+                .match({ campaign_id: payload.campaign_id, phone_number: res.phone_number });
 
-            if (upsertError) {
-                console.error("Error logging recipients:", upsertError);
+            if (updateError) {
+                console.error("Failed to update recipient log:", updateError);
             }
         }
 
@@ -189,12 +185,12 @@ serve(async (req) => {
         await supabaseClient
             .from("whatsapp_campaigns")
             .update({
-                status: failedCount === validUsers.length ? "failed" : "completed",
+                status: failedCount === finalRecipients.length ? "failed" : "completed",
                 sent_count: sentCount,
                 failed_count: failedCount,
                 completed_at: new Date().toISOString()
             })
-            .eq("id", campaign_id);
+            .eq("id", payload.campaign_id);
 
         return new Response(
             JSON.stringify({
