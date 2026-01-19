@@ -136,6 +136,12 @@ const HeroSection = () => {
           >
             Pricing
           </Link>
+          <Link
+            to="/blog"
+            className="text-sm font-medium text-primary-foreground/80 hover:text-primary-foreground transition-colors hidden sm:block"
+          >
+            Blog
+          </Link>
           <Link to="/auth">
             <Button variant="ghost" size="sm" className="text-xs sm:text-sm text-primary-foreground/80 hover:text-primary-foreground hover:bg-primary-foreground/10">
               Sign In

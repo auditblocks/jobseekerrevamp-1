@@ -32,6 +32,8 @@ const FAQ = lazy(() => import("./pages/FAQ"));
 const ResumeOptimizer = lazy(() => import("./pages/ResumeOptimizer"));
 const OrderHistory = lazy(() => import("./pages/OrderHistory"));
 const NotFound = lazy(() => import("./pages/NotFound"));
+const BlogListing = lazy(() => import("./pages/BlogListing"));
+const BlogDetail = lazy(() => import("./pages/BlogDetail"));
 
 // Admin pages - lazy loaded
 const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));
@@ -46,6 +48,8 @@ const AdminDashboardConfig = lazy(() => import("./pages/admin/AdminDashboardConf
 const AdminUserActivity = lazy(() => import("./pages/admin/AdminUserActivity"));
 const AdminEmailCampaigns = lazy(() => import("./pages/admin/AdminEmailCampaigns"));
 const AdminWhatsappCampaigns = lazy(() => import("./pages/admin/AdminWhatsappCampaigns"));
+const AdminBlogs = lazy(() => import("./pages/admin/AdminBlogs"));
+const AdminBlogEditor = lazy(() => import("./pages/admin/AdminBlogEditor"));
 const AdminScraperConfig = lazy(() => import("./pages/admin/AdminScraperConfig"));
 const AdminOrderHistory = lazy(() => import("./pages/admin/AdminOrderHistory"));
 const AdminEmailCooldowns = lazy(() => import("./pages/admin/AdminEmailCooldowns"));
@@ -113,9 +117,19 @@ const App = () => (
                 <Route path="/admin/user-activity" element={<AdminUserActivity />} />
                 <Route path="/admin/email-campaigns" element={<AdminEmailCampaigns />} />
                 <Route path="/admin/whatsapp-campaigns" element={<AdminWhatsappCampaigns />} />
+
+                {/* Content */}
+                <Route path="/admin/blogs" element={<AdminBlogs />} />
+                <Route path="/admin/blogs/new" element={<AdminBlogEditor />} />
+                <Route path="/admin/blogs/:id" element={<AdminBlogEditor />} />
+
                 <Route path="/admin/scraper" element={<AdminScraperConfig />} />
                 <Route path="/admin/order-history" element={<AdminOrderHistory />} />
                 <Route path="/admin/email-cooldowns" element={<AdminEmailCooldowns />} />
+
+                {/* Public Blog Routes */}
+                <Route path="/blog" element={<BlogListing />} />
+                <Route path="/blog/:slug" element={<BlogDetail />} />
 
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                 <Route path="*" element={<NotFound />} />

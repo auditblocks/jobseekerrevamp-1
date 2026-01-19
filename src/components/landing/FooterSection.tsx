@@ -29,18 +29,19 @@ const FooterSection = () => {
               </a>
             </div>
           </div>
-          
+
           {/* Links */}
           <div>
             <h4 className="font-semibold text-primary-foreground mb-4">Product</h4>
             <ul className="space-y-3">
               <li><Link to="/#features" className="text-primary-foreground/60 hover:text-accent transition-colors">Features</Link></li>
-              <li><Link to="/subscription" className="text-primary-foreground/60 hover:text-accent transition-colors">Pricing</Link></li>
+              <li><Link to="/pricing" className="text-primary-foreground/60 hover:text-accent transition-colors">Pricing</Link></li>
+              <li><Link to="/blog" className="text-primary-foreground/60 hover:text-accent transition-colors">Blog</Link></li>
               <li><Link to="/about" className="text-primary-foreground/60 hover:text-accent transition-colors">About</Link></li>
               <li><Link to="/contact" className="text-primary-foreground/60 hover:text-accent transition-colors">Contact</Link></li>
             </ul>
           </div>
-          
+
           <div>
             <h4 className="font-semibold text-primary-foreground mb-4">Company</h4>
             <ul className="space-y-3">
@@ -49,7 +50,7 @@ const FooterSection = () => {
               <li><Link to="/contact" className="text-primary-foreground/60 hover:text-accent transition-colors">Contact</Link></li>
             </ul>
           </div>
-          
+
           <div>
             <h4 className="font-semibold text-primary-foreground mb-4">Legal</h4>
             <ul className="space-y-3">
@@ -59,7 +60,7 @@ const FooterSection = () => {
             </ul>
           </div>
         </div>
-        
+
         {/* Bottom */}
         <div className="pt-8 border-t border-primary-foreground/10 flex flex-col md:flex-row justify-between items-center gap-4">
           <p className="text-primary-foreground/60 text-sm">

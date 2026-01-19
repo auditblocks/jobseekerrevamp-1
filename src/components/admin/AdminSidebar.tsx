@@ -3,18 +3,20 @@ import {
   Users,
   UserSearch,
   BarChart3,
+  Briefcase,
   Settings,
-  Globe,
-  CreditCard,
-  Bell,
+  Shield,
+  MessageSquare,
   FileText,
-  ArrowLeft,
-  Sliders,
   Activity,
   Mail,
-  Receipt,
   Ban,
-  MessageSquare
+  Globe,
+  CreditCard,
+  Receipt,
+  Bell,
+  Sliders,
+  ArrowLeft
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
@@ -40,6 +42,10 @@ const mainItems = [
   { title: "Recruiters", url: "/admin/recruiters", icon: UserSearch },
   { title: "Analytics", url: "/admin/analytics", icon: BarChart3 },
   { title: "User Activity", url: "/admin/user-activity", icon: Activity },
+];
+
+const contentItems = [
+  { title: "Blog Posts", url: "/admin/blogs", icon: FileText },
 ];
 
 const managementItems = [
@@ -97,6 +103,28 @@ export function AdminSidebar() {
                     tooltip={item.title}
                   >
                     <NavLink to={item.url} end={item.url === "/admin"}>
+                      <item.icon className="h-4 w-4" />
+                      <span>{item.title}</span>
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupLabel>Content</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {contentItems.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={isActive(item.url)}
+                    tooltip={item.title}
+                  >
+                    <NavLink to={item.url}>
                       <item.icon className="h-4 w-4" />
                       <span>{item.title}</span>
                     </NavLink>
