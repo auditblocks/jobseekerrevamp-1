@@ -6,7 +6,21 @@ import FooterSection from "@/components/landing/FooterSection";
 import SEOHead from "@/components/SEO/SEOHead";
 import StructuredData from "@/components/SEO/StructuredData";
 
+import { useEffect } from "react";
+import { useLocation } from "react-router-dom";
+
 const Index = () => {
+  const { pathname } = useLocation();
+
+  useEffect(() => {
+    if (pathname === '/pricing') {
+      // Small delay to ensure the component is fully rendered
+      setTimeout(() => {
+        document.getElementById('pricing')?.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
+    }
+  }, [pathname]);
+
   return (
     <>
       <SEOHead

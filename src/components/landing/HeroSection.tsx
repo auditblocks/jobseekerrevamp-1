@@ -130,16 +130,12 @@ const HeroSection = () => {
           transition={{ duration: 0.5 }}
           className="flex items-center gap-2 sm:gap-4"
         >
-          <a
-            href="#pricing"
+          <Link
+            to="/pricing"
             className="text-sm font-medium text-primary-foreground/80 hover:text-primary-foreground transition-colors hidden sm:block"
-            onClick={(e) => {
-              e.preventDefault();
-              document.getElementById('pricing')?.scrollIntoView({ behavior: 'smooth' });
-            }}
           >
             Pricing
-          </a>
+          </Link>
           <Link to="/auth">
             <Button variant="ghost" size="sm" className="text-xs sm:text-sm text-primary-foreground/80 hover:text-primary-foreground hover:bg-primary-foreground/10">
               Sign In

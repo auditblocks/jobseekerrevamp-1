@@ -80,6 +80,28 @@ const PricingSection = () => {
     return colors[index % colors.length];
   };
 
+  const getPlanWeight = (planName: string) => {
+    const name = planName.toUpperCase();
+    if (name.includes('PRO MAX')) return 3;
+    if (name.includes('PRO')) return 2;
+    return 1; // FREE
+  };
+
+  const isDisabled = (planName: string) => {
+    if (isCurrentPlan(planName)) return true;
+
+    // Check for downgrade
+    const currentTierName = profile?.subscription_tier || 'FREE';
+    // If current is FREE, weights 1. If PRO, 2. If PRO MAX, 3.
+    // However, the database might store 'PRO_MAX' or 'PRO MAX'. 
+    // Let's rely on the same helper for consistency.
+    const currentWeight = getPlanWeight(currentTierName);
+    const targetWeight = getPlanWeight(planName);
+
+    // Disable if target is lower tier than current
+    return targetWeight < currentWeight;
+  };
+
   // Convert subscription plans to pricing plans format
   const convertToPricingPlans = (): PricingPlan[] => {
     return plans.map((plan, index) => {
@@ -90,6 +112,8 @@ const PricingSection = () => {
         ? 0
         : (plan.duration_days === 30 ? monthlyPrice * 12 : monthlyPrice * 12);
 
+      const disabled = isDisabled(plan.name);
+
       return {
         id: plan.id,
         name: plan.display_name || plan.name,
@@ -99,7 +123,7 @@ const PricingSection = () => {
         isPopular: plan.is_recommended || false,
         accent: getAccentColor(plan.name, index),
         isCurrent: isCurrentPlan(plan.name),
-        buttonText: getButtonText(plan),
+        buttonText: disabled ? (isCurrentPlan(plan.name) ? "Current Plan" : "Downgrade Unavailable") : (plan.button_text || "Get Started"),
         onButtonClick: () => {
           if (user) {
             navigate("/settings");
@@ -107,7 +131,7 @@ const PricingSection = () => {
             navigate("/auth?mode=signup");
           }
         },
-        disabled: isCurrentPlan(plan.name),
+        disabled: disabled,
       };
     });
   };
