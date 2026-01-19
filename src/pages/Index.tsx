@@ -10,15 +10,17 @@ const Index = () => {
   return (
     <>
       <SEOHead
-        title="JobSeeker - AI-Powered Job Search Automation & Recruiter Outreach Platform"
-        description="Automate your job search with AI-powered recruiter outreach. Send personalized emails, track responses, manage applications, and land your dream job faster. Best job search automation tool for job seekers."
+        title="JobSeeker - AI Job Search & Outreach Platform"
+        description="Automate your job search with AI-powered recruiter outreach. Send personalized emails, track responses, and manage applications to land your dream job faster."
         keywords="job search automation, AI recruiter outreach, automated job applications, recruiter email tool, job search platform, AI-powered job search, job application tracker, personalized recruiter emails, best job search tool"
         canonicalUrl="/"
         ogImage="/icon-512.png"
         ogImageAlt="JobSeeker - AI-Powered Job Outreach Platform for Job Seekers"
+        datePublished="2025-01-01T00:00:00+00:00"
+        dateModified={new Date().toISOString()}
       />
       <StructuredData type="homepage" />
-      
+
       <main className="min-h-screen">
         <HeroSection />
         <FeaturesSection />

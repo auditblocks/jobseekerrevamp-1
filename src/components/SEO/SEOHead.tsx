@@ -10,6 +10,8 @@ interface SEOHeadProps {
   type?: "website" | "article";
   noindex?: boolean;
   nofollow?: boolean;
+  datePublished?: string;
+  dateModified?: string;
 }
 
 const SEOHead = ({
@@ -22,6 +24,8 @@ const SEOHead = ({
   type = "website",
   noindex = false,
   nofollow = false,
+  datePublished,
+  dateModified,
 }: SEOHeadProps) => {
   const baseUrl = "https://startworking.in";
   const fullCanonicalUrl = canonicalUrl ? `${baseUrl}${canonicalUrl}` : baseUrl;
@@ -54,6 +58,10 @@ const SEOHead = ({
       <meta property="og:image:alt" content={ogImageAlt} />
       <meta property="og:site_name" content="JobSeeker" />
       <meta property="og:locale" content="en_US" />
+
+      {/* Dates */}
+      {datePublished && <meta property="article:published_time" content={datePublished} />}
+      {dateModified && <meta property="article:modified_time" content={dateModified} />}
 
       {/* Twitter */}
       <meta name="twitter:card" content="summary_large_image" />

@@ -53,13 +53,13 @@ const PricingHeader = ({ title }: { title: string }) => (
             animate={{ opacity: 1, y: 0 }}
             className="inline-block"
         >
-            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black text-slate-800 
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black text-slate-800 
                 bg-gradient-to-r from-white to-gray-100 px-8 py-4 rounded-xl border-4 border-black
                 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.9),_15px_15px_15px_-3px_rgba(0,0,0,0.1)]
                 transform transition-transform hover:translate-x-1 hover:translate-y-1 mb-3 relative
                 before:absolute before:inset-0 before:bg-white/50 before:rounded-xl before:blur-sm before:-z-10">
                 {title}
-            </h1>
+            </h2>
             <motion.div
                 className="h-2 bg-gradient-to-r from-black via-gray-600 to-black rounded-full"
                 initial={{ scaleX: 0 }}
@@ -301,9 +301,9 @@ const PricingCard = ({
 };
 
 // Main Container Component
-export const PricingContainer = ({ 
-    title = "Pricing Plans", 
-    plans, 
+export const PricingContainer = ({
+    title = "Pricing Plans",
+    plans,
     className = "",
     showYearlyToggle = true,
     isYearly: controlledIsYearly,
@@ -311,10 +311,10 @@ export const PricingContainer = ({
 }: PricingProps) => {
     // Use internal state if not controlled from parent
     const [internalIsYearly, setInternalIsYearly] = useState(false);
-    
+
     // Use controlled state if provided, otherwise use internal state
     const isYearly = controlledIsYearly !== undefined ? controlledIsYearly : internalIsYearly;
-    
+
     const handleToggle = () => {
         const newValue = !isYearly;
         if (onYearlyChange) {
