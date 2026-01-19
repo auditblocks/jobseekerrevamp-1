@@ -10,7 +10,7 @@ import { toast } from "sonner";
 import { ArrowLeft, Save, Loader2, Upload } from "lucide-react";
 import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
-import { AdminSidebar } from "@/components/admin/AdminSidebar";
+import { AdminLayout } from "@/components/admin/AdminLayout";
 
 const AdminBlogEditor = () => {
     const { id } = useParams();
@@ -120,10 +120,9 @@ const AdminBlogEditor = () => {
     }
 
     return (
-        <div className="flex h-screen bg-gray-50/50">
-            <AdminSidebar />
-            <div className="flex-1 overflow-auto">
-                <form onSubmit={handleSubmit} className="p-8 max-w-5xl mx-auto">
+        <AdminLayout>
+            <div className="overflow-auto">
+                <form onSubmit={handleSubmit} className="max-w-5xl mx-auto">
                     {/* Header */}
                     <div className="flex justify-between items-center mb-8">
                         <div className="flex items-center gap-4">
@@ -297,7 +296,7 @@ const AdminBlogEditor = () => {
                     </div>
                 </form>
             </div>
-        </div>
+        </AdminLayout>
     );
 };
 

@@ -33,72 +33,31 @@ alter table public.whatsapp_campaigns enable row level security;
 alter table public.whatsapp_campaign_recipients enable row level security;
 
 -- Policies for whatsapp_campaigns
+-- Policies for whatsapp_campaigns
 create policy "Admins can view all whatsapp campaigns"
   on public.whatsapp_campaigns for select
-  using (
-    auth.jwt() ->> 'email' in (select email from public.admins)
-    or
-    exists (
-      select 1 from public.profiles
-      where profiles.id = auth.uid() and profiles.is_admin = true
-    )
-  );
+  using (public.is_superadmin());
 
 create policy "Admins can insert whatsapp campaigns"
   on public.whatsapp_campaigns for insert
-  with check (
-    auth.jwt() ->> 'email' in (select email from public.admins)
-    or
-    exists (
-      select 1 from public.profiles
-      where profiles.id = auth.uid() and profiles.is_admin = true
-    )
-  );
+  with check (public.is_superadmin());
 
 create policy "Admins can update whatsapp campaigns"
   on public.whatsapp_campaigns for update
-  using (
-    auth.jwt() ->> 'email' in (select email from public.admins)
-    or
-    exists (
-      select 1 from public.profiles
-      where profiles.id = auth.uid() and profiles.is_admin = true
-    )
-  );
+  using (public.is_superadmin());
 
 create policy "Admins can delete whatsapp campaigns"
   on public.whatsapp_campaigns for delete
-  using (
-    auth.jwt() ->> 'email' in (select email from public.admins)
-    or
-    exists (
-      select 1 from public.profiles
-      where profiles.id = auth.uid() and profiles.is_admin = true
-    )
-  );
+  using (public.is_superadmin());
 
 -- Policies for whatsapp_campaign_recipients
 create policy "Admins can view all whatsapp campaign recipients"
   on public.whatsapp_campaign_recipients for select
-  using (
-    auth.jwt() ->> 'email' in (select email from public.admins)
-    or
-    exists (
-      select 1 from public.profiles
-      where profiles.id = auth.uid() and profiles.is_admin = true
-    )
-  );
+  using (public.is_superadmin());
 
 create policy "Admins can insert whatsapp campaign recipients"
-  on public.whatsapp_campaign_recipients for insert
-  with check (
-    auth.jwt() ->> 'email' in (select email from public.admins)
-    or
-    exists (
-      select 1 from public.profiles
-      where profiles.id = auth.uid() and profiles.is_admin = true
-    )
-  );
+  on public.whatsapp_campaigns for insert
+  with check (public.is_superadmin());
 
 -- Indexes for performance
 create index whatsapp_campaigns_created_at_idx on public.whatsapp_campaigns(created_at desc);

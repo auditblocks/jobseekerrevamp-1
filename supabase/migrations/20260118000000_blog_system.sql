@@ -38,9 +38,10 @@ CREATE POLICY "Public can view published blogs" ON public.blogs
 -- However, looking at `send-whatsapp-campaign` and other admin features, it seems we might just be relying on app-level checks or simple auth.
 -- Let's stick to: Authenticated users can View All (for admin panel) and Insert/Update/Delete.
 
-CREATE POLICY "Authenticated users can manage blogs" ON public.blogs
+CREATE POLICY "Admins can manage blogs" ON public.blogs
     FOR ALL
-    USING (auth.role() = 'authenticated');
+    USING (public.is_superadmin())
+    WITH CHECK (public.is_superadmin());
 
 -- Indexes
 CREATE INDEX idx_blogs_slug ON public.blogs(slug);
