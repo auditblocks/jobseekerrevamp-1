@@ -172,9 +172,9 @@ const HeroSection = () => {
               transition={{ duration: 0.6, delay: 0.3 }}
               className="text-4xl md:text-5xl lg:text-6xl font-extrabold text-primary-foreground leading-tight"
             >
-              Automate Your Job Search with{" "}
+              AI Job Search &{" "}
               <span className="relative">
-                <span className="text-accent">AI-Powered Outreach</span>
+                <span className="text-accent">Outreach Platform</span>
                 <svg className="absolute -bottom-2 left-0 w-full" viewBox="0 0 200 12" fill="none">
                   <path d="M2 10C50 4 150 4 198 10" stroke="hsl(173 80% 40%)" strokeWidth="3" strokeLinecap="round" />
                 </svg>
@@ -187,7 +187,7 @@ const HeroSection = () => {
               transition={{ duration: 0.6, delay: 0.4 }}
               className="text-lg md:text-xl text-primary-foreground/70 max-w-xl"
             >
-              JobSeeker is the best job search automation platform that helps you automate recruiter outreach with AI-generated personalized emails.
+              JobSeeker is an <span className="font-semibold text-primary-foreground">AI job search platform</span> that helps you automate recruiter outreach with personalized emails.
               Send automated job applications, track recruiter responses, and manage your entire job search pipeline in one place.
               Boost your job search success rate with intelligent email tracking, follow-up reminders, and comprehensive application management.
             </motion.p>
