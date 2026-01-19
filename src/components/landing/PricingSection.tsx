@@ -57,10 +57,10 @@ const PricingSection = () => {
     const currentTier = getCurrentPlanTier();
     if (!currentTier) return false;
     const planTier = planName.toUpperCase().replace(/\s+/g, '_');
-    return currentTier === planTier || 
-           (currentTier === 'FREE' && planName.toUpperCase().includes('FREE')) ||
-           (currentTier === 'PRO' && planName.toUpperCase().includes('PRO') && !planName.toUpperCase().includes('MAX')) ||
-           (currentTier === 'PRO_MAX' && planName.toUpperCase().includes('PRO MAX'));
+    return currentTier === planTier ||
+      (currentTier === 'FREE' && planName.toUpperCase().includes('FREE')) ||
+      (currentTier === 'PRO' && planName.toUpperCase().includes('PRO') && !planName.toUpperCase().includes('MAX')) ||
+      (currentTier === 'PRO_MAX' && planName.toUpperCase().includes('PRO MAX'));
   };
 
   const getButtonText = (plan: SubscriptionPlan) => {
@@ -86,10 +86,10 @@ const PricingSection = () => {
       const monthlyPrice = plan.price;
       // Calculate yearly price (assuming 30 days = 1 month, so 12 months = 360 days)
       // If duration is 0 (forever) or price is 0, keep it as 0
-      const yearlyPrice = (plan.price === 0 || plan.duration_days === 0) 
-        ? 0 
+      const yearlyPrice = (plan.price === 0 || plan.duration_days === 0)
+        ? 0
         : (plan.duration_days === 30 ? monthlyPrice * 12 : monthlyPrice * 12);
-      
+
       return {
         id: plan.id,
         name: plan.display_name || plan.name,
@@ -123,7 +123,7 @@ const PricingSection = () => {
   }
 
   return (
-    <section className="py-24 bg-secondary/30">
+    <section id="pricing" className="py-24 bg-secondary/30">
       <div className="container mx-auto">
         <PricingContainer
           title="Choose Your Plan"

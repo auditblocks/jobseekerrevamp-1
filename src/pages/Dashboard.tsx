@@ -3,11 +3,11 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { 
-  Mail, 
-  BarChart3, 
-  Users, 
-  Briefcase, 
+import {
+  Mail,
+  BarChart3,
+  Users,
+  Briefcase,
   Send,
   TrendingUp,
   Clock,
@@ -23,7 +23,8 @@ import {
   Eye,
   Activity,
   FileSearch,
-  Wand2
+  Wand2,
+  CreditCard
 } from "lucide-react";
 import { toast } from "sonner";
 import { Helmet } from "react-helmet-async";
@@ -62,10 +63,10 @@ const Dashboard = () => {
   useEffect(() => {
     const fetchStats = async () => {
       if (!user?.id) return;
-      
+
       try {
         setStatsLoading(true);
-        
+
         // Always fetch real user data from database
         const { data: emailData, error: emailError } = await supabase
           .from("email_tracking")
@@ -149,6 +150,7 @@ const Dashboard = () => {
     { icon: Users, label: "Recruiters", path: "/recruiters" },
     { icon: FileSearch, label: "Resume Optimizer", path: "/resume-optimizer", badge: isProUser ? "PRO" : "NEW" },
     { icon: BarChart3, label: "Analytics", path: "/analytics" },
+    { icon: CreditCard, label: "Subscription", path: "/dashboard/subscription" },
     { icon: Settings, label: "Settings", path: "/settings" },
     ...(isSuperadmin ? [{ icon: Shield, label: "Admin Portal", path: "/admin" }] : []),
   ];
@@ -159,7 +161,7 @@ const Dashboard = () => {
         <title>Dashboard - JobSeeker</title>
         <meta name="description" content="Manage your job search, send emails to recruiters, and track your applications." />
       </Helmet>
-      
+
       <div className="min-h-screen bg-background flex" style={{ isolation: 'auto' }}>
         {/* Sidebar */}
         <aside className={`fixed inset-y-0 left-0 z-50 w-64 bg-sidebar transform transition-transform duration-300 lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
@@ -170,14 +172,14 @@ const Dashboard = () => {
                 <Mail className="w-5 h-5 text-accent-foreground" />
               </div>
               <span className="text-xl font-bold text-sidebar-foreground">JobSeeker</span>
-              <button 
+              <button
                 onClick={() => setSidebarOpen(false)}
                 className="lg:hidden ml-auto text-sidebar-foreground"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
-            
+
             {/* Navigation */}
             <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
               {navItems.map((item, index) => {
@@ -186,22 +188,20 @@ const Dashboard = () => {
                   <button
                     key={index}
                     onClick={() => navigate(item.path)}
-                    className={`w-full flex items-center justify-between gap-3 px-4 py-3 rounded-lg text-left transition-colors ${
-                      isActive 
-                        ? 'bg-sidebar-primary text-sidebar-primary-foreground' 
+                    className={`w-full flex items-center justify-between gap-3 px-4 py-3 rounded-lg text-left transition-colors ${isActive
+                        ? 'bg-sidebar-primary text-sidebar-primary-foreground'
                         : 'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
-                    }`}
+                      }`}
                   >
                     <div className="flex items-center gap-3">
                       <item.icon className="w-5 h-5" />
                       <span className="font-medium">{item.label}</span>
                     </div>
                     {(item as any).badge && (
-                      <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${
-                        (item as any).badge === "PRO" 
-                          ? 'bg-accent/20 text-accent' 
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${(item as any).badge === "PRO"
+                          ? 'bg-accent/20 text-accent'
                           : 'bg-green-500/20 text-green-500'
-                      }`}>
+                        }`}>
                         {(item as any).badge}
                       </span>
                     )}
@@ -209,7 +209,7 @@ const Dashboard = () => {
                 );
               })}
             </nav>
-            
+
             {/* User Section */}
             <div className="p-4 border-t border-sidebar-border">
               <div className="flex items-center gap-3 px-4 py-3 rounded-lg bg-sidebar-accent/50">
@@ -236,15 +236,15 @@ const Dashboard = () => {
             </div>
           </div>
         </aside>
-        
+
         {/* Overlay */}
         {sidebarOpen && (
-          <div 
+          <div
             className="fixed inset-0 bg-foreground/50 z-40 lg:hidden"
             onClick={() => setSidebarOpen(false)}
           />
         )}
-        
+
         {/* Main Content */}
         <main className="flex-1 lg:ml-64">
           {/* Top Bar */}
@@ -258,7 +258,7 @@ const Dashboard = () => {
               </button>
               <h1 className="text-xl sm:text-2xl font-bold text-foreground">Dashboard</h1>
             </div>
-            
+
             <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
               <NotificationBell />
               {/* Show upgrade button based on current subscription tier */}
@@ -273,7 +273,7 @@ const Dashboard = () => {
               )}
             </div>
           </header>
-          
+
           {/* Content */}
           <div className="p-4 sm:p-6 space-y-6 sm:space-y-8">
             {/* Welcome */}
@@ -294,7 +294,7 @@ const Dashboard = () => {
                 Compose Email
               </Button>
             </motion.div>
-            
+
             {/* Stats Grid */}
             <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
               {statCards.map((stat, index) => (
@@ -324,7 +324,7 @@ const Dashboard = () => {
                 </motion.div>
               ))}
             </div>
-            
+
             {/* Quick Actions */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
@@ -355,7 +355,7 @@ const Dashboard = () => {
                 ))}
               </div>
             </motion.div>
-            
+
             {/* Recent Activity */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}

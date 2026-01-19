@@ -99,9 +99,9 @@ const HeroSection = () => {
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute -top-1/2 -right-1/4 w-[800px] h-[800px] rounded-full bg-accent/10 blur-3xl animate-pulse-slow" />
         <div className="absolute -bottom-1/4 -left-1/4 w-[600px] h-[600px] rounded-full bg-primary/20 blur-3xl animate-pulse-slow" style={{ animationDelay: '2s' }} />
-        
+
         {/* Grid Pattern */}
-        <div 
+        <div
           className="absolute inset-0 opacity-[0.03]"
           style={{
             backgroundImage: `linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)`,
@@ -109,10 +109,10 @@ const HeroSection = () => {
           }}
         />
       </div>
-      
+
       {/* Navigation */}
       <nav className="relative z-10 flex items-center justify-between px-4 sm:px-6 py-4 sm:py-6 lg:px-12">
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.5 }}
@@ -123,13 +123,23 @@ const HeroSection = () => {
           </div>
           <span className="text-lg sm:text-xl font-bold text-primary-foreground">JobSeeker</span>
         </motion.div>
-        
-        <motion.div 
+
+        <motion.div
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.5 }}
           className="flex items-center gap-2 sm:gap-4"
         >
+          <a
+            href="#pricing"
+            className="text-sm font-medium text-primary-foreground/80 hover:text-primary-foreground transition-colors hidden sm:block"
+            onClick={(e) => {
+              e.preventDefault();
+              document.getElementById('pricing')?.scrollIntoView({ behavior: 'smooth' });
+            }}
+          >
+            Pricing
+          </a>
           <Link to="/auth">
             <Button variant="ghost" size="sm" className="text-xs sm:text-sm text-primary-foreground/80 hover:text-primary-foreground hover:bg-primary-foreground/10">
               Sign In
@@ -144,7 +154,7 @@ const HeroSection = () => {
           </Link>
         </motion.div>
       </nav>
-      
+
       {/* Hero Content */}
       <div className="relative z-10 container mx-auto px-4 sm:px-6 pt-12 sm:pt-20 pb-16 sm:pb-32 lg:pt-32">
         <div className="grid lg:grid-cols-2 gap-8 sm:gap-16 items-center">
@@ -159,7 +169,7 @@ const HeroSection = () => {
               <Sparkles className="w-4 h-4 text-accent" />
               <span className="text-sm font-medium text-accent">AI-Powered Job Outreach</span>
             </motion.div>
-            
+
             <motion.h1
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -174,18 +184,18 @@ const HeroSection = () => {
                 </svg>
               </span>
             </motion.h1>
-            
+
             <motion.p
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.4 }}
               className="text-lg md:text-xl text-primary-foreground/70 max-w-xl"
             >
-              JobSeeker is the best job search automation platform that helps you automate recruiter outreach with AI-generated personalized emails. 
-              Send automated job applications, track recruiter responses, and manage your entire job search pipeline in one place. 
+              JobSeeker is the best job search automation platform that helps you automate recruiter outreach with AI-generated personalized emails.
+              Send automated job applications, track recruiter responses, and manage your entire job search pipeline in one place.
               Boost your job search success rate with intelligent email tracking, follow-up reminders, and comprehensive application management.
             </motion.p>
-            
+
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -202,7 +212,7 @@ const HeroSection = () => {
                 Watch Demo
               </Button>
             </motion.div>
-            
+
             {/* Stats */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
@@ -226,7 +236,7 @@ const HeroSection = () => {
               </div>
             </motion.div>
           </div>
-          
+
           {/* Right Content - Feature Cards */}
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
@@ -252,7 +262,7 @@ const HeroSection = () => {
                   </div>
                 </div>
               </motion.div>
-              
+
               <motion.div
                 animate={{ y: [0, 10, 0] }}
                 transition={{ duration: 5, repeat: Infinity, ease: "easeInOut", delay: 1 }}
@@ -268,19 +278,19 @@ const HeroSection = () => {
                   </div>
                 </div>
               </motion.div>
-              
+
               {/* Main Card */}
               <div className="glass rounded-3xl p-8 shadow-2xl">
                 <div className="space-y-6">
                   <div className="flex items-center justify-between">
                     <h3 className="text-lg font-bold text-foreground">Dashboard</h3>
                     <div className="flex -space-x-2">
-                      {[1,2,3].map((i) => (
+                      {[1, 2, 3].map((i) => (
                         <div key={i} className="w-8 h-8 rounded-full bg-gradient-to-br from-accent to-primary border-2 border-card" />
                       ))}
                     </div>
                   </div>
-                  
+
                   <div className="grid grid-cols-3 gap-4">
                     {dashboardPreviewStats.map((stat, index) => (
                       <div key={index} className="bg-secondary/50 rounded-xl p-4 text-center">
@@ -290,7 +300,7 @@ const HeroSection = () => {
                       </div>
                     ))}
                   </div>
-                  
+
                   <div className="h-32 bg-secondary/30 rounded-xl flex items-end justify-around p-4">
                     {[40, 65, 45, 80, 55, 90, 70].map((height, i) => (
                       <div
@@ -306,7 +316,7 @@ const HeroSection = () => {
           </motion.div>
         </div>
       </div>
-      
+
       {/* Bottom Wave */}
       <div className="absolute bottom-0 left-0 right-0">
         <svg viewBox="0 0 1440 120" fill="none" xmlns="http://www.w3.org/2000/svg">
