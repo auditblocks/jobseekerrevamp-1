@@ -11,6 +11,8 @@ import { ArrowLeft, Save, Loader2, Upload } from "lucide-react";
 import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
 import { AdminLayout } from "@/components/admin/AdminLayout";
+import { compressImage } from "@/lib/image-compression";
+import { useRef } from "react";
 
 const AdminBlogEditor = () => {
     const { id } = useParams();
@@ -18,6 +20,8 @@ const AdminBlogEditor = () => {
     const isEditing = id && id !== "new";
     const [loading, setLoading] = useState(isEditing);
     const [saving, setSaving] = useState(false);
+    const [uploading, setUploading] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     // Form State
     const [formData, setFormData] = useState({
@@ -72,6 +76,45 @@ const AdminBlogEditor = () => {
 
     const handleChange = (field: string, value: any) => {
         setFormData((prev) => ({ ...prev, [field]: value }));
+    };
+
+    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        try {
+            setUploading(true);
+
+            // Compress image before upload
+            const compressedFile = await compressImage(file);
+
+            const fileExt = compressedFile.name.split('.').pop();
+            const fileName = `${Math.random()}.${fileExt}`;
+            const filePath = `${fileName}`;
+
+            const { error: uploadError } = await supabase.storage
+                .from('blog-images')
+                .upload(filePath, compressedFile);
+
+            if (uploadError) {
+                throw uploadError;
+            }
+
+            const { data: { publicUrl } } = supabase.storage
+                .from('blog-images')
+                .getPublicUrl(filePath);
+
+            handleChange("featured_image_url", publicUrl);
+            toast.success("Image uploaded successfully");
+        } catch (error: any) {
+            console.error('Error uploading image:', error);
+            toast.error(error.message || "Failed to upload image");
+        } finally {
+            setUploading(false);
+            if (fileInputRef.current) {
+                fileInputRef.current.value = "";
+            }
+        }
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -276,8 +319,25 @@ const AdminBlogEditor = () => {
                                             onChange={(e) => handleChange("featured_image_url", e.target.value)}
                                             placeholder="https://..."
                                         />
-                                        <Button variant="outline" size="icon" type="button">
-                                            <Upload className="w-4 h-4" />
+                                        <input
+                                            type="file"
+                                            ref={fileInputRef}
+                                            className="hidden"
+                                            accept="image/*"
+                                            onChange={handleImageUpload}
+                                        />
+                                        <Button
+                                            variant="outline"
+                                            size="icon"
+                                            type="button"
+                                            disabled={uploading}
+                                            onClick={() => fileInputRef.current?.click()}
+                                        >
+                                            {uploading ? (
+                                                <Loader2 className="w-4 h-4 animate-spin" />
+                                            ) : (
+                                                <Upload className="w-4 h-4" />
+                                            )}
                                         </Button>
                                     </div>
                                     {formData.featured_image_url && (
