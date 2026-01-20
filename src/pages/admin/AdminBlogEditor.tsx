@@ -122,9 +122,14 @@ const AdminBlogEditor = () => {
         setSaving(true);
 
         try {
+            const cleanSlug = (formData.slug || formData.title.toLowerCase().replace(/[^a-z0-9]+/g, "-"))
+                .replace(/^\/+/, "") // Remove leading slashes
+                .replace(/^blog\//, "") // Remove 'blog/' prefix if exists
+                .replace(/^\/+/, ""); // Remove any remaining leading slashes
+
             const payload = {
                 ...formData,
-                slug: formData.slug || formData.title.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+                slug: cleanSlug,
                 updated_at: new Date().toISOString(),
                 published_at: formData.status === 'published' && !formData.published_at
                     ? new Date().toISOString()

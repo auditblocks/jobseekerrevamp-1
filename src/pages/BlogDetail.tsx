@@ -25,7 +25,7 @@ const BlogDetail = () => {
             const { data, error } = await supabase
                 .from("blogs" as any)
                 .select("*")
-                .eq("slug", slug)
+                .or(`slug.eq.${slug},slug.eq./blog/${slug},slug.eq./${slug}`)
                 .eq("status", "published")
                 .single();
 

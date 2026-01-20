@@ -71,7 +71,7 @@ const BlogListing = () => {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                             {blogs.map((blog) => (
                                 <Link
-                                    to={`/blog/${blog.slug}`}
+                                    to={`/blog/${blog.slug.replace(/^\/+/, "").replace(/^blog\//, "").replace(/^\/+/, "")}`}
                                     key={blog.id}
                                     className="group flex flex-col bg-card rounded-2xl border hover:border-accent/50 transition-all duration-300 overflow-hidden hover:shadow-lg"
                                 >
