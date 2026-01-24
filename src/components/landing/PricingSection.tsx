@@ -138,7 +138,7 @@ const PricingSection = () => {
 
   if (loading) {
     return (
-      <section className="py-24 bg-secondary/30">
+      <section id="pricing" className="py-24 bg-secondary/30">
         <div className="flex justify-center py-12">
           <Loader2 className="h-8 w-8 animate-spin text-accent" />
         </div>

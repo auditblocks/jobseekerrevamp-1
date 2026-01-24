@@ -131,7 +131,7 @@ const HeroSection = () => {
           className="flex items-center gap-2 sm:gap-4"
         >
           <Link
-            to="/pricing"
+            to="/#pricing"
             className="text-sm font-medium text-primary-foreground/80 hover:text-primary-foreground transition-colors hidden sm:block"
           >
             Pricing

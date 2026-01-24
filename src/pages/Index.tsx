@@ -10,16 +10,34 @@ import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
 
 const Index = () => {
-  const { pathname } = useLocation();
+  const { pathname, hash } = useLocation();
 
   useEffect(() => {
-    if (pathname === '/pricing') {
-      // Small delay to ensure the component is fully rendered
-      setTimeout(() => {
-        document.getElementById('pricing')?.scrollIntoView({ behavior: 'smooth' });
-      }, 100);
-    }
-  }, [pathname]);
+    const handleScroll = () => {
+      let targetId = "";
+
+      if (pathname === '/pricing') {
+        targetId = 'pricing';
+      } else if (hash) {
+        targetId = hash.replace('#', '');
+      }
+
+      if (targetId) {
+        const attemptScroll = (retryCount = 0) => {
+          const element = document.getElementById(targetId);
+          if (element) {
+            element.scrollIntoView({ behavior: 'smooth' });
+          } else if (retryCount < 10) {
+            // Keep trying for a bit as elements might be rendering or fetching data
+            setTimeout(() => attemptScroll(retryCount + 1), 100);
+          }
+        };
+        attemptScroll();
+      }
+    };
+
+    handleScroll();
+  }, [pathname, hash]);
 
   return (
     <>

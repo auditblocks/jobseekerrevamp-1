@@ -42,7 +42,7 @@ const features = [
 
 const FeaturesSection = () => {
   return (
-    <section className="py-12 sm:py-24 bg-background">
+    <section id="features" className="py-12 sm:py-24 bg-background">
       <div className="container mx-auto px-4 sm:px-6">
         {/* Header */}
         <motion.div
@@ -61,11 +61,11 @@ const FeaturesSection = () => {
             <span className="text-accent">Platform</span>
           </h2>
           <p className="text-lg text-muted-foreground">
-            Our comprehensive suite of job search automation tools helps you streamline recruiter outreach, 
+            Our comprehensive suite of job search automation tools helps you streamline recruiter outreach,
             automate job applications, and maximize your chances of landing interviews with AI-powered email campaigns.
           </p>
         </motion.div>
-        
+
         {/* Features Grid */}
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           {features.map((feature, index) => (
@@ -82,7 +82,7 @@ const FeaturesSection = () => {
                 <div className={`w-12 h-12 rounded-xl ${feature.color} flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300`}>
                   <feature.icon className="w-6 h-6" />
                 </div>
-                
+
                 {/* Content */}
                 <h3 className="text-xl font-semibold text-foreground mb-2">
                   {feature.title}
@@ -90,14 +90,14 @@ const FeaturesSection = () => {
                 <p className="text-muted-foreground">
                   {feature.description}
                 </p>
-                
+
                 {/* Hover Gradient */}
                 <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-accent/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
               </div>
             </motion.div>
           ))}
         </div>
-        
+
         {/* Bottom CTA */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}

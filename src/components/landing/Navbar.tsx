@@ -17,7 +17,7 @@ const Navbar = () => {
                     <Link to="/#features" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
                         Features
                     </Link>
-                    <Link to="/pricing" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+                    <Link to="/#pricing" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
                         Pricing
                     </Link>
                     <Link to="/blog" className="text-sm font-medium text-foreground transition-colors">
