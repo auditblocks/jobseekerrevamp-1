@@ -269,7 +269,7 @@ const GovtJobTracker = () => {
                             <div className="text-center py-20 border rounded-2xl bg-card/50">
                                 <Clock className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-20" />
                                 <p className="text-muted-foreground">You haven't added any jobs to your tracker yet.</p>
-                                <Button variant="link" onClick={() => navigate("/govt-jobs")} className="mt-2 text-accent">
+                                <Button variant="link" onClick={() => navigate("/government-jobs")} className="mt-2 text-accent">
                                     Browse Govt. Jobs
                                 </Button>
                             </div>

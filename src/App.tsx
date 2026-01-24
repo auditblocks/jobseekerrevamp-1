@@ -106,9 +106,9 @@ const App = () => (
                   <Route path="/order-history" element={<OrderHistory />} />
                   <Route path="/notifications" element={<Notifications />} />
 
-                  {/* Govt Jobs */}
-                  <Route path="/govt-jobs" element={<GovtJobs />} />
-                  <Route path="/govt-jobs/:id" element={<GovtJobDetail />} />
+                  {/* Government Jobs */}
+                  <Route path="/government-jobs" element={<GovtJobs />} />
+                  <Route path="/government-jobs/:slug" element={<GovtJobDetail />} />
                   <Route path="/govt-jobs/tracker" element={<GovtJobTracker />} />
 
                   {/* Legal & Info Pages */}

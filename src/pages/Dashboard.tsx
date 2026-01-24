@@ -147,7 +147,7 @@ const Dashboard = () => {
     { icon: Mail, label: "Email History", path: "/email-history" },
     { icon: MessageSquare, label: "Conversations", path: "/conversations" },
     { icon: Briefcase, label: "Applications", path: "/applications" },
-    { icon: Globe, label: "Apply Govt. Jobs", path: "/govt-jobs" },
+    { icon: Globe, label: "Apply Govt. Jobs", path: "/government-jobs" },
     { icon: Clock, label: "Govt. Job Tracker", path: "/govt-jobs/tracker" },
     { icon: FileText, label: "Templates", path: "/templates" },
     { icon: Users, label: "Recruiters", path: "/recruiters" },

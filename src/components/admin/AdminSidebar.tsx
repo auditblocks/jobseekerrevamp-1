@@ -46,7 +46,7 @@ const mainItems = [
 
 const contentItems = [
   { title: "Blog Posts", url: "/admin/blogs", icon: FileText },
-  { title: "Govt. Jobs", url: "/admin/govt-jobs", icon: Briefcase },
+  { title: "Government Jobs", url: "/admin/govt-jobs", icon: Briefcase },
 ];
 
 const managementItems = [

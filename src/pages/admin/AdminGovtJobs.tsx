@@ -30,7 +30,7 @@ const AdminGovtJobs = () => {
         try {
             setLoading(true);
             const { data, error } = await supabase
-                .from("govt_jobs")
+                .from("govt_jobs" as any)
                 .select("*")
                 .order("created_at", { ascending: false });
 
@@ -48,7 +48,7 @@ const AdminGovtJobs = () => {
         if (!window.confirm("Are you sure you want to delete this job posting?")) return;
 
         try {
-            const { error } = await supabase.from("govt_jobs").delete().eq("id", id);
+            const { error } = await supabase.from("govt_jobs" as any).delete().eq("id", id);
             if (error) throw error;
 
             setJobs(jobs.filter((job) => job.id !== id));
