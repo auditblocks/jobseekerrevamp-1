@@ -137,6 +137,12 @@ const HeroSection = () => {
             Pricing
           </Link>
           <Link
+            to="/government-jobs"
+            className="text-sm font-medium text-primary-foreground/80 hover:text-primary-foreground transition-colors hidden sm:block"
+          >
+            Govt. Jobs
+          </Link>
+          <Link
             to="/blog"
             className="text-sm font-medium text-primary-foreground/80 hover:text-primary-foreground transition-colors hidden sm:block"
           >
@@ -149,8 +155,8 @@ const HeroSection = () => {
           </Link>
           <Link to="/auth?mode=signup">
             <Button variant="hero" size="sm" className="text-xs sm:text-sm">
-              <span className="hidden sm:inline">Get Started</span>
-              <span className="sm:hidden">Start</span>
+              <span className="hidden sm:inline">Sign Up</span>
+              <span className="sm:hidden">Join</span>
               <ArrowRight className="w-3 h-3 sm:w-4 sm:h-4" />
             </Button>
           </Link>

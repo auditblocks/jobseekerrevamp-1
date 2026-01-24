@@ -36,6 +36,7 @@ const FooterSection = () => {
             <ul className="space-y-3">
               <li><Link to="/#features" className="text-primary-foreground/60 hover:text-accent transition-colors">Features</Link></li>
               <li><Link to="/#pricing" className="text-primary-foreground/60 hover:text-accent transition-colors">Pricing</Link></li>
+              <li><Link to="/government-jobs" className="text-primary-foreground/60 hover:text-accent transition-colors">Govt. Jobs</Link></li>
               <li><Link to="/blog" className="text-primary-foreground/60 hover:text-accent transition-colors">Blog</Link></li>
               <li><Link to="/about" className="text-primary-foreground/60 hover:text-accent transition-colors">About</Link></li>
               <li><Link to="/contact" className="text-primary-foreground/60 hover:text-accent transition-colors">Contact</Link></li>

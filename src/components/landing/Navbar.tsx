@@ -39,7 +39,7 @@ const Navbar = () => {
                     </Link>
                     <Link to="/auth?mode=signup">
                         <Button size="sm" className="gap-2">
-                            Get Started <ArrowRight className="w-4 h-4" />
+                            Sign Up <ArrowRight className="w-4 h-4" />
                         </Button>
                     </Link>
                 </div>

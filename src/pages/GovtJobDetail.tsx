@@ -61,7 +61,7 @@ interface GovtJob {
 const GovtJobDetail = () => {
     const { slug } = useParams();
     const navigate = useNavigate();
-    const { user, profile } = useAuth();
+    const { user, profile, loading: authLoading } = useAuth();
     const [job, setJob] = useState<GovtJob | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [isAddingToTracker, setIsAddingToTracker] = useState(false);
@@ -166,7 +166,7 @@ const GovtJobDetail = () => {
                                 </Button>
                             </TooltipTrigger>
                             <TooltipContent>
-                                <p className="max-w-xs">{isPremium ? "This is a premium government job. Please sign up and subscribe to apply." : "Sign up to access the application link."}</p>
+                                <p className="max-w-xs">{isPremium ? "Sign up and subscribe to Apply the job" : "Sign up to access the application link."}</p>
                             </TooltipContent>
                         </Tooltip>
                     </TooltipProvider>
@@ -279,7 +279,7 @@ const GovtJobDetail = () => {
                                                     <Info className="h-4 w-4 text-accent cursor-help" />
                                                 </TooltipTrigger>
                                                 <TooltipContent>
-                                                    <p className="text-xs">Premium Job: Requires subscription to apply.</p>
+                                                    <p className="text-xs">Sign up and subscribe to Apply the job</p>
                                                 </TooltipContent>
                                             </Tooltip>
                                         </TooltipProvider>
@@ -474,7 +474,11 @@ const GovtJobDetail = () => {
             </Helmet>
 
             <div className="min-h-screen bg-background flex flex-col">
-                {user ? (
+                {authLoading ? (
+                    <div className="flex items-center justify-center flex-1">
+                        <Loader2 className="h-8 w-8 animate-spin text-accent" />
+                    </div>
+                ) : user ? (
                     <DashboardLayout>
                         {mainContent}
                     </DashboardLayout>

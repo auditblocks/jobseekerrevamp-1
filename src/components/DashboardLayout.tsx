@@ -72,10 +72,10 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                 <div className="flex flex-col h-full">
                     {/* Logo */}
                     <div className="flex items-center gap-2 px-6 py-6 border-b border-sidebar-border">
-                        <div className="w-10 h-10 rounded-xl bg-accent flex items-center justify-center shadow-glow cursor-pointer" onClick={() => navigate("/")}>
+                        <div className="w-10 h-10 rounded-xl bg-accent flex items-center justify-center shadow-glow cursor-pointer" onClick={() => navigate("/dashboard")}>
                             <Mail className="w-5 h-5 text-accent-foreground" />
                         </div>
-                        <span className="text-xl font-bold text-sidebar-foreground cursor-pointer" onClick={() => navigate("/")}>JobSeeker</span>
+                        <span className="text-xl font-bold text-sidebar-foreground cursor-pointer" onClick={() => navigate("/dashboard")}>JobSeeker</span>
                         <button
                             onClick={() => setSidebarOpen(false)}
                             className="lg:hidden ml-auto text-sidebar-foreground"

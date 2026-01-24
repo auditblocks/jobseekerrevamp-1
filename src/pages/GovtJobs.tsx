@@ -48,7 +48,7 @@ interface GovtJob {
 
 const GovtJobs = () => {
     const navigate = useNavigate();
-    const { user, profile } = useAuth();
+    const { user, profile, loading: authLoading } = useAuth();
     const [jobs, setJobs] = useState<GovtJob[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState("");
@@ -153,7 +153,7 @@ const GovtJobs = () => {
                                                                     <Info className="h-4 w-4 text-accent cursor-help" />
                                                                 </TooltipTrigger>
                                                                 <TooltipContent>
-                                                                    <p className="max-w-xs text-xs">Premium Job: Requires subscription to view full details and apply.</p>
+                                                                    <p className="max-w-xs text-xs">Sign up and subscribe to Apply the job</p>
                                                                 </TooltipContent>
                                                             </Tooltip>
                                                         </TooltipProvider>
@@ -278,7 +278,11 @@ const GovtJobs = () => {
             </Helmet>
 
             <div className="min-h-screen bg-background flex flex-col">
-                {user ? (
+                {authLoading ? (
+                    <div className="flex items-center justify-center flex-1">
+                        <Loader2 className="h-8 w-8 animate-spin text-accent" />
+                    </div>
+                ) : user ? (
                     <DashboardLayout>
                         {content}
                     </DashboardLayout>

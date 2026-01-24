@@ -149,7 +149,7 @@ const GovtJobsSection = () => {
                                                                 <Info className="h-4 w-4 text-accent cursor-help" />
                                                             </TooltipTrigger>
                                                             <TooltipContent>
-                                                                <p className="max-w-xs">Premium Job: Requires a subscription to view full details and apply.</p>
+                                                                <p className="max-w-xs">Sign up and subscribe to Apply the job</p>
                                                             </TooltipContent>
                                                         </Tooltip>
                                                     </TooltipProvider>
