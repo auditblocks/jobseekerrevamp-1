@@ -3,6 +3,8 @@ import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
@@ -13,6 +15,7 @@ import "react-quill/dist/quill.snow.css";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { X as CloseIcon, Tag } from "lucide-react";
 
 const AdminGovtJobEditor = () => {
     const { id } = useParams();
@@ -43,7 +46,10 @@ const AdminGovtJobEditor = () => {
         meta_title: "",
         meta_description: "",
         job_posting_json: null,
+        tags: [] as string[],
     });
+
+    const [tagInput, setTagInput] = useState("");
 
     useEffect(() => {
         if (isEditing) {
@@ -72,6 +78,7 @@ const AdminGovtJobEditor = () => {
                 summary: jobData.summary || "",
                 location: jobData.location || "India",
                 slug: jobData.slug || "",
+                tags: jobData.tags || [],
             };
             setFormData(formattedData);
         } catch (error) {
@@ -303,6 +310,62 @@ const AdminGovtJobEditor = () => {
                                                 placeholder="e.g. 01/2024-UPSC"
                                                 className="h-10 border-border/60"
                                             />
+                                        </div>
+                                    </div>
+
+                                    <div className="bg-white p-6 rounded-2xl border shadow-sm space-y-6">
+                                        <h3 className="font-bold flex items-center gap-2 border-b pb-4">
+                                            <Tag className="h-4 w-4 text-accent" /> Opportunity Tags
+                                        </h3>
+                                        <div className="space-y-4">
+                                            <div className="flex gap-2">
+                                                <Input
+                                                    value={tagInput}
+                                                    onChange={(e) => setTagInput(e.target.value)}
+                                                    onKeyDown={(e) => {
+                                                        if (e.key === 'Enter') {
+                                                            e.preventDefault();
+                                                            const tag = tagInput.trim();
+                                                            if (tag && !formData.tags.includes(tag)) {
+                                                                handleChange("tags", [...formData.tags, tag]);
+                                                                setTagInput("");
+                                                            }
+                                                        }
+                                                    }}
+                                                    placeholder="Add tag (Press Enter)..."
+                                                    className="h-10 border-border/60"
+                                                />
+                                                <Button
+                                                    type="button"
+                                                    size="sm"
+                                                    variant="secondary"
+                                                    onClick={() => {
+                                                        const tag = tagInput.trim();
+                                                        if (tag && !formData.tags.includes(tag)) {
+                                                            handleChange("tags", [...formData.tags, tag]);
+                                                            setTagInput("");
+                                                        }
+                                                    }}
+                                                >
+                                                    Add
+                                                </Button>
+                                            </div>
+                                            <div className="flex flex-wrap gap-2">
+                                                {formData.tags.map((tag, i) => (
+                                                    <Badge key={i} variant="secondary" className="gap-1 pl-2 pr-1 py-1">
+                                                        {tag}
+                                                        <span
+                                                            className="hover:bg-muted-foreground/20 rounded-full p-0.5 cursor-pointer"
+                                                            onClick={() => handleChange("tags", formData.tags.filter(t => t !== tag))}
+                                                        >
+                                                            <CloseIcon className="h-3 w-3" />
+                                                        </span>
+                                                    </Badge>
+                                                ))}
+                                                {formData.tags.length === 0 && (
+                                                    <p className="text-[10px] text-muted-foreground italic">No tags added (e.g. IAS, Banking, Graduate)</p>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
 

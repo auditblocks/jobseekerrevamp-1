@@ -54,6 +54,7 @@ interface GovtJob {
     meta_title: string | null;
     meta_description: string | null;
     job_posting_json: any;
+    tags: string[];
 }
 
 const GovtJobDetail = () => {
@@ -271,6 +272,11 @@ const GovtJobDetail = () => {
                                         {job.visibility === 'premium' && (
                                             <Badge variant="accent" className="font-bold py-1">Premium Job</Badge>
                                         )}
+                                        {job.tags && job.tags.map((tag, i) => (
+                                            <Badge key={i} variant="secondary" className="bg-accent/5 text-accent border-accent/20 px-2 py-0.5 text-[10px] font-medium">
+                                                #{tag}
+                                            </Badge>
+                                        ))}
                                         <div className="flex items-center gap-1.5 text-xs text-muted-foreground ml-auto bg-muted/30 px-3 py-1 rounded-full">
                                             <MapPin className="h-3.5 w-3.5 text-accent" />
                                             {job.location || 'India'}
