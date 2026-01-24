@@ -764,7 +764,7 @@ Best regards,
                       }`}
                   >
                     <span className="hidden sm:inline">{emailLimit.remaining}/{emailLimit.dailyLimit} emails left today</span>
-                    <span className="sm:inline">{emailLimit.remaining}/{emailLimit.dailyLimit} remaining</span>
+                    <span className="sm:hidden">{emailLimit.remaining}/{emailLimit.dailyLimit} remaining</span>
                   </Badge>
                 )}
                 <Badge variant="outline" className="text-[10px] sm:text-xs text-accent border-accent/30 py-1">
