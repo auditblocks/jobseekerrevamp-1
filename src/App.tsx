@@ -35,6 +35,11 @@ const NotFound = lazy(() => import("./pages/NotFound"));
 const BlogListing = lazy(() => import("./pages/BlogListing"));
 const BlogDetail = lazy(() => import("./pages/BlogDetail"));
 
+// Govt Jobs pages
+const GovtJobs = lazy(() => import("./pages/GovtJobs"));
+const GovtJobDetail = lazy(() => import("./pages/GovtJobDetail"));
+const GovtJobTracker = lazy(() => import("./pages/GovtJobTracker"));
+
 // Admin pages - lazy loaded
 const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));
 const AdminUsers = lazy(() => import("./pages/admin/AdminUsers"));
@@ -53,6 +58,8 @@ const AdminBlogEditor = lazy(() => import("./pages/admin/AdminBlogEditor"));
 const AdminScraperConfig = lazy(() => import("./pages/admin/AdminScraperConfig"));
 const AdminOrderHistory = lazy(() => import("./pages/admin/AdminOrderHistory"));
 const AdminEmailCooldowns = lazy(() => import("./pages/admin/AdminEmailCooldowns"));
+const AdminGovtJobs = lazy(() => import("./pages/admin/AdminGovtJobs"));
+const AdminGovtJobEditor = lazy(() => import("./pages/admin/AdminGovtJobEditor"));
 
 // Loading fallback component
 const PageLoader = () => (
@@ -96,6 +103,11 @@ const App = () => (
                 <Route path="/order-history" element={<OrderHistory />} />
                 <Route path="/notifications" element={<Notifications />} />
 
+                {/* Govt Jobs */}
+                <Route path="/govt-jobs" element={<GovtJobs />} />
+                <Route path="/govt-jobs/:id" element={<GovtJobDetail />} />
+                <Route path="/govt-jobs/tracker" element={<GovtJobTracker />} />
+
                 {/* Legal & Info Pages */}
                 <Route path="/about" element={<About />} />
                 <Route path="/contact" element={<Contact />} />
@@ -126,6 +138,11 @@ const App = () => (
                 <Route path="/admin/scraper" element={<AdminScraperConfig />} />
                 <Route path="/admin/order-history" element={<AdminOrderHistory />} />
                 <Route path="/admin/email-cooldowns" element={<AdminEmailCooldowns />} />
+
+                {/* Admin Govt Jobs */}
+                <Route path="/admin/govt-jobs" element={<AdminGovtJobs />} />
+                <Route path="/admin/govt-jobs/new" element={<AdminGovtJobEditor />} />
+                <Route path="/admin/govt-jobs/:id" element={<AdminGovtJobEditor />} />
 
                 {/* Public Blog Routes */}
                 <Route path="/blog" element={<BlogListing />} />

@@ -24,7 +24,8 @@ import {
   Activity,
   FileSearch,
   Wand2,
-  CreditCard
+  CreditCard,
+  Globe
 } from "lucide-react";
 import { toast } from "sonner";
 import { Helmet } from "react-helmet-async";
@@ -146,6 +147,8 @@ const Dashboard = () => {
     { icon: Mail, label: "Email History", path: "/email-history" },
     { icon: MessageSquare, label: "Conversations", path: "/conversations" },
     { icon: Briefcase, label: "Applications", path: "/applications" },
+    { icon: Globe, label: "Apply Govt. Jobs", path: "/govt-jobs" },
+    { icon: Clock, label: "Govt. Job Tracker", path: "/govt-jobs/tracker" },
     { icon: FileText, label: "Templates", path: "/templates" },
     { icon: Users, label: "Recruiters", path: "/recruiters" },
     { icon: FileSearch, label: "Resume Optimizer", path: "/resume-optimizer", badge: isProUser ? "PRO" : "NEW" },
@@ -189,8 +192,8 @@ const Dashboard = () => {
                     key={index}
                     onClick={() => navigate(item.path)}
                     className={`w-full flex items-center justify-between gap-3 px-4 py-3 rounded-lg text-left transition-colors ${isActive
-                        ? 'bg-sidebar-primary text-sidebar-primary-foreground'
-                        : 'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
+                      ? 'bg-sidebar-primary text-sidebar-primary-foreground'
+                      : 'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
                       }`}
                   >
                     <div className="flex items-center gap-3">
@@ -199,8 +202,8 @@ const Dashboard = () => {
                     </div>
                     {(item as any).badge && (
                       <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${(item as any).badge === "PRO"
-                          ? 'bg-accent/20 text-accent'
-                          : 'bg-green-500/20 text-green-500'
+                        ? 'bg-accent/20 text-accent'
+                        : 'bg-green-500/20 text-green-500'
                         }`}>
                         {(item as any).badge}
                       </span>
