@@ -74,13 +74,29 @@ const GovtJobDetail = () => {
     const fetchJobDetail = async () => {
         try {
             setIsLoading(true);
-            const { data, error } = await supabase
-                .from("govt_jobs" as any)
-                .select("*")
-                .or(`slug.eq.${slug},id.eq.${slug}`) // Support both slug and ID for transition
-                .single();
+
+            // Check if slug is a valid UUID
+            const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(slug || "");
+
+            let query = supabase.from("govt_jobs" as any).select("*");
+
+            if (isUUID) {
+                // If it's a UUID, it could be either the old ID or a slug that happens to look like a UUID
+                query = query.or(`slug.eq.${slug},id.eq.${slug}`);
+            } else {
+                // If it's not a UUID, only check the slug (checks ID would throw 400)
+                query = query.eq("slug", slug);
+            }
+
+            const { data, error } = await query.maybeSingle();
 
             if (error) throw error;
+            if (!data) {
+                toast.error("Job posting not found");
+                navigate("/government-jobs");
+                return;
+            }
+
             setJob(data as unknown as GovtJob);
         } catch (error) {
             console.error("Error fetching job detail:", error);
@@ -332,7 +348,7 @@ const GovtJobDetail = () => {
                                             Detailed Notification Overview
                                         </h2>
                                         <div
-                                            className="prose prose-invert max-w-none text-muted-foreground whitespace-pre-wrap leading-relaxed marker:text-accent selection:bg-accent/20"
+                                            className="prose prose-invert max-w-none text-muted-foreground leading-relaxed marker:text-accent selection:bg-accent/20"
                                             dangerouslySetInnerHTML={{ __html: job.description || "No detailed description available." }}
                                         />
                                     </div>
