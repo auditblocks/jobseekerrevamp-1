@@ -1,9 +1,31 @@
 # Netlify configuration for Single Page Application (SPA)
 # This ensures all routes are handled by React Router
 
+[[redirects]]
+  from = "/sitemap.xml"
+  to = "https://ypmyzbtgossmizklszek.supabase.co/functions/v1/sitemap?type=index"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/sitemap-pages.xml"
+  to = "https://ypmyzbtgossmizklszek.supabase.co/functions/v1/sitemap?type=pages"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/sitemap-blogs.xml"
+  to = "https://ypmyzbtgossmizklszek.supabase.co/functions/v1/sitemap?type=blogs"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/sitemap-government-jobs.xml"
+  to = "https://ypmyzbtgossmizklszek.supabase.co/functions/v1/sitemap?type=govt-jobs"
+  status = 200
+  force = true
+
 # SPA redirect - catch all routes
-# Note: Static files (sitemap.xml, robots.txt, manifest.json) in public/ folder
-# are automatically served by Netlify before redirects are processed
 [[redirects]]
   from = "/*"
   to = "/index.html"

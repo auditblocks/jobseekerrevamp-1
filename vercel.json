@@ -1,9 +1,24 @@
 {
   "rewrites": [
     {
+      "source": "/sitemap.xml",
+      "destination": "https://ypmyzbtgossmizklszek.supabase.co/functions/v1/sitemap?type=index"
+    },
+    {
+      "source": "/sitemap-pages.xml",
+      "destination": "https://ypmyzbtgossmizklszek.supabase.co/functions/v1/sitemap?type=pages"
+    },
+    {
+      "source": "/sitemap-blogs.xml",
+      "destination": "https://ypmyzbtgossmizklszek.supabase.co/functions/v1/sitemap?type=blogs"
+    },
+    {
+      "source": "/sitemap-government-jobs.xml",
+      "destination": "https://ypmyzbtgossmizklszek.supabase.co/functions/v1/sitemap?type=govt-jobs"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
   ]
 }
-

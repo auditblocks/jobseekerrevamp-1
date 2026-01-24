@@ -3,6 +3,7 @@ import FeaturesSection from "@/components/landing/FeaturesSection";
 import DataUsageSection from "@/components/landing/DataUsageSection";
 import PricingSection from "@/components/landing/PricingSection";
 import FooterSection from "@/components/landing/FooterSection";
+import GovtJobsSection from "@/components/landing/GovtJobsSection";
 import SEOHead from "@/components/SEO/SEOHead";
 import StructuredData from "@/components/SEO/StructuredData";
 
@@ -56,6 +57,7 @@ const Index = () => {
       <main className="min-h-screen">
         <HeroSection />
         <FeaturesSection />
+        <GovtJobsSection />
         <DataUsageSection />
         <PricingSection />
         <FooterSection />

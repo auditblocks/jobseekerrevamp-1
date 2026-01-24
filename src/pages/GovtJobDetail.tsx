@@ -33,6 +33,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { format } from "date-fns";
 import Navbar from "@/components/landing/Navbar";
 import FooterSection from "@/components/landing/FooterSection";
+import DashboardLayout from "@/components/DashboardLayout";
 
 interface GovtJob {
     id: string;
@@ -164,11 +165,9 @@ const GovtJobDetail = () => {
                                     {isPremium && <Info className="h-4 w-4" />}
                                 </Button>
                             </TooltipTrigger>
-                            {isPremium && (
-                                <TooltipContent>
-                                    <p>This is a premium government job. Please subscribe to apply.</p>
-                                </TooltipContent>
-                            )}
+                            <TooltipContent>
+                                <p className="max-w-xs">{isPremium ? "This is a premium government job. Please sign up and subscribe to apply." : "Sign up to access the application link."}</p>
+                            </TooltipContent>
                         </Tooltip>
                     </TooltipProvider>
                     <p className="text-[10px] text-center text-muted-foreground">Sign up to unlock application link and tracking</p>
@@ -250,6 +249,219 @@ const GovtJobDetail = () => {
         }
     };
 
+    const mainContent = (
+        <main className={`flex-1 container mx-auto px-4 py-8 ${user ? 'max-w-7xl' : ''}`}>
+            <div className="max-w-5xl mx-auto">
+                <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => navigate("/government-jobs")}
+                    className="mb-8 hover:bg-accent/10 -ml-2"
+                >
+                    <ArrowLeft className="h-4 w-4 mr-2" />
+                    Back to All Jobs
+                </Button>
+
+                <div className="grid lg:grid-cols-3 gap-12">
+                    {/* Main Content Area */}
+                    <div className="lg:col-span-2 space-y-12">
+                        {/* Header */}
+                        <div className="space-y-6">
+                            <div className="flex items-center gap-3 flex-wrap">
+                                <Badge variant="outline" className="bg-accent/5 text-accent border-accent/20 px-3 py-1 text-[11px] font-bold uppercase tracking-widest">
+                                    {job.organization}
+                                </Badge>
+                                {job.visibility === 'premium' && (
+                                    <div className="flex items-center gap-1">
+                                        <TooltipProvider>
+                                            <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                    <Info className="h-4 w-4 text-accent cursor-help" />
+                                                </TooltipTrigger>
+                                                <TooltipContent>
+                                                    <p className="text-xs">Premium Job: Requires subscription to apply.</p>
+                                                </TooltipContent>
+                                            </Tooltip>
+                                        </TooltipProvider>
+                                        <Badge variant="accent" className="font-bold py-1">Premium Job</Badge>
+                                    </div>
+                                )}
+                                {job.tags && job.tags.map((tag, i) => (
+                                    <Badge key={i} variant="secondary" className="bg-accent/5 text-accent border-accent/20 px-2 py-0.5 text-[10px] font-medium">
+                                        #{tag}
+                                    </Badge>
+                                ))}
+                                <div className="flex items-center gap-1.5 text-xs text-muted-foreground ml-auto bg-muted/30 px-3 py-1 rounded-full">
+                                    <MapPin className="h-3.5 w-3.5 text-accent" />
+                                    {job.location || 'India'}
+                                </div>
+                            </div>
+                            <h1 className="text-3xl md:text-5xl font-bold text-foreground leading-[1.1]">
+                                {job.post_name}
+                            </h1>
+                            {job.exam_name && (
+                                <p className="text-xl text-muted-foreground font-medium">{job.exam_name}</p>
+                            )}
+                        </div>
+
+                        {/* Summary */}
+                        {job.summary && (
+                            <Card className="bg-muted/30 border-none shadow-none">
+                                <CardContent className="p-6">
+                                    <p className="text-muted-foreground leading-relaxed italic">
+                                        {job.summary}
+                                    </p>
+                                </CardContent>
+                            </Card>
+                        )}
+
+                        {/* Key Dates Inline */}
+                        <div className="grid sm:grid-cols-2 gap-4">
+                            <div className="flex items-start gap-3 p-4 rounded-xl bg-card border">
+                                <Calendar className="h-5 w-5 text-accent mt-1" />
+                                <div>
+                                    <p className="text-xs text-muted-foreground uppercase font-bold tracking-tight mb-1">Last Date to Apply</p>
+                                    <p className="font-bold">
+                                        {job.application_end_date ? format(new Date(job.application_end_date), 'MMMM dd, yyyy') : 'Not Specified'}
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="flex items-start gap-3 p-4 rounded-xl bg-card border">
+                                <Building2 className="h-5 w-5 text-accent mt-1" />
+                                <div>
+                                    <p className="text-xs text-muted-foreground uppercase font-bold tracking-tight mb-1">Application Mode</p>
+                                    <p className="font-bold">{job.mode_of_apply || 'Online'}</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Content Sections */}
+                        <div className="space-y-12">
+                            {/* Description / Overview */}
+                            <div className="space-y-6">
+                                <h2 className="text-2xl font-bold text-foreground flex items-center gap-3">
+                                    <div className="w-8 h-8 rounded-lg bg-accent/10 flex items-center justify-center">
+                                        <FileText className="h-4 w-4 text-accent" />
+                                    </div>
+                                    Detailed Notification Overview
+                                </h2>
+                                <div
+                                    className="prose prose-invert max-w-none text-muted-foreground leading-relaxed marker:text-accent selection:bg-accent/20"
+                                    dangerouslySetInnerHTML={{ __html: job.description || "No detailed description available." }}
+                                />
+                            </div>
+
+                            {/* Application Fee */}
+                            <div className="space-y-6">
+                                <h2 className="text-2xl font-bold text-foreground flex items-center gap-3">
+                                    <div className="w-8 h-8 rounded-lg bg-success/10 flex items-center justify-center">
+                                        <Info className="h-4 w-4 text-success" />
+                                    </div>
+                                    Fee Structure
+                                </h2>
+                                <Card className="border-success/10 bg-success/5">
+                                    <CardContent className="p-6">
+                                        <p className="text-muted-foreground leading-relaxed">
+                                            {job.application_fee || "Please refer to the official notification for detailed fee structure based on your category."}
+                                        </p>
+                                    </CardContent>
+                                </Card>
+                            </div>
+
+                            {/* Selection Process Placeholder (if not in description) */}
+                            <div className="space-y-6">
+                                <h2 className="text-2xl font-bold text-foreground flex items-center gap-3">
+                                    <div className="w-8 h-8 rounded-lg bg-warning/10 flex items-center justify-center">
+                                        <CheckCircle2 className="h-4 w-4 text-warning" />
+                                    </div>
+                                    How to Apply
+                                </h2>
+                                <div className="bg-card border rounded-2xl p-6 space-y-4">
+                                    <ol className="list-decimal list-inside space-y-3 text-muted-foreground text-sm">
+                                        <li>Visit the official website link provided in the sidebar.</li>
+                                        <li>Navigate to the "Recruitment" or "Careers" section.</li>
+                                        <li>Search for the advertisement number <strong>{job.advertisement_no || "N/A"}</strong>.</li>
+                                        <li>Fill in the registration details and complete your profile.</li>
+                                        <li>Upload required documents (Photo, Signature, Education Certificates).</li>
+                                        <li>Pay the application fee if applicable.</li>
+                                        <li>Take a printout of the final submitted application form.</li>
+                                    </ol>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Sticky Sidebar */}
+                    <div className="space-y-6">
+                        <Card className="sticky top-24 border-border/50 shadow-xl shadow-black/5 overflow-hidden">
+                            <div className="h-2 bg-accent opacity-80" />
+                            <CardContent className="p-8 space-y-6">
+                                <div className="space-y-1">
+                                    <p className="text-sm text-muted-foreground">Advertisement No.</p>
+                                    <p className="font-bold text-lg">{job.advertisement_no || "N/A"}</p>
+                                </div>
+
+                                <div className="space-y-4 pt-1">
+                                    {renderApplyButton()}
+                                    <Button
+                                        variant="outline"
+                                        className="w-full gap-2 border-accent/20 hover:bg-accent/5 text-accent font-bold"
+                                        onClick={handleAddToTracker}
+                                        disabled={isAddingToTracker}
+                                    >
+                                        {isAddingToTracker ? (
+                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                        ) : (
+                                            <Plus className="h-4 w-4" />
+                                        )}
+                                        Add to Tracker
+                                    </Button>
+                                </div>
+
+                                <div className="space-y-4 pt-6 border-t font-medium text-sm">
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-muted-foreground font-normal">Starting Date</span>
+                                        <span>{job.application_start_date ? format(new Date(job.application_start_date), 'MMM dd, yyyy') : 'N/A'}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-muted-foreground font-normal">Category</span>
+                                        <span className="text-accent font-bold">{job.visibility.toUpperCase()}</span>
+                                    </div>
+                                </div>
+
+                                {job.official_website && (
+                                    <div className="pt-6">
+                                        <Link
+                                            to={job.official_website}
+                                            target="_blank"
+                                            className="flex items-center gap-2 text-xs text-muted-foreground hover:text-accent transition-colors"
+                                        >
+                                            <Globe className="h-3.5 w-3.5" />
+                                            Visit Department Website
+                                            <ExternalLink className="h-3 w-3 ml-auto" />
+                                        </Link>
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
+
+                        <Card className="bg-card border-dashed border-border/50">
+                            <CardContent className="p-6 space-y-4">
+                                <div className="flex items-center gap-2 text-warning">
+                                    <AlertCircle className="h-4 w-4" />
+                                    <h4 className="text-sm font-bold">Disclaimer</h4>
+                                </div>
+                                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                                    While we strive to provide accurate information, readers are advised to check the official notification before applying. JobSeeker is not responsible for any selection/rejection or errors in the department's notification.
+                                </p>
+                            </CardContent>
+                        </Card>
+                    </div>
+                </div>
+            </div>
+        </main>
+    );
+
     return (
         <>
             <Helmet>
@@ -262,208 +474,17 @@ const GovtJobDetail = () => {
             </Helmet>
 
             <div className="min-h-screen bg-background flex flex-col">
-                <Navbar />
-
-                <main className="flex-1 container mx-auto px-4 py-8">
-                    <div className="max-w-5xl mx-auto">
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => navigate("/government-jobs")}
-                            className="mb-8 hover:bg-accent/10 -ml-2"
-                        >
-                            <ArrowLeft className="h-4 w-4 mr-2" />
-                            Back to All Jobs
-                        </Button>
-
-                        <div className="grid lg:grid-cols-3 gap-12">
-                            {/* Main Content Area */}
-                            <div className="lg:col-span-2 space-y-12">
-                                {/* Header */}
-                                <div className="space-y-6">
-                                    <div className="flex items-center gap-3 flex-wrap">
-                                        <Badge variant="outline" className="bg-accent/5 text-accent border-accent/20 px-3 py-1 text-[11px] font-bold uppercase tracking-widest">
-                                            {job.organization}
-                                        </Badge>
-                                        {job.visibility === 'premium' && (
-                                            <Badge variant="accent" className="font-bold py-1">Premium Job</Badge>
-                                        )}
-                                        {job.tags && job.tags.map((tag, i) => (
-                                            <Badge key={i} variant="secondary" className="bg-accent/5 text-accent border-accent/20 px-2 py-0.5 text-[10px] font-medium">
-                                                #{tag}
-                                            </Badge>
-                                        ))}
-                                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground ml-auto bg-muted/30 px-3 py-1 rounded-full">
-                                            <MapPin className="h-3.5 w-3.5 text-accent" />
-                                            {job.location || 'India'}
-                                        </div>
-                                    </div>
-                                    <h1 className="text-3xl md:text-5xl font-bold text-foreground leading-[1.1]">
-                                        {job.post_name}
-                                    </h1>
-                                    {job.exam_name && (
-                                        <p className="text-xl text-muted-foreground font-medium">{job.exam_name}</p>
-                                    )}
-                                </div>
-
-                                {/* Summary */}
-                                {job.summary && (
-                                    <Card className="bg-muted/30 border-none shadow-none">
-                                        <CardContent className="p-6">
-                                            <p className="text-muted-foreground leading-relaxed italic">
-                                                {job.summary}
-                                            </p>
-                                        </CardContent>
-                                    </Card>
-                                )}
-
-                                {/* Key Dates Inline */}
-                                <div className="grid sm:grid-cols-2 gap-4">
-                                    <div className="flex items-start gap-3 p-4 rounded-xl bg-card border">
-                                        <Calendar className="h-5 w-5 text-accent mt-1" />
-                                        <div>
-                                            <p className="text-xs text-muted-foreground uppercase font-bold tracking-tight mb-1">Last Date to Apply</p>
-                                            <p className="font-bold">
-                                                {job.application_end_date ? format(new Date(job.application_end_date), 'MMMM dd, yyyy') : 'Not Specified'}
-                                            </p>
-                                        </div>
-                                    </div>
-                                    <div className="flex items-start gap-3 p-4 rounded-xl bg-card border">
-                                        <Building2 className="h-5 w-5 text-accent mt-1" />
-                                        <div>
-                                            <p className="text-xs text-muted-foreground uppercase font-bold tracking-tight mb-1">Application Mode</p>
-                                            <p className="font-bold">{job.mode_of_apply || 'Online'}</p>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Content Sections */}
-                                <div className="space-y-12">
-                                    {/* Description / Overview */}
-                                    <div className="space-y-6">
-                                        <h2 className="text-2xl font-bold text-foreground flex items-center gap-3">
-                                            <div className="w-8 h-8 rounded-lg bg-accent/10 flex items-center justify-center">
-                                                <FileText className="h-4 w-4 text-accent" />
-                                            </div>
-                                            Detailed Notification Overview
-                                        </h2>
-                                        <div
-                                            className="prose prose-invert max-w-none text-muted-foreground leading-relaxed marker:text-accent selection:bg-accent/20"
-                                            dangerouslySetInnerHTML={{ __html: job.description || "No detailed description available." }}
-                                        />
-                                    </div>
-
-                                    {/* Application Fee */}
-                                    <div className="space-y-6">
-                                        <h2 className="text-2xl font-bold text-foreground flex items-center gap-3">
-                                            <div className="w-8 h-8 rounded-lg bg-success/10 flex items-center justify-center">
-                                                <Info className="h-4 w-4 text-success" />
-                                            </div>
-                                            Fee Structure
-                                        </h2>
-                                        <Card className="border-success/10 bg-success/5">
-                                            <CardContent className="p-6">
-                                                <p className="text-muted-foreground leading-relaxed">
-                                                    {job.application_fee || "Please refer to the official notification for detailed fee structure based on your category."}
-                                                </p>
-                                            </CardContent>
-                                        </Card>
-                                    </div>
-
-                                    {/* Selection Process Placeholder (if not in description) */}
-                                    <div className="space-y-6">
-                                        <h2 className="text-2xl font-bold text-foreground flex items-center gap-3">
-                                            <div className="w-8 h-8 rounded-lg bg-warning/10 flex items-center justify-center">
-                                                <CheckCircle2 className="h-4 w-4 text-warning" />
-                                            </div>
-                                            How to Apply
-                                        </h2>
-                                        <div className="bg-card border rounded-2xl p-6 space-y-4">
-                                            <ol className="list-decimal list-inside space-y-3 text-muted-foreground text-sm">
-                                                <li>Visit the official website link provided in the sidebar.</li>
-                                                <li>Navigate to the "Recruitment" or "Careers" section.</li>
-                                                <li>Search for the advertisement number <strong>{job.advertisement_no || "N/A"}</strong>.</li>
-                                                <li>Fill in the registration details and complete your profile.</li>
-                                                <li>Upload required documents (Photo, Signature, Education Certificates).</li>
-                                                <li>Pay the application fee if applicable.</li>
-                                                <li>Take a printout of the final submitted application form.</li>
-                                            </ol>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Sticky Sidebar */}
-                            <div className="space-y-6">
-                                <Card className="sticky top-24 border-border/50 shadow-xl shadow-black/5 overflow-hidden">
-                                    <div className="h-2 bg-accent opacity-80" />
-                                    <CardContent className="p-8 space-y-6">
-                                        <div className="space-y-1">
-                                            <p className="text-sm text-muted-foreground">Advertisement No.</p>
-                                            <p className="font-bold text-lg">{job.advertisement_no || "N/A"}</p>
-                                        </div>
-
-                                        <div className="space-y-4 pt-1">
-                                            {renderApplyButton()}
-                                            <Button
-                                                variant="outline"
-                                                className="w-full gap-2 border-accent/20 hover:bg-accent/5 text-accent"
-                                                onClick={handleAddToTracker}
-                                                disabled={isAddingToTracker}
-                                            >
-                                                {isAddingToTracker ? (
-                                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                                ) : (
-                                                    <Plus className="h-4 w-4" />
-                                                )}
-                                                Add to Tracker
-                                            </Button>
-                                        </div>
-
-                                        <div className="space-y-4 pt-6 border-t font-medium">
-                                            <div className="flex justify-between items-center text-sm">
-                                                <span className="text-muted-foreground">Starting Date</span>
-                                                <span>{job.application_start_date ? format(new Date(job.application_start_date), 'MMM dd, yyyy') : 'N/A'}</span>
-                                            </div>
-                                            <div className="flex justify-between items-center text-sm">
-                                                <span className="text-muted-foreground">Category</span>
-                                                <span className="text-accent">{job.visibility.toUpperCase()}</span>
-                                            </div>
-                                        </div>
-
-                                        {job.official_website && (
-                                            <div className="pt-6">
-                                                <Link
-                                                    to={job.official_website}
-                                                    target="_blank"
-                                                    className="flex items-center gap-2 text-xs text-muted-foreground hover:text-accent transition-colors"
-                                                >
-                                                    <Globe className="h-3.5 w-3.5" />
-                                                    Visit Department Website
-                                                    <ExternalLink className="h-3 w-3 ml-auto" />
-                                                </Link>
-                                            </div>
-                                        )}
-                                    </CardContent>
-                                </Card>
-
-                                <Card className="bg-card border-dashed border-border/50">
-                                    <CardContent className="p-6 space-y-4">
-                                        <div className="flex items-center gap-2 text-warning">
-                                            <AlertCircle className="h-4 w-4" />
-                                            <h4 className="text-sm font-bold">Disclaimer</h4>
-                                        </div>
-                                        <p className="text-[11px] text-muted-foreground leading-relaxed">
-                                            While we strive to provide accurate information, readers are advised to check the official notification before applying. JobSeeker is not responsible for any selection/rejection or errors in the department's notification.
-                                        </p>
-                                    </CardContent>
-                                </Card>
-                            </div>
-                        </div>
-                    </div>
-                </main>
-
-                <FooterSection />
+                {user ? (
+                    <DashboardLayout>
+                        {mainContent}
+                    </DashboardLayout>
+                ) : (
+                    <>
+                        <Navbar />
+                        {mainContent}
+                        <FooterSection />
+                    </>
+                )}
             </div>
         </>
     );
