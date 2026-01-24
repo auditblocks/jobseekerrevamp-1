@@ -752,11 +752,11 @@ Best regards,
                   <p className="text-xs sm:text-sm text-muted-foreground hidden sm:block">Craft your perfect outreach</p>
                 </div>
               </div>
-              <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto justify-end">
+              <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full sm:w-auto justify-end sm:justify-start">
                 {emailLimit && (
                   <Badge
                     variant="outline"
-                    className={`text-xs ${emailLimit.remaining <= 0
+                    className={`text-[10px] sm:text-xs py-1 ${emailLimit.remaining <= 0
                       ? "text-destructive border-destructive/30"
                       : emailLimit.remaining <= 3
                         ? "text-warning border-warning/30"
@@ -764,16 +764,16 @@ Best regards,
                       }`}
                   >
                     <span className="hidden sm:inline">{emailLimit.remaining}/{emailLimit.dailyLimit} emails left today</span>
-                    <span className="sm:hidden">{emailLimit.remaining}/{emailLimit.dailyLimit}</span>
+                    <span className="sm:inline">{emailLimit.remaining}/{emailLimit.dailyLimit} remaining</span>
                   </Badge>
                 )}
-                <Badge variant="outline" className="text-xs text-accent border-accent/30">
+                <Badge variant="outline" className="text-[10px] sm:text-xs text-accent border-accent/30 py-1">
                   {selectedRecruiters.length} selected
                 </Badge>
                 <Button
                   variant="hero"
                   size="sm"
-                  className="text-xs sm:text-sm"
+                  className="text-[10px] sm:text-sm h-8 sm:h-9 px-2 sm:px-4"
                   onClick={handleSend}
                   disabled={!isGmailConnected || isSending || (emailLimit?.remaining || 0) <= 0}
                 >
@@ -848,12 +848,14 @@ Best regards,
                 </Card>
               ) : (
                 <Card className="border-success/30 bg-success/5 backdrop-blur">
-                  <CardContent className="flex items-center justify-between py-4">
+                  <CardContent className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 py-4">
                     <div className="flex items-center gap-3">
-                      <CheckCircle2 className="h-5 w-5 text-success" />
+                      <div className="flex items-center justify-center h-8 w-8 rounded-full bg-success/20 shrink-0">
+                        <CheckCircle2 className="h-4 w-4 text-success" />
+                      </div>
                       <div>
-                        <p className="text-sm font-medium text-success">Gmail Connected</p>
-                        <p className="text-xs text-muted-foreground">You can now send emails to recruiters</p>
+                        <p className="text-sm font-bold text-success">Gmail Connected</p>
+                        <p className="text-[10px] sm:text-xs text-muted-foreground whitespace-nowrap">You can now send emails to recruiters</p>
                       </div>
                     </div>
                     <Button
@@ -861,13 +863,13 @@ Best regards,
                       size="sm"
                       onClick={handleDisconnectGmail}
                       disabled={isDisconnectingGmail}
-                      className="text-muted-foreground hover:text-destructive"
+                      className="text-muted-foreground hover:text-destructive h-8 text-xs w-full sm:w-auto border border-success/20 sm:border-0"
                     >
                       {isDisconnectingGmail ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <Loader2 className="h-3 w-3 animate-spin" />
                       ) : (
                         <>
-                          <Unlink className="h-4 w-4 mr-1" />
+                          <Unlink className="h-3.5 w-3.5 mr-1.5" />
                           Disconnect
                         </>
                       )}
@@ -894,22 +896,23 @@ Best regards,
               )}
 
               <Card className="border-border/50 bg-card/50 backdrop-blur">
-                <CardHeader>
-                  <div className="flex items-center justify-between">
+                <CardHeader className="p-4 sm:p-6">
+                  <div className="flex flex-col sm:flex-row gap-4 sm:items-center justify-between">
                     <div>
-                      <CardTitle className="flex items-center gap-2">
+                      <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
                         <Mail className="h-5 w-5 text-accent" />
                         Email Content
                       </CardTitle>
-                      <CardDescription>Compose your message or use AI to generate</CardDescription>
+                      <CardDescription className="text-xs sm:text-sm">Compose your message or use AI to generate</CardDescription>
                     </div>
                     <Button
                       variant="accent"
                       size="sm"
                       onClick={handleGenerateAI}
                       disabled={isGenerating}
+                      className="w-full sm:w-auto h-9 sm:h-10 text-xs sm:text-sm"
                     >
-                      <Sparkles className="h-4 w-4 mr-2" />
+                      <Sparkles className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-2" />
                       {isGenerating ? "Generating..." : "Generate with AI"}
                     </Button>
                   </div>
@@ -933,20 +936,20 @@ Best regards,
                       className="min-h-[300px] bg-background/50 resize-none"
                     />
                   </div>
-                  <div className="flex items-center justify-between pt-4 border-t border-border/50">
-                    <div className="flex items-center gap-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-4 border-t border-border/50">
+                    <div className="flex flex-wrap items-center gap-3 sm:gap-4">
                       <div className="flex items-center gap-2">
                         <Checkbox
                           id="resume"
                           checked={attachResume}
                           onCheckedChange={(checked) => setAttachResume(checked as boolean)}
                         />
-                        <label htmlFor="resume" className="text-sm text-muted-foreground cursor-pointer">
+                        <label htmlFor="resume" className="text-xs sm:text-sm text-muted-foreground cursor-pointer">
                           Attach Resume
                         </label>
                       </div>
-                      <Button variant="ghost" size="sm" onClick={handleAddAttachment} type="button">
-                        <Paperclip className="h-4 w-4 mr-2" />
+                      <Button variant="ghost" size="sm" onClick={handleAddAttachment} type="button" className="h-8 text-xs px-2">
+                        <Paperclip className="h-3.5 w-3.5 mr-1.5" />
                         Add Attachment
                       </Button>
                       <input
@@ -958,8 +961,8 @@ Best regards,
                         accept=".pdf,.doc,.docx,.txt"
                       />
                     </div>
-                    <Button variant="outline" size="sm" onClick={handleUseTemplate} type="button">
-                      <FileText className="h-4 w-4 mr-2" />
+                    <Button variant="outline" size="sm" onClick={handleUseTemplate} type="button" className="w-full sm:w-auto h-8 text-xs">
+                      <FileText className="h-3.5 w-3.5 mr-1.5" />
                       Use Template
                     </Button>
                   </div>
@@ -1011,9 +1014,9 @@ Best regards,
                       className="pl-10 bg-background/50 text-sm"
                     />
                   </div>
-                  <div className="flex flex-col sm:flex-row gap-2">
+                  <div className="flex flex-col gap-2">
                     <Select value={selectedDomain} onValueChange={setSelectedDomain}>
-                      <SelectTrigger className="flex-1 text-sm">
+                      <SelectTrigger className="w-full text-sm">
                         <Filter className="h-3 w-3 mr-2" />
                         <SelectValue placeholder="All Domains" />
                       </SelectTrigger>
@@ -1034,35 +1037,37 @@ Best regards,
                         )}
                       </SelectContent>
                     </Select>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-xs sm:text-sm"
-                      onClick={handleSelectAvailable}
-                      disabled={availableRecruiters.length === 0}
-                    >
-                      Select Available ({availableRecruiters.length})
-                    </Button>
-                    {selectedRecruiters.length === filteredRecruiters.length && filteredRecruiters.length > 0 ? (
+                    <div className="flex gap-1.5">
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="text-xs sm:text-sm"
-                        onClick={() => setSelectedRecruiters([])}
+                        className="flex-1 text-[10px] sm:text-xs h-8 px-1"
+                        onClick={handleSelectAvailable}
+                        disabled={availableRecruiters.length === 0}
                       >
-                        Unselect All
+                        Available ({availableRecruiters.length})
                       </Button>
-                    ) : (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-xs sm:text-sm"
-                        onClick={() => setSelectedRecruiters(filteredRecruiters.map((r) => r.id))}
-                        disabled={filteredRecruiters.length === 0}
-                      >
-                        Select All
-                      </Button>
-                    )}
+                      {selectedRecruiters.length === filteredRecruiters.length && filteredRecruiters.length > 0 ? (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="flex-1 text-[10px] sm:text-xs h-8 px-1"
+                          onClick={() => setSelectedRecruiters([])}
+                        >
+                          Unselect All
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="flex-1 text-[10px] sm:text-xs h-8 px-1"
+                          onClick={() => setSelectedRecruiters(filteredRecruiters.map((r) => r.id))}
+                          disabled={filteredRecruiters.length === 0}
+                        >
+                          Select All
+                        </Button>
+                      )}
+                    </div>
                   </div>
                   <div className="space-y-2 max-h-[300px] sm:max-h-[400px] overflow-y-auto">
                     {isLoadingRecruiters ? (
