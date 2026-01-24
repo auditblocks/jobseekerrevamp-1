@@ -72,13 +72,13 @@ const GovtJobTracker = () => {
         try {
             setIsLoading(true);
             const { data, error } = await supabase
-                .from("job_tracker")
+                .from("job_tracker" as any)
                 .select("*")
                 .eq("user_id", user?.id)
                 .order("created_at", { ascending: false });
 
             if (error) throw error;
-            setTrackedJobs(data || []);
+            setTrackedJobs((data as unknown as TrackedJob[]) || []);
         } catch (error) {
             console.error("Error fetching tracked jobs:", error);
             toast.error("Failed to load your tracker");
@@ -91,7 +91,7 @@ const GovtJobTracker = () => {
         if (!confirm("Are you sure you want to remove this job from your tracker?")) return;
 
         try {
-            const { error } = await supabase.from("job_tracker").delete().eq("id", id);
+            const { error } = await supabase.from("job_tracker" as any).delete().eq("id", id);
             if (error) throw error;
             setTrackedJobs(jobs => jobs.filter(j => j.id !== id));
             toast.success("Job removed from tracker");
@@ -104,7 +104,7 @@ const GovtJobTracker = () => {
     const handleUpdateStatus = async (jobId: string, updates: any) => {
         try {
             const { error } = await supabase
-                .from("job_tracker")
+                .from("job_tracker" as any)
                 .update(updates)
                 .eq("id", jobId);
 
@@ -170,7 +170,7 @@ const GovtJobTracker = () => {
         try {
             setIsSaving(true);
             const { error } = await supabase
-                .from("job_tracker")
+                .from("job_tracker" as any)
                 .update(editingJob)
                 .eq("id", editingJob.id);
 

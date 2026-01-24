@@ -8,6 +8,8 @@ import { HelmetProvider } from "react-helmet-async";
 import { AuthProvider } from "@/hooks/useAuth";
 import { ActivityTracker } from "@/components/ActivityTracker";
 import { Loader2 } from "lucide-react";
+import ErrorBoundary from "@/components/ErrorBoundary";
+
 
 // Lazy load all page components for code splitting
 const Index = lazy(() => import("./pages/Index"));
@@ -83,75 +85,77 @@ const App = () => (
           <Sonner />
           <BrowserRouter>
             <ActivityTracker />
-            <Suspense fallback={<PageLoader />}>
-              <Routes>
-                <Route path="/" element={<Index />} />
-                <Route path="/pricing" element={<Index />} />
-                <Route path="/auth" element={<Auth />} />
-                <Route path="/dashboard" element={<Dashboard />} />
-                <Route path="/compose" element={<Compose />} />
-                <Route path="/email-history" element={<EmailHistory />} />
-                <Route path="/conversations" element={<Conversations />} />
-                <Route path="/applications" element={<Applications />} />
-                <Route path="/templates" element={<Templates />} />
-                <Route path="/recruiters" element={<Recruiters />} />
-                <Route path="/analytics" element={<Analytics />} />
-                <Route path="/resume-optimizer" element={<ResumeOptimizer />} />
-                <Route path="/settings" element={<Settings />} />
-                <Route path="/dashboard/subscription" element={<Subscription />} />
-                <Route path="/subscription" element={<Subscription />} />
-                <Route path="/order-history" element={<OrderHistory />} />
-                <Route path="/notifications" element={<Notifications />} />
+            <ErrorBoundary>
+              <Suspense fallback={<PageLoader />}>
+                <Routes>
+                  <Route path="/" element={<Index />} />
+                  <Route path="/pricing" element={<Index />} />
+                  <Route path="/auth" element={<Auth />} />
+                  <Route path="/dashboard" element={<Dashboard />} />
+                  <Route path="/compose" element={<Compose />} />
+                  <Route path="/email-history" element={<EmailHistory />} />
+                  <Route path="/conversations" element={<Conversations />} />
+                  <Route path="/applications" element={<Applications />} />
+                  <Route path="/templates" element={<Templates />} />
+                  <Route path="/recruiters" element={<Recruiters />} />
+                  <Route path="/analytics" element={<Analytics />} />
+                  <Route path="/resume-optimizer" element={<ResumeOptimizer />} />
+                  <Route path="/settings" element={<Settings />} />
+                  <Route path="/dashboard/subscription" element={<Subscription />} />
+                  <Route path="/subscription" element={<Subscription />} />
+                  <Route path="/order-history" element={<OrderHistory />} />
+                  <Route path="/notifications" element={<Notifications />} />
 
-                {/* Govt Jobs */}
-                <Route path="/govt-jobs" element={<GovtJobs />} />
-                <Route path="/govt-jobs/:id" element={<GovtJobDetail />} />
-                <Route path="/govt-jobs/tracker" element={<GovtJobTracker />} />
+                  {/* Govt Jobs */}
+                  <Route path="/govt-jobs" element={<GovtJobs />} />
+                  <Route path="/govt-jobs/:id" element={<GovtJobDetail />} />
+                  <Route path="/govt-jobs/tracker" element={<GovtJobTracker />} />
 
-                {/* Legal & Info Pages */}
-                <Route path="/about" element={<About />} />
-                <Route path="/contact" element={<Contact />} />
-                <Route path="/faq" element={<FAQ />} />
-                <Route path="/privacy-policy" element={<PrivacyPolicy />} />
-                <Route path="/terms-of-service" element={<TermsOfService />} />
-                <Route path="/cancellations-and-refunds" element={<CancellationsAndRefunds />} />
+                  {/* Legal & Info Pages */}
+                  <Route path="/about" element={<About />} />
+                  <Route path="/contact" element={<Contact />} />
+                  <Route path="/faq" element={<FAQ />} />
+                  <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+                  <Route path="/terms-of-service" element={<TermsOfService />} />
+                  <Route path="/cancellations-and-refunds" element={<CancellationsAndRefunds />} />
 
-                {/* Admin Routes */}
-                <Route path="/admin" element={<AdminDashboard />} />
-                <Route path="/admin/users" element={<AdminUsers />} />
-                <Route path="/admin/recruiters" element={<AdminRecruiters />} />
-                <Route path="/admin/analytics" element={<AdminAnalytics />} />
-                <Route path="/admin/domains" element={<AdminDomains />} />
-                <Route path="/admin/subscriptions" element={<AdminSubscriptions />} />
-                <Route path="/admin/notifications" element={<AdminNotifications />} />
-                <Route path="/admin/requests" element={<AdminRequests />} />
-                <Route path="/admin/dashboard-config" element={<AdminDashboardConfig />} />
-                <Route path="/admin/user-activity" element={<AdminUserActivity />} />
-                <Route path="/admin/email-campaigns" element={<AdminEmailCampaigns />} />
-                <Route path="/admin/whatsapp-campaigns" element={<AdminWhatsappCampaigns />} />
+                  {/* Admin Routes */}
+                  <Route path="/admin" element={<AdminDashboard />} />
+                  <Route path="/admin/users" element={<AdminUsers />} />
+                  <Route path="/admin/recruiters" element={<AdminRecruiters />} />
+                  <Route path="/admin/analytics" element={<AdminAnalytics />} />
+                  <Route path="/admin/domains" element={<AdminDomains />} />
+                  <Route path="/admin/subscriptions" element={<AdminSubscriptions />} />
+                  <Route path="/admin/notifications" element={<AdminNotifications />} />
+                  <Route path="/admin/requests" element={<AdminRequests />} />
+                  <Route path="/admin/dashboard-config" element={<AdminDashboardConfig />} />
+                  <Route path="/admin/user-activity" element={<AdminUserActivity />} />
+                  <Route path="/admin/email-campaigns" element={<AdminEmailCampaigns />} />
+                  <Route path="/admin/whatsapp-campaigns" element={<AdminWhatsappCampaigns />} />
 
-                {/* Content */}
-                <Route path="/admin/blogs" element={<AdminBlogs />} />
-                <Route path="/admin/blogs/new" element={<AdminBlogEditor />} />
-                <Route path="/admin/blogs/:id" element={<AdminBlogEditor />} />
+                  {/* Content */}
+                  <Route path="/admin/blogs" element={<AdminBlogs />} />
+                  <Route path="/admin/blogs/new" element={<AdminBlogEditor />} />
+                  <Route path="/admin/blogs/:id" element={<AdminBlogEditor />} />
 
-                <Route path="/admin/scraper" element={<AdminScraperConfig />} />
-                <Route path="/admin/order-history" element={<AdminOrderHistory />} />
-                <Route path="/admin/email-cooldowns" element={<AdminEmailCooldowns />} />
+                  <Route path="/admin/scraper" element={<AdminScraperConfig />} />
+                  <Route path="/admin/order-history" element={<AdminOrderHistory />} />
+                  <Route path="/admin/email-cooldowns" element={<AdminEmailCooldowns />} />
 
-                {/* Admin Govt Jobs */}
-                <Route path="/admin/govt-jobs" element={<AdminGovtJobs />} />
-                <Route path="/admin/govt-jobs/new" element={<AdminGovtJobEditor />} />
-                <Route path="/admin/govt-jobs/:id" element={<AdminGovtJobEditor />} />
+                  {/* Admin Govt Jobs */}
+                  <Route path="/admin/govt-jobs" element={<AdminGovtJobs />} />
+                  <Route path="/admin/govt-jobs/new" element={<AdminGovtJobEditor />} />
+                  <Route path="/admin/govt-jobs/:id" element={<AdminGovtJobEditor />} />
 
-                {/* Public Blog Routes */}
-                <Route path="/blog" element={<BlogListing />} />
-                <Route path="/blog/:slug" element={<BlogDetail />} />
+                  {/* Public Blog Routes */}
+                  <Route path="/blog" element={<BlogListing />} />
+                  <Route path="/blog/:slug" element={<BlogDetail />} />
 
-                {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </Suspense>
+                  {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+              </Suspense>
+            </ErrorBoundary>
           </BrowserRouter>
         </AuthProvider>
       </TooltipProvider>

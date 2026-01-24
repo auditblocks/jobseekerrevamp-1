@@ -51,13 +51,13 @@ const GovtJobs = () => {
         try {
             setIsLoading(true);
             const { data, error } = await supabase
-                .from("govt_jobs")
+                .from("govt_jobs" as any)
                 .select("id, organization, post_name, exam_name, application_end_date, mode_of_apply, visibility, status")
                 .eq("status", "active")
                 .order("application_end_date", { ascending: true });
 
             if (error) throw error;
-            setJobs(data || []);
+            setJobs((data as unknown as GovtJob[]) || []);
         } catch (error) {
             console.error("Error fetching jobs:", error);
             toast.error("Failed to load jobs");
