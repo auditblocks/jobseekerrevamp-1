@@ -1,35 +1,7 @@
 # Netlify configuration for Single Page Application (SPA)
 # This ensures all routes are handled by React Router
 
-[[redirects]]
-  from = "/sitemap.xml"
-  to = "https://ypmyzbtgossmizklszek.supabase.co/functions/v1/sitemap?type=index"
-  status = 200
-  force = true
-
-[[redirects]]
-  from = "/sitemap-pages.xml"
-  to = "https://ypmyzbtgossmizklszek.supabase.co/functions/v1/sitemap?type=pages"
-  status = 200
-  force = true
-
-[[redirects]]
-  from = "/sitemap-blogs.xml"
-  to = "https://ypmyzbtgossmizklszek.supabase.co/functions/v1/sitemap?type=blogs"
-  status = 200
-  force = true
-
-[[redirects]]
-  from = "/sitemap-government-jobs.xml"
-  to = "https://ypmyzbtgossmizklszek.supabase.co/functions/v1/sitemap?type=govt-jobs"
-  status = 200
-  force = true
-
-# SPA redirect - catch all routes
-[[redirects]]
-  from = "/*"
-  to = "/index.html"
-  status = 200
+# Redirects are handled in public/_redirects which is copied to dist/ on build
 
 # Build settings
 [build]
