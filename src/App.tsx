@@ -9,9 +9,7 @@ import { AuthProvider } from "@/hooks/useAuth";
 import { ActivityTracker } from "@/components/ActivityTracker";
 import { Loader2 } from "lucide-react";
 import ErrorBoundary from "@/components/ErrorBoundary";
-
-
-// Lazy load all page components for code splitting
+import { LoadingScreen } from "@/components/ui/loading-screen";// Lazy load all page components for code splitting
 const Index = lazy(() => import("./pages/Index"));
 const Auth = lazy(() => import("./pages/Auth"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
@@ -63,15 +61,8 @@ const AdminEmailCooldowns = lazy(() => import("./pages/admin/AdminEmailCooldowns
 const AdminGovtJobs = lazy(() => import("./pages/admin/AdminGovtJobs"));
 const AdminGovtJobEditor = lazy(() => import("./pages/admin/AdminGovtJobEditor"));
 
-// Loading fallback component
-const PageLoader = () => (
-  <div className="min-h-screen flex items-center justify-center bg-background">
-    <div className="flex flex-col items-center gap-4">
-      <Loader2 className="h-8 w-8 animate-spin text-accent" />
-      <p className="text-sm text-muted-foreground">Loading...</p>
-    </div>
-  </div>
-);
+
+
 
 const queryClient = new QueryClient();
 
@@ -86,7 +77,7 @@ const App = () => (
           <BrowserRouter>
             <ActivityTracker />
             <ErrorBoundary>
-              <Suspense fallback={<PageLoader />}>
+              <Suspense fallback={<LoadingScreen />}>
                 <Routes>
                   <Route path="/" element={<Index />} />
                   <Route path="/pricing" element={<Index />} />
