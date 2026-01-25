@@ -1,7 +1,0 @@
-/sitemap.xml    https://ypmyzbtgossmizklszek.supabase.co/functions/v1/sitemap?type=index    200!
-/sitemap-pages.xml    https://ypmyzbtgossmizklszek.supabase.co/functions/v1/sitemap?type=pages    200!
-/sitemap-blogs.xml    https://ypmyzbtgossmizklszek.supabase.co/functions/v1/sitemap?type=blogs    200!
-/sitemap-government-jobs.xml    https://ypmyzbtgossmizklszek.supabase.co/functions/v1/sitemap?type=govt-jobs    200!
-
-# SPA redirect - catch all routes
-/*    /index.html   200

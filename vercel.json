@@ -1,21 +1,27 @@
 {
-  "rewrites": [
+  "redirects": [
     {
       "source": "/sitemap.xml",
-      "destination": "https://ypmyzbtgossmizklszek.supabase.co/functions/v1/sitemap?type=index"
+      "destination": "https://ypmyzbtgossmizklszek.supabase.co/functions/v1/sitemap?type=index",
+      "permanent": true
     },
     {
       "source": "/sitemap-pages.xml",
-      "destination": "https://ypmyzbtgossmizklszek.supabase.co/functions/v1/sitemap?type=pages"
+      "destination": "https://ypmyzbtgossmizklszek.supabase.co/functions/v1/sitemap?type=pages",
+      "permanent": true
     },
     {
       "source": "/sitemap-blogs.xml",
-      "destination": "https://ypmyzbtgossmizklszek.supabase.co/functions/v1/sitemap?type=blogs"
+      "destination": "https://ypmyzbtgossmizklszek.supabase.co/functions/v1/sitemap?type=blogs",
+      "permanent": true
     },
     {
       "source": "/sitemap-government-jobs.xml",
-      "destination": "https://ypmyzbtgossmizklszek.supabase.co/functions/v1/sitemap?type=govt-jobs"
-    },
+      "destination": "https://ypmyzbtgossmizklszek.supabase.co/functions/v1/sitemap?type=govt-jobs",
+      "permanent": true
+    }
+  ],
+  "rewrites": [
     {
       "source": "/(.*)",
       "destination": "/index.html"
