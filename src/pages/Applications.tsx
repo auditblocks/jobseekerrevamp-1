@@ -49,6 +49,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import DashboardLayout from "@/components/DashboardLayout";
 
 interface Application {
   id: string;
@@ -85,7 +86,7 @@ const Applications = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingApp, setEditingApp] = useState<Application | null>(null);
   const [saving, setSaving] = useState(false);
-  
+
   const [formData, setFormData] = useState({
     company_name: "",
     job_title: "",
@@ -278,254 +279,242 @@ const Applications = () => {
   }
 
   return (
-    <>
+    <DashboardLayout>
       <Helmet>
         <title>Applications | JobSeeker</title>
         <meta name="description" content="Track all your job applications in one place" />
       </Helmet>
 
-      <div className="min-h-screen bg-background">
-        {/* Header */}
-        <header className="sticky top-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-xl">
-          <div className="container mx-auto px-3 sm:px-4 py-3 sm:py-4">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-              <div className="flex items-center gap-2 sm:gap-4">
-                <Button variant="ghost" size="icon" onClick={() => navigate("/dashboard")}>
-                  <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5" />
-                </Button>
+      <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-8">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-8">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">Applications</h1>
+            <p className="text-sm text-muted-foreground">Track your job applications</p>
+          </div>
+          <Button variant="hero" onClick={openAddDialog}>
+            <Plus className="h-4 w-4 mr-2" />
+            Add Application
+          </Button>
+        </div>
+
+        {/* Stats */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8"
+        >
+          <Card className="border-border/50 bg-card/50">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-accent/10">
+                  <Briefcase className="h-5 w-5 text-accent" />
+                </div>
                 <div>
-                  <h1 className="text-lg sm:text-xl font-bold text-foreground">Applications</h1>
-                  <p className="text-sm text-muted-foreground">Track your job applications</p>
+                  <p className="text-2xl font-bold">{stats.total}</p>
+                  <p className="text-xs text-muted-foreground">Total Applications</p>
                 </div>
               </div>
-              <Button variant="hero" onClick={openAddDialog}>
-                <Plus className="h-4 w-4 mr-2" />
-                Add Application
-              </Button>
-            </div>
+            </CardContent>
+          </Card>
+          <Card className="border-border/50 bg-card/50">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-blue-500/10">
+                  <Calendar className="h-5 w-5 text-blue-500" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold">{stats.thisMonth}</p>
+                  <p className="text-xs text-muted-foreground">This Month</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border-border/50 bg-card/50">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-purple-500/10">
+                  <MessageSquare className="h-5 w-5 text-purple-500" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold">{stats.interviews}</p>
+                  <p className="text-xs text-muted-foreground">Interviews</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border-border/50 bg-card/50">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-success/10">
+                  <Trophy className="h-5 w-5 text-success" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold">{stats.offers}</p>
+                  <p className="text-xs text-muted-foreground">Offers</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        {/* Filters */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="flex flex-col sm:flex-row gap-4 mb-6"
+        >
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search by company or job title..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10 bg-card/50"
+            />
           </div>
-        </header>
+        </motion.div>
 
-        <main className="container mx-auto px-3 sm:px-4 py-4 sm:py-8">
-          {/* Stats */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8"
+        {/* Status Pills */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.15 }}
+          className="flex flex-wrap gap-2 mb-6"
+        >
+          <Button
+            variant={statusFilter === null ? "accent" : "outline"}
+            size="sm"
+            onClick={() => setStatusFilter(null)}
           >
-            <Card className="border-border/50 bg-card/50">
-              <CardContent className="p-4">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-accent/10">
-                    <Briefcase className="h-5 w-5 text-accent" />
-                  </div>
-                  <div>
-                    <p className="text-2xl font-bold">{stats.total}</p>
-                    <p className="text-xs text-muted-foreground">Total Applications</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="border-border/50 bg-card/50">
-              <CardContent className="p-4">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-blue-500/10">
-                    <Calendar className="h-5 w-5 text-blue-500" />
-                  </div>
-                  <div>
-                    <p className="text-2xl font-bold">{stats.thisMonth}</p>
-                    <p className="text-xs text-muted-foreground">This Month</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="border-border/50 bg-card/50">
-              <CardContent className="p-4">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-purple-500/10">
-                    <MessageSquare className="h-5 w-5 text-purple-500" />
-                  </div>
-                  <div>
-                    <p className="text-2xl font-bold">{stats.interviews}</p>
-                    <p className="text-xs text-muted-foreground">Interviews</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="border-border/50 bg-card/50">
-              <CardContent className="p-4">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-success/10">
-                    <Trophy className="h-5 w-5 text-success" />
-                  </div>
-                  <div>
-                    <p className="text-2xl font-bold">{stats.offers}</p>
-                    <p className="text-xs text-muted-foreground">Offers</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
+            All
+          </Button>
+          {Object.entries(statusConfig).map(([key, config]) => {
+            const count = applications.filter((a) => a.status === key).length;
+            if (count === 0) return null;
+            return (
+              <Button
+                key={key}
+                variant={statusFilter === key ? "accent" : "outline"}
+                size="sm"
+                onClick={() => setStatusFilter(statusFilter === key ? null : key)}
+              >
+                {config.label} ({count})
+              </Button>
+            );
+          })}
+        </motion.div>
 
-          {/* Filters */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="flex flex-col sm:flex-row gap-4 mb-6"
-          >
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search by company or job title..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 bg-card/50"
-              />
-            </div>
-          </motion.div>
-
-          {/* Status Pills */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.15 }}
-            className="flex flex-wrap gap-2 mb-6"
-          >
-            <Button
-              variant={statusFilter === null ? "accent" : "outline"}
-              size="sm"
-              onClick={() => setStatusFilter(null)}
-            >
-              All
-            </Button>
-            {Object.entries(statusConfig).map(([key, config]) => {
-              const count = applications.filter((a) => a.status === key).length;
-              if (count === 0) return null;
-              return (
-                <Button
-                  key={key}
-                  variant={statusFilter === key ? "accent" : "outline"}
-                  size="sm"
-                  onClick={() => setStatusFilter(statusFilter === key ? null : key)}
-                >
-                  {config.label} ({count})
+        {/* Applications List */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="space-y-4"
+        >
+          {filteredApplications.length === 0 ? (
+            <Card className="border-border/50 bg-card/50">
+              <CardContent className="p-8 text-center">
+                <Briefcase className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-lg font-medium mb-2">No applications yet</h3>
+                <p className="text-muted-foreground mb-4">Start tracking your job applications</p>
+                <Button variant="hero" onClick={openAddDialog}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Application
                 </Button>
-              );
-            })}
-          </motion.div>
-
-          {/* Applications List */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            className="space-y-4"
-          >
-            {filteredApplications.length === 0 ? (
-              <Card className="border-border/50 bg-card/50">
-                <CardContent className="p-8 text-center">
-                  <Briefcase className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <h3 className="text-lg font-medium mb-2">No applications yet</h3>
-                  <p className="text-muted-foreground mb-4">Start tracking your job applications</p>
-                  <Button variant="hero" onClick={openAddDialog}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add Application
-                  </Button>
-                </CardContent>
-              </Card>
-            ) : (
-              filteredApplications.map((app, index) => {
-                const status = statusConfig[app.status] || statusConfig.applied;
-                const StatusIcon = status.icon;
-                return (
-                  <motion.div
-                    key={app.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.05 }}
-                  >
-                    <Card className="border-border/50 bg-card/50 hover:border-border transition-colors">
-                      <CardContent className="p-4">
-                        <div className="flex items-start gap-4">
-                          <div className={`p-3 rounded-lg ${status.bg} shrink-0`}>
-                            <StatusIcon className={`h-5 w-5 ${status.color}`} />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-start justify-between gap-4">
-                              <div>
-                                <h3 className="font-semibold text-lg">{app.job_title}</h3>
-                                <div className="flex items-center gap-2 mt-1">
-                                  <Building2 className="h-4 w-4 text-muted-foreground" />
-                                  <span className="text-muted-foreground">{app.company_name}</span>
-                                </div>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <Badge className={`${status.bg} ${status.color} border-0`}>
-                                  {status.label}
-                                </Badge>
-                                <DropdownMenu>
-                                  <DropdownMenuTrigger asChild>
-                                    <Button variant="ghost" size="icon">
-                                      <MoreVertical className="h-4 w-4" />
-                                    </Button>
-                                  </DropdownMenuTrigger>
-                                  <DropdownMenuContent align="end">
-                                    <DropdownMenuItem onClick={() => openEditDialog(app)}>
-                                      <Edit className="h-4 w-4 mr-2" />
-                                      Edit
-                                    </DropdownMenuItem>
-                                    {app.job_url && (
-                                      <DropdownMenuItem onClick={() => window.open(app.job_url!, "_blank")}>
-                                        <ExternalLink className="h-4 w-4 mr-2" />
-                                        View Job
-                                      </DropdownMenuItem>
-                                    )}
-                                    <DropdownMenuSeparator />
-                                    <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(app.id)}>
-                                      <Trash2 className="h-4 w-4 mr-2" />
-                                      Delete
-                                    </DropdownMenuItem>
-                                  </DropdownMenuContent>
-                                </DropdownMenu>
-                              </div>
-                            </div>
-                            <div className="flex flex-wrap items-center gap-4 mt-3 text-sm text-muted-foreground">
-                              <div className="flex items-center gap-1">
-                                <Calendar className="h-4 w-4" />
-                                Applied {app.application_date ? new Date(app.application_date).toLocaleDateString() : "N/A"}
-                              </div>
-                              {app.interview_date && (
-                                <div className="flex items-center gap-1 text-accent">
-                                  <Clock className="h-4 w-4" />
-                                  Interview {new Date(app.interview_date).toLocaleDateString()}
-                                </div>
-                              )}
-                              {app.offer_amount && (
-                                <div className="flex items-center gap-1 text-success font-medium">
-                                  <Trophy className="h-4 w-4" />
-                                  ₹{app.offer_amount.toLocaleString()}
-                                </div>
-                              )}
-                              <Badge variant="secondary" className="text-xs">
-                                {(app.source || "email_outreach").replace("_", " ")}
-                              </Badge>
-                            </div>
-                            {app.notes && (
-                              <p className="mt-3 text-sm text-muted-foreground bg-muted/30 rounded-lg p-2">
-                                {app.notes}
-                              </p>
-                            )}
-                          </div>
+              </CardContent>
+            </Card>
+          ) : (
+            filteredApplications.map((app, index) => {
+              const status = statusConfig[app.status] || statusConfig.applied;
+              const StatusIcon = status.icon;
+              return (
+                <motion.div
+                  key={app.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.05 }}
+                >
+                  <Card className="border-border/50 bg-card/50 hover:border-border transition-colors">
+                    <CardContent className="p-4">
+                      <div className="flex items-start gap-4">
+                        <div className={`p-3 rounded-lg ${status.bg} shrink-0`}>
+                          <StatusIcon className={`h-5 w-5 ${status.color}`} />
                         </div>
-                      </CardContent>
-                    </Card>
-                  </motion.div>
-                );
-              })
-            )}
-          </motion.div>
-        </main>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start justify-between gap-4">
+                            <div>
+                              <h3 className="font-semibold text-lg">{app.job_title}</h3>
+                              <div className="flex items-center gap-2 mt-1">
+                                <Building2 className="h-4 w-4 text-muted-foreground" />
+                                <span className="text-muted-foreground">{app.company_name}</span>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Badge className={`${status.bg} ${status.color} border-0`}>
+                                {status.label}
+                              </Badge>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" size="icon">
+                                    <MoreVertical className="h-4 w-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuItem onClick={() => openEditDialog(app)}>
+                                    <Edit className="h-4 w-4 mr-2" />
+                                    Edit
+                                  </DropdownMenuItem>
+                                  {app.job_url && (
+                                    <DropdownMenuItem onClick={() => window.open(app.job_url!, "_blank")}>
+                                      <ExternalLink className="h-4 w-4 mr-2" />
+                                      View Job
+                                    </DropdownMenuItem>
+                                  )}
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(app.id)}>
+                                    <Trash2 className="h-4 w-4 mr-2" />
+                                    Delete
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </div>
+                          </div>
+                          <div className="flex flex-wrap items-center gap-4 mt-3 text-sm text-muted-foreground">
+                            <div className="flex items-center gap-1">
+                              <Calendar className="h-4 w-4" />
+                              Applied {app.application_date ? new Date(app.application_date).toLocaleDateString() : "N/A"}
+                            </div>
+                            {app.interview_date && (
+                              <div className="flex items-center gap-1 text-accent">
+                                <Clock className="h-4 w-4" />
+                                Interview {new Date(app.interview_date).toLocaleDateString()}
+                              </div>
+                            )}
+                            {app.offer_amount && (
+                              <div className="flex items-center gap-1 text-success font-medium">
+                                <Trophy className="h-4 w-4" />
+                                ₹{app.offer_amount.toLocaleString()}
+                              </div>
+                            )}
+                            <Badge variant="secondary" className="text-xs">
+                              {(app.source || "email_outreach").replace("_", " ")}
+                            </Badge>
+                          </div>
+                          {app.notes && (
+                            <p className="mt-3 text-sm text-muted-foreground bg-muted/30 rounded-lg p-2">
+                              {app.notes}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              );
+            })
+          )}
+        </motion.div>
       </div>
 
       {/* Add/Edit Dialog */}
@@ -647,7 +636,7 @@ const Applications = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </>
+    </DashboardLayout>
   );
 };
 

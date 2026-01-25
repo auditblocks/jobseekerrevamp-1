@@ -29,6 +29,7 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import DashboardLayout from "@/components/DashboardLayout";
 
 interface Recruiter {
   id: string;
@@ -213,280 +214,271 @@ const Recruiters = () => {
   }
 
   return (
-    <>
+    <DashboardLayout>
       <Helmet>
         <title>Recruiters | JobSeeker</title>
         <meta name="description" content="Browse and contact recruiters in your industry" />
       </Helmet>
 
-      <div className="min-h-screen bg-background">
-        {/* Header */}
-        <header className="sticky top-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-xl">
-          <div className="container mx-auto px-3 sm:px-4 py-3 sm:py-4">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-              <div className="flex items-center gap-2 sm:gap-4">
-                <Button variant="ghost" size="icon" onClick={() => navigate("/dashboard")}>
-                  <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5" />
-                </Button>
-                <div>
-                  <h1 className="text-lg sm:text-xl font-bold text-foreground">Recruiters</h1>
-                  <p className="text-sm text-muted-foreground">Find recruiters in your industry</p>
-                </div>
-              </div>
-
-              <div className="flex flex-col sm:flex-row items-end sm:items-center gap-2 sm:gap-4">
-                {/* User Tier Indicator - Critical for debugging access issues */}
-                <div className="flex items-center text-xs font-medium text-muted-foreground bg-muted/50 px-2 py-1 rounded-md border border-border/50">
-                  <ShieldCheck className="h-3 w-3 mr-1 text-primary" />
-                  Your Plan: <span className="ml-1 text-primary font-bold">{userTierLabel.replace(/_/g, " ")}</span>
-                  {isSuperadmin && <span className="ml-2 text-warning font-mono text-[10px]">(ADMIN ACCESS)</span>}
-                </div>
-
-                <div className="flex gap-2">
-                  <Badge variant="outline" className="border-border/50 text-muted-foreground">
-                    Free: {tierCounts.FREE}
-                  </Badge>
-                  <Badge variant="outline" className="border-accent/20 text-accent">
-                    Pro: {tierCounts.PRO}
-                  </Badge>
-                  <Badge variant="outline" className="border-warning/20 text-warning">
-                    Max: {tierCounts.PRO_MAX}
-                  </Badge>
-                </div>
-              </div>
+      <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-8">
+        {/* Action Header */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-6">
+          <div className="flex items-center gap-2 sm:gap-4">
+            <div>
+              <h1 className="text-lg sm:text-xl font-bold text-foreground">Recruiters</h1>
+              <p className="text-sm text-muted-foreground">Find recruiters in your industry</p>
             </div>
           </div>
-        </header>
 
-        <main className="container mx-auto px-3 sm:px-4 py-4 sm:py-8">
-          {/* Search and Filters */}
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="flex flex-col sm:flex-row gap-4 mb-6"
-          >
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search by name, email, or company..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 bg-card/50"
-              />
-              {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery("")}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              )}
+          <div className="flex flex-col sm:flex-row items-end sm:items-center gap-2 sm:gap-4">
+            {/* User Tier Indicator - Critical for debugging access issues */}
+            <div className="flex items-center text-xs font-medium text-muted-foreground bg-muted/50 px-2 py-1 rounded-md border border-border/50">
+              <ShieldCheck className="h-3 w-3 mr-1 text-primary" />
+              Your Plan: <span className="ml-1 text-primary font-bold">{userTierLabel.replace(/_/g, " ")}</span>
+              {isSuperadmin && <span className="ml-2 text-warning font-mono text-[10px]">(ADMIN ACCESS)</span>}
             </div>
-            <Button variant="outline">
-              <Filter className="h-4 w-4 mr-2" />
-              Filters
-              <ChevronDown className="h-4 w-4 ml-2" />
-            </Button>
-          </motion.div>
 
-          {/* Domain Pills */}
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.05 }}
-            className="flex flex-wrap gap-2 mb-4"
-          >
-            {domains.map((domain) => (
-              <Button
-                key={domain}
-                variant={selectedDomain === domain ? "accent" : "outline"}
-                size="sm"
-                onClick={() => setSelectedDomain(domain)}
+            <div className="flex gap-2">
+              <Badge variant="outline" className="border-border/50 text-muted-foreground">
+                Free: {tierCounts.FREE}
+              </Badge>
+              <Badge variant="outline" className="border-accent/20 text-accent">
+                Pro: {tierCounts.PRO}
+              </Badge>
+              <Badge variant="outline" className="border-warning/20 text-warning">
+                Max: {tierCounts.PRO_MAX}
+              </Badge>
+            </div>
+          </div>
+        </div>
+
+        {/* Search and Filters */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex flex-col sm:flex-row gap-4 mb-6"
+        >
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search by name, email, or company..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10 bg-card/50"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
               >
-                {domain}
-              </Button>
-            ))}
-          </motion.div>
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+          <Button variant="outline">
+            <Filter className="h-4 w-4 mr-2" />
+            Filters
+            <ChevronDown className="h-4 w-4 ml-2" />
+          </Button>
+        </motion.div>
 
-          {/* Tier Pills */}
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="flex flex-wrap gap-2 mb-8"
-          >
+        {/* Domain Pills */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.05 }}
+          className="flex flex-wrap gap-2 mb-4"
+        >
+          {domains.map((domain) => (
             <Button
-              variant={selectedTier === null ? "secondary" : "ghost"}
+              key={domain}
+              variant={selectedDomain === domain ? "accent" : "outline"}
               size="sm"
-              onClick={() => setSelectedTier(null)}
+              onClick={() => setSelectedDomain(domain)}
             >
-              All Tiers
+              {domain}
             </Button>
-            {Object.entries(tierConfig).map(([tier, config]) => {
-              const TierIcon = config.icon;
-              return (
-                <Button
-                  key={tier}
-                  variant={selectedTier === tier ? "secondary" : "ghost"}
-                  size="sm"
-                  onClick={() => setSelectedTier(selectedTier === tier ? null : tier)}
-                  className={selectedTier === tier ? config.bg : ""}
-                >
-                  <TierIcon className={`h-3 w-3 mr-1 ${config.color}`} />
-                  {config.label}
-                </Button>
-              );
-            })}
-          </motion.div>
+          ))}
+        </motion.div>
 
-          {/* Recruiters Grid */}
-          {isLoading ? (
-            <div className="flex items-center justify-center py-16">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-            </div>
-          ) : recruiters.length === 0 ? (
-            <div className="text-center py-16">
-              <Users className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
-              <p className="text-muted-foreground">No recruiters found</p>
-            </div>
-          ) : (
-            <>
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8"
+        {/* Tier Pills */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="flex flex-wrap gap-2 mb-8"
+        >
+          <Button
+            variant={selectedTier === null ? "secondary" : "ghost"}
+            size="sm"
+            onClick={() => setSelectedTier(null)}
+          >
+            All Tiers
+          </Button>
+          {Object.entries(tierConfig).map(([tier, config]) => {
+            const TierIcon = config.icon;
+            return (
+              <Button
+                key={tier}
+                variant={selectedTier === tier ? "secondary" : "ghost"}
+                size="sm"
+                onClick={() => setSelectedTier(selectedTier === tier ? null : tier)}
+                className={selectedTier === tier ? config.bg : ""}
               >
-                {recruiters.map((recruiter, index) => {
-                  const tierKey = getRecruiterTierKey(recruiter.tier);
-                  const tier = tierConfig[tierKey] || tierConfig.FREE;
-                  const TierIcon = tier.icon;
-                  const isLocked = !c_canAccessRecruiter(recruiter.tier);
+                <TierIcon className={`h-3 w-3 mr-1 ${config.color}`} />
+                {config.label}
+              </Button>
+            );
+          })}
+        </motion.div>
 
-                  return (
-                    <motion.div
-                      key={recruiter.id}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: index * 0.02 }}
+        {/* Recruiters Grid */}
+        {isLoading ? (
+          <div className="flex items-center justify-center py-16">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          </div>
+        ) : recruiters.length === 0 ? (
+          <div className="text-center py-16">
+            <Users className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+            <p className="text-muted-foreground">No recruiters found</p>
+          </div>
+        ) : (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8"
+            >
+              {recruiters.map((recruiter, index) => {
+                const tierKey = getRecruiterTierKey(recruiter.tier);
+                const tier = tierConfig[tierKey] || tierConfig.FREE;
+                const TierIcon = tier.icon;
+                const isLocked = !c_canAccessRecruiter(recruiter.tier);
+
+                return (
+                  <motion.div
+                    key={recruiter.id}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.02 }}
+                  >
+                    <Card
+                      className={`border-border/50 bg-card/50 transition-all h-full ${isLocked ? "opacity-75" : "hover:border-accent/50"
+                        }`}
                     >
-                      <Card
-                        className={`border-border/50 bg-card/50 transition-all h-full ${isLocked ? "opacity-75" : "hover:border-accent/50"
-                          }`}
-                      >
-                        <CardContent className="p-6">
-                          <div className="flex items-start gap-4">
-                            <Avatar className="h-12 w-12">
-                              <AvatarFallback className="bg-accent/20 text-accent">
-                                {recruiter.name.split(" ").map((n) => n[0]).join("").substring(0, 2)}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2">
-                                <h3 className="font-semibold truncate">{recruiter.name}</h3>
-                                <Badge className={`${tier.bg} ${tier.color} border-0 text-xs shrink-0`}>
-                                  <TierIcon className="h-3 w-3 mr-1" />
-                                  {tier.label}
-                                </Badge>
-                              </div>
-                              {recruiter.company && (
-                                <div className="flex items-center gap-1 mt-1">
-                                  <Building2 className="h-3 w-3 text-muted-foreground" />
-                                  <span className="text-sm text-muted-foreground truncate">
-                                    {recruiter.company}
-                                  </span>
-                                </div>
-                              )}
-                              <div className="flex items-center gap-1 mt-1">
-                                <Mail className="h-3 w-3 text-muted-foreground" />
-                                <span className="text-xs text-muted-foreground truncate">
-                                  {/* Explicitly hide email if locked OR if logic mismatch */}
-                                  {isLocked || (!isSuperadmin && tierKey === 'PRO_MAX' && getTierLevel(profile?.subscription_tier) < 2)
-                                    ? "••••••@••••.com"
-                                    : recruiter.email}
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="flex items-center gap-4 mt-4 pt-4 border-t border-border/50">
-                            <div className="flex items-center gap-1">
-                              <Star className={`h-4 w-4 ${getQualityColor(recruiter.quality_score)}`} />
-                              <span className="text-sm font-medium">{recruiter.quality_score || 0}</span>
-                              <span className="text-xs text-muted-foreground">quality</span>
-                            </div>
-                            <div className="text-sm">
-                              <span className="font-medium">{recruiter.response_rate || 0}%</span>
-                              <span className="text-muted-foreground ml-1">response</span>
-                            </div>
-                          </div>
-
-                          {recruiter.domain && (
-                            <div className="flex items-center gap-2 mt-4">
-                              <Badge variant="outline" className="text-xs">
-                                {recruiter.domain}
+                      <CardContent className="p-6">
+                        <div className="flex items-start gap-4">
+                          <Avatar className="h-12 w-12">
+                            <AvatarFallback className="bg-accent/20 text-accent">
+                              {recruiter.name.split(" ").map((n) => n[0]).join("").substring(0, 2)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <h3 className="font-semibold truncate">{recruiter.name}</h3>
+                              <Badge className={`${tier.bg} ${tier.color} border-0 text-xs shrink-0`}>
+                                <TierIcon className="h-3 w-3 mr-1" />
+                                {tier.label}
                               </Badge>
                             </div>
-                          )}
-
-                          <Button
-                            variant={isLocked ? "outline" : "hero"}
-                            className="w-full mt-4"
-                            onClick={() => {
-                              if (isLocked) {
-                                navigate("/subscription");
-                              } else {
-                                navigate(`/compose?recruiter=${recruiter.id}`);
-                              }
-                            }}
-                          >
-                            {isLocked ? (
-                              <>
-                                <Crown className="h-4 w-4 mr-2" />
-                                Upgrade to Contact
-                              </>
-                            ) : (
-                              <>
-                                <Mail className="h-4 w-4 mr-2" />
-                                Contact
-                              </>
+                            {recruiter.company && (
+                              <div className="flex items-center gap-1 mt-1">
+                                <Building2 className="h-3 w-3 text-muted-foreground" />
+                                <span className="text-sm text-muted-foreground truncate">
+                                  {recruiter.company}
+                                </span>
+                              </div>
                             )}
-                          </Button>
-                        </CardContent>
-                      </Card>
-                    </motion.div>
-                  );
-                })}
-              </motion.div>
+                            <div className="flex items-center gap-1 mt-1">
+                              <Mail className="h-3 w-3 text-muted-foreground" />
+                              <span className="text-xs text-muted-foreground truncate">
+                                {/* Explicitly hide email if locked OR if logic mismatch */}
+                                {isLocked || (!isSuperadmin && tierKey === 'PRO_MAX' && getTierLevel(profile?.subscription_tier) < 2)
+                                  ? "••••••@••••.com"
+                                  : recruiter.email}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
 
-              {/* Numbered Pagination */}
-              {totalPages > 1 && (
-                <div className="flex items-center justify-center gap-2 pb-8">
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => setPage(p => Math.max(0, p - 1))}
-                    disabled={page === 0}
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </Button>
-                  <span className="text-sm text-muted-foreground">
-                    Page {page + 1} of {totalPages}
-                  </span>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
-                    disabled={page >= totalPages - 1}
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
-                </div>
-              )}
-            </>
-          )}
-        </main>
+                        <div className="flex items-center gap-4 mt-4 pt-4 border-t border-border/50">
+                          <div className="flex items-center gap-1">
+                            <Star className={`h-4 w-4 ${getQualityColor(recruiter.quality_score)}`} />
+                            <span className="text-sm font-medium">{recruiter.quality_score || 0}</span>
+                            <span className="text-xs text-muted-foreground">quality</span>
+                          </div>
+                          <div className="text-sm">
+                            <span className="font-medium">{recruiter.response_rate || 0}%</span>
+                            <span className="text-muted-foreground ml-1">response</span>
+                          </div>
+                        </div>
+
+                        {recruiter.domain && (
+                          <div className="flex items-center gap-2 mt-4">
+                            <Badge variant="outline" className="text-xs">
+                              {recruiter.domain}
+                            </Badge>
+                          </div>
+                        )}
+
+                        <Button
+                          variant={isLocked ? "outline" : "hero"}
+                          className="w-full mt-4"
+                          onClick={() => {
+                            if (isLocked) {
+                              navigate("/subscription");
+                            } else {
+                              navigate(`/compose?recruiter=${recruiter.id}`);
+                            }
+                          }}
+                        >
+                          {isLocked ? (
+                            <>
+                              <Crown className="h-4 w-4 mr-2" />
+                              Upgrade to Contact
+                            </>
+                          ) : (
+                            <>
+                              <Mail className="h-4 w-4 mr-2" />
+                              Contact
+                            </>
+                          )}
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  </motion.div>
+                );
+              })}
+            </motion.div>
+
+            {/* Numbered Pagination */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-center gap-2 pb-8">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setPage(p => Math.max(0, p - 1))}
+                  disabled={page === 0}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <span className="text-sm text-muted-foreground">
+                  Page {page + 1} of {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
+                  disabled={page >= totalPages - 1}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
+          </>
+        )}
       </div>
-    </>
+    </DashboardLayout>
   );
 };
 

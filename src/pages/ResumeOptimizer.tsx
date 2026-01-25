@@ -33,6 +33,7 @@ import SEOHead from "@/components/SEO/SEOHead";
 import { ResumeTemplates } from "@/components/resume/ResumeTemplates";
 import { ResumeTemplateBuilder } from "@/components/resume/ResumeTemplateBuilder";
 import { StructuredResumeData } from "@/types/resume";
+import DashboardLayout from "@/components/DashboardLayout";
 
 declare global {
   interface Window {
@@ -779,7 +780,7 @@ const ResumeOptimizer = () => {
   const actionItems = analysisResult.action_items || [];
 
   return (
-    <>
+    <DashboardLayout>
       <SEOHead
         title="Resume Optimizer | JobSeeker - AI-Powered ATS Score Checker"
         description="Optimize your resume with AI-powered ATS compatibility scoring. Get instant feedback, keyword matching, and actionable suggestions to improve your resume."
@@ -787,321 +788,383 @@ const ResumeOptimizer = () => {
         canonicalUrl="/resume-optimizer"
       />
 
-      <div className="min-h-screen bg-background">
-        <div className="container mx-auto px-4 py-6 sm:py-8 max-w-7xl">
-          <Button
-            variant="ghost"
-            onClick={() => navigate("/dashboard")}
-            className="mb-6"
-          >
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Dashboard
-          </Button>
-
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            className="mb-8"
-          >
-            <div className="flex items-center gap-2 mb-2">
-              <div className="w-10 h-10 rounded-xl bg-accent/10 flex items-center justify-center">
-                <FileSearch className="w-5 h-5 text-accent" />
-              </div>
-              <h1 className="text-3xl font-bold text-foreground">Resume Optimizer</h1>
+      <div className="container mx-auto px-4 py-6 sm:py-8 max-w-7xl">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="mb-8"
+        >
+          <div className="flex items-center gap-2 mb-2">
+            <div className="w-10 h-10 rounded-xl bg-accent/10 flex items-center justify-center">
+              <FileSearch className="w-5 h-5 text-accent" />
             </div>
-            <p className="text-muted-foreground">
-              Get AI-powered ATS compatibility scores and optimization suggestions for your resume
-            </p>
-          </motion.div>
+            <h1 className="text-3xl font-bold text-foreground">Resume Optimizer</h1>
+          </div>
+          <p className="text-muted-foreground">
+            Get AI-powered ATS compatibility scores and optimization suggestions for your resume
+          </p>
+        </motion.div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Left Section - Resume Input */}
-            <div className="lg:col-span-2 space-y-6">
-              {/* Resume Upload */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Resume</CardTitle>
-                  <CardDescription>Upload a file or paste your resume text</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex gap-4">
-                    <Input
-                      ref={fileInputRef}
-                      type="file"
-                      accept=".pdf,.doc,.docx,.txt"
-                      onChange={handleFileSelect}
-                      className="hidden"
-                    />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Left Section - Resume Input */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Resume Upload */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Resume</CardTitle>
+                <CardDescription>Upload a file or paste your resume text</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex gap-4">
+                  <Input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".pdf,.doc,.docx,.txt"
+                    onChange={handleFileSelect}
+                    className="hidden"
+                  />
+                  <Button
+                    variant="outline"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="flex-1"
+                    disabled={uploadingFile}
+                  >
+                    {uploadingFile ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Uploading...
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="mr-2 h-4 w-4" />
+                        Upload File
+                      </>
+                    )}
+                  </Button>
+                  {selectedFile && (
+                    <Badge variant="secondary" className="flex items-center gap-2">
+                      <FileText className="h-3 w-3" />
+                      {selectedFile.name}
+                      {uploadedFilePath && (
+                        <CheckCircle2 className="h-3 w-3 text-green-500" />
+                      )}
+                    </Badge>
+                  )}
+                </div>
+                <Textarea
+                  placeholder="Or paste your resume text here..."
+                  value={resumeText}
+                  onChange={(e) => setResumeText(e.target.value)}
+                  onPaste={handlePaste}
+                  rows={12}
+                  className="font-mono text-sm"
+                />
+              </CardContent>
+            </Card>
+
+            {/* Job Description */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Job Description (Optional)</CardTitle>
+                <CardDescription>Paste the job description for keyword matching</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Textarea
+                  placeholder="Paste the job description here for targeted keyword analysis..."
+                  value={jobDescription}
+                  onChange={(e) => setJobDescription(e.target.value)}
+                  rows={8}
+                />
+              </CardContent>
+            </Card>
+
+            {/* Action Card */}
+            <Card className={`border-2 ${isProUser ? 'border-accent/50 bg-accent/5' : 'border-primary/50 bg-primary/5'}`}>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="font-semibold text-lg mb-2">
+                      {isProUser ? "Unlimited Free Scans" : `Pay ₹${scanPrice} per Scan`}
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                      {isProUser
+                        ? "As a PRO user, you get unlimited ATS resume scans"
+                        : "FREE users pay per scan. Upgrade to PRO for unlimited scans"
+                      }
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    {resumeText.trim() && (
+                      <Button
+                        onClick={() => {
+                          if (structuredResumeData) {
+                            setShowTemplateBuilder(true);
+                          } else {
+                            setShowTemplates(true);
+                          }
+                        }}
+                        variant="outline"
+                        size="lg"
+                        disabled={extractingData}
+                      >
+                        <Palette className="mr-2 h-4 w-4" />
+                        {extractingData ? "Extracting Data..." : structuredResumeData ? "Edit & Choose Template" : "Templates"}
+                      </Button>
+                    )}
                     <Button
-                      variant="outline"
-                      onClick={() => fileInputRef.current?.click()}
-                      className="flex-1"
-                      disabled={uploadingFile}
+                      onClick={handleAnalyze}
+                      disabled={loading || analyzing || processingPayment || (!resumeText.trim() && !uploadedFilePath)}
+                      size="lg"
+                      className={isProUser ? "bg-accent hover:bg-accent/90" : ""}
                     >
-                      {uploadingFile ? (
+                      {processingPayment ? (
                         <>
                           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Uploading...
+                          Processing Payment...
+                        </>
+                      ) : analyzing ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Analyzing...
+                        </>
+                      ) : isProUser ? (
+                        <>
+                          <Sparkles className="mr-2 h-4 w-4" />
+                          Analyze (Unlimited)
                         </>
                       ) : (
                         <>
-                          <Upload className="mr-2 h-4 w-4" />
-                          Upload File
+                          <IndianRupee className="mr-2 h-4 w-4" />
+                          Pay & Analyze
                         </>
                       )}
                     </Button>
-                    {selectedFile && (
-                      <Badge variant="secondary" className="flex items-center gap-2">
-                        <FileText className="h-3 w-3" />
-                        {selectedFile.name}
-                        {uploadedFilePath && (
-                          <CheckCircle2 className="h-3 w-3 text-green-500" />
-                        )}
-                      </Badge>
-                    )}
                   </div>
-                  <Textarea
-                    placeholder="Or paste your resume text here..."
-                    value={resumeText}
-                    onChange={(e) => setResumeText(e.target.value)}
-                    onPaste={handlePaste}
-                    rows={12}
-                    className="font-mono text-sm"
-                  />
-                </CardContent>
-              </Card>
+                </div>
+              </CardContent>
+            </Card>
 
-              {/* Job Description */}
-              <Card>
+            {/* Optimized Resume Display */}
+            {showOptimized && optimizedResume && (
+              <Card className="border-green-500/50 bg-green-500/5">
                 <CardHeader>
-                  <CardTitle>Job Description (Optional)</CardTitle>
-                  <CardDescription>Paste the job description for keyword matching</CardDescription>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="flex items-center gap-2">
+                      <Sparkles className="h-5 w-5 text-green-500" />
+                      Optimized Resume
+                    </CardTitle>
+                    <Button
+                      onClick={handleDownloadOptimized}
+                      variant="outline"
+                      size="sm"
+                    >
+                      <Download className="mr-2 h-4 w-4" />
+                      Download
+                    </Button>
+                  </div>
+                  <CardDescription>
+                    Your resume has been optimized with {selectedSuggestions.size} applied suggestions
+                  </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <Textarea
-                    placeholder="Paste the job description here for targeted keyword analysis..."
-                    value={jobDescription}
-                    onChange={(e) => setJobDescription(e.target.value)}
-                    rows={8}
-                  />
-                </CardContent>
-              </Card>
-
-              {/* Action Card */}
-              <Card className={`border-2 ${isProUser ? 'border-accent/50 bg-accent/5' : 'border-primary/50 bg-primary/5'}`}>
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="font-semibold text-lg mb-2">
-                        {isProUser ? "Unlimited Free Scans" : `Pay ₹${scanPrice} per Scan`}
-                      </h3>
-                      <p className="text-sm text-muted-foreground">
-                        {isProUser
-                          ? "As a PRO user, you get unlimited ATS resume scans"
-                          : "FREE users pay per scan. Upgrade to PRO for unlimited scans"
-                        }
-                      </p>
-                    </div>
-                    <div className="flex gap-2">
-                      {resumeText.trim() && (
-                        <Button
-                          onClick={() => {
+                  <div className="relative">
+                    <Textarea
+                      value={optimizedResume}
+                      onChange={(e) => setOptimizedResume(e.target.value)}
+                      rows={15}
+                      className="font-mono text-sm"
+                    />
+                    <div className="mt-4 flex gap-2 flex-wrap">
+                      <Button
+                        onClick={async () => {
+                          if (!optimizedResume) {
+                            // If no optimized resume, use existing structured data
                             if (structuredResumeData) {
                               setShowTemplateBuilder(true);
                             } else {
                               setShowTemplates(true);
                             }
-                          }}
-                          variant="outline"
-                          size="lg"
-                          disabled={extractingData}
-                        >
-                          <Palette className="mr-2 h-4 w-4" />
-                          {extractingData ? "Extracting Data..." : structuredResumeData ? "Edit & Choose Template" : "Templates"}
-                        </Button>
-                      )}
-                      <Button
-                        onClick={handleAnalyze}
-                        disabled={loading || analyzing || processingPayment || (!resumeText.trim() && !uploadedFilePath)}
-                        size="lg"
-                        className={isProUser ? "bg-accent hover:bg-accent/90" : ""}
+                            return;
+                          }
+
+                          // Update resume text with optimized version
+                          setResumeText(optimizedResume);
+
+                          // Re-extract structured data from optimized resume to preserve formatting
+                          toast.info("Extracting structured data from optimized resume...");
+                          try {
+                            await extractStructuredData(optimizedResume, false);
+                            // Wait a moment for state to update, then open template builder
+                            setTimeout(() => {
+                              setShowTemplateBuilder(true);
+                              setShowOptimized(false);
+                              toast.success("Template builder opened with updated data!");
+                            }, 300);
+                          } catch (error) {
+                            // Even if extraction fails, open template builder
+                            setShowTemplateBuilder(true);
+                            setShowOptimized(false);
+                            toast.success("Template builder opened!");
+                          }
+                        }}
+                        className="bg-accent hover:bg-accent/90"
+                        size="sm"
+                        disabled={extractingData}
                       >
-                        {processingPayment ? (
-                          <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Processing Payment...
-                          </>
-                        ) : analyzing ? (
-                          <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Analyzing...
-                          </>
-                        ) : isProUser ? (
-                          <>
-                            <Sparkles className="mr-2 h-4 w-4" />
-                            Analyze (Unlimited)
-                          </>
-                        ) : (
-                          <>
-                            <IndianRupee className="mr-2 h-4 w-4" />
-                            Pay & Analyze
-                          </>
-                        )}
+                        <Palette className="mr-2 h-4 w-4" />
+                        {extractingData ? "Extracting..." : optimizedResume ? "Apply Changes & Open Template Builder" : structuredResumeData ? "Edit & Choose Template" : "Choose Template"}
+                      </Button>
+                      <Button
+                        onClick={async () => {
+                          if (!optimizedResume) return;
+
+                          // Update resume text
+                          setResumeText(optimizedResume);
+                          setShowOptimized(false);
+
+                          // Re-extract structured data from optimized resume to preserve formatting
+                          toast.info("Extracting structured data from optimized resume...");
+                          try {
+                            await extractStructuredData(optimizedResume, false);
+                            toast.success("Optimized resume loaded and structured data updated!");
+                          } catch (error) {
+                            toast.success("Optimized resume loaded for further editing");
+                          }
+                        }}
+                        variant="outline"
+                        size="sm"
+                      >
+                        Apply Changes & Update Data
+                      </Button>
+                      <Button
+                        onClick={() => setShowOptimized(false)}
+                        variant="ghost"
+                        size="sm"
+                      >
+                        Close
                       </Button>
                     </div>
                   </div>
                 </CardContent>
               </Card>
+            )}
 
-              {/* Optimized Resume Display */}
-              {showOptimized && optimizedResume && (
-                <Card className="border-green-500/50 bg-green-500/5">
-                  <CardHeader>
-                    <div className="flex items-center justify-between">
-                      <CardTitle className="flex items-center gap-2">
-                        <Sparkles className="h-5 w-5 text-green-500" />
-                        Optimized Resume
-                      </CardTitle>
-                      <Button
-                        onClick={handleDownloadOptimized}
-                        variant="outline"
-                        size="sm"
-                      >
-                        <Download className="mr-2 h-4 w-4" />
-                        Download
-                      </Button>
-                    </div>
-                    <CardDescription>
-                      Your resume has been optimized with {selectedSuggestions.size} applied suggestions
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="relative">
-                      <Textarea
-                        value={optimizedResume}
-                        onChange={(e) => setOptimizedResume(e.target.value)}
-                        rows={15}
-                        className="font-mono text-sm"
-                      />
-                      <div className="mt-4 flex gap-2 flex-wrap">
-                        <Button
-                          onClick={async () => {
-                            if (!optimizedResume) {
-                              // If no optimized resume, use existing structured data
-                              if (structuredResumeData) {
-                                setShowTemplateBuilder(true);
-                              } else {
-                                setShowTemplates(true);
-                              }
-                              return;
-                            }
+            {/* Analysis Results */}
+            {currentAnalysis && !showOptimized && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Analysis Results</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <Tabs defaultValue="keywords" className="w-full">
+                    <TabsList className="grid w-full grid-cols-4">
+                      <TabsTrigger value="keywords">Keywords</TabsTrigger>
+                      <TabsTrigger value="formatting">Formatting</TabsTrigger>
+                      <TabsTrigger value="content">Content</TabsTrigger>
+                      <TabsTrigger value="actions">Action Items</TabsTrigger>
+                    </TabsList>
 
-                            // Update resume text with optimized version
-                            setResumeText(optimizedResume);
-
-                            // Re-extract structured data from optimized resume to preserve formatting
-                            toast.info("Extracting structured data from optimized resume...");
-                            try {
-                              await extractStructuredData(optimizedResume, false);
-                              // Wait a moment for state to update, then open template builder
-                              setTimeout(() => {
-                                setShowTemplateBuilder(true);
-                                setShowOptimized(false);
-                                toast.success("Template builder opened with updated data!");
-                              }, 300);
-                            } catch (error) {
-                              // Even if extraction fails, open template builder
-                              setShowTemplateBuilder(true);
-                              setShowOptimized(false);
-                              toast.success("Template builder opened!");
-                            }
-                          }}
-                          className="bg-accent hover:bg-accent/90"
-                          size="sm"
-                          disabled={extractingData}
-                        >
-                          <Palette className="mr-2 h-4 w-4" />
-                          {extractingData ? "Extracting..." : optimizedResume ? "Apply Changes & Open Template Builder" : structuredResumeData ? "Edit & Choose Template" : "Choose Template"}
-                        </Button>
-                        <Button
-                          onClick={async () => {
-                            if (!optimizedResume) return;
-
-                            // Update resume text
-                            setResumeText(optimizedResume);
-                            setShowOptimized(false);
-
-                            // Re-extract structured data from optimized resume to preserve formatting
-                            toast.info("Extracting structured data from optimized resume...");
-                            try {
-                              await extractStructuredData(optimizedResume, false);
-                              toast.success("Optimized resume loaded and structured data updated!");
-                            } catch (error) {
-                              toast.success("Optimized resume loaded for further editing");
-                            }
-                          }}
-                          variant="outline"
-                          size="sm"
-                        >
-                          Apply Changes & Update Data
-                        </Button>
-                        <Button
-                          onClick={() => setShowOptimized(false)}
-                          variant="ghost"
-                          size="sm"
-                        >
-                          Close
-                        </Button>
+                    <TabsContent value="keywords" className="space-y-4 mt-4">
+                      <div>
+                        <h4 className="font-semibold mb-2">Found Keywords</h4>
+                        <div className="flex flex-wrap gap-2">
+                          {(keywordAnalysis.found_keywords || currentAnalysis.matched_keywords || []).map((keyword: string, idx: number) => (
+                            <Badge key={idx} variant="default" className="bg-green-500">
+                              {keyword}
+                            </Badge>
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-
-              {/* Analysis Results */}
-              {currentAnalysis && !showOptimized && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Analysis Results</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <Tabs defaultValue="keywords" className="w-full">
-                      <TabsList className="grid w-full grid-cols-4">
-                        <TabsTrigger value="keywords">Keywords</TabsTrigger>
-                        <TabsTrigger value="formatting">Formatting</TabsTrigger>
-                        <TabsTrigger value="content">Content</TabsTrigger>
-                        <TabsTrigger value="actions">Action Items</TabsTrigger>
-                      </TabsList>
-
-                      <TabsContent value="keywords" className="space-y-4 mt-4">
-                        <div>
-                          <h4 className="font-semibold mb-2">Found Keywords</h4>
-                          <div className="flex flex-wrap gap-2">
-                            {(keywordAnalysis.found_keywords || currentAnalysis.matched_keywords || []).map((keyword: string, idx: number) => (
-                              <Badge key={idx} variant="default" className="bg-green-500">
-                                {keyword}
-                              </Badge>
-                            ))}
-                          </div>
+                      <div>
+                        <h4 className="font-semibold mb-2">Missing Keywords</h4>
+                        <div className="flex flex-wrap gap-2">
+                          {(keywordAnalysis.missing_keywords || currentAnalysis.missing_keywords || []).map((keyword: string, idx: number) => (
+                            <Badge key={idx} variant="destructive">
+                              {keyword}
+                            </Badge>
+                          ))}
                         </div>
-                        <div>
-                          <h4 className="font-semibold mb-2">Missing Keywords</h4>
-                          <div className="flex flex-wrap gap-2">
-                            {(keywordAnalysis.missing_keywords || currentAnalysis.missing_keywords || []).map((keyword: string, idx: number) => (
-                              <Badge key={idx} variant="destructive">
-                                {keyword}
-                              </Badge>
-                            ))}
-                          </div>
-                        </div>
-                      </TabsContent>
+                      </div>
+                    </TabsContent>
 
-                      <TabsContent value="formatting" className="space-y-4 mt-4">
-                        <div className="flex items-center justify-between mb-4">
-                          <p className="text-sm text-muted-foreground">
-                            Select formatting fixes to apply
-                          </p>
+                    <TabsContent value="formatting" className="space-y-4 mt-4">
+                      <div className="flex items-center justify-between mb-4">
+                        <p className="text-sm text-muted-foreground">
+                          Select formatting fixes to apply
+                        </p>
+                        {selectedSuggestions.size > 0 && (
+                          <Button
+                            onClick={handleOptimizeResume}
+                            disabled={optimizing}
+                            size="sm"
+                            className="bg-accent hover:bg-accent/90"
+                          >
+                            {optimizing ? (
+                              <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Optimizing...
+                              </>
+                            ) : (
+                              <>
+                                <Wand2 className="mr-2 h-4 w-4" />
+                                Apply Selected
+                              </>
+                            )}
+                          </Button>
+                        )}
+                      </div>
+                      {formattingIssues.map((issue: any, idx: number) => {
+                        const actionItemsCount = (analysisResult.action_items || []).length;
+                        const suggestionIdx = actionItemsCount + idx;
+                        const isSelected = selectedSuggestions.has(suggestionIdx);
+                        return (
+                          <div key={idx} className={`p-4 border rounded-lg transition-colors ${isSelected ? 'border-accent bg-accent/5' : ''}`}>
+                            <div className="flex items-start justify-between mb-2">
+                              <div className="flex-1">
+                                <h4 className="font-semibold">{issue.issue}</h4>
+                                <p className="text-sm text-muted-foreground mt-1">{issue.recommendation}</p>
+                              </div>
+                              <div className="flex items-center gap-2 ml-4">
+                                <Badge variant={issue.severity === "high" ? "destructive" : "secondary"}>
+                                  {issue.severity}
+                                </Badge>
+                                <Button
+                                  variant={isSelected ? "default" : "outline"}
+                                  size="sm"
+                                  onClick={() => toggleSuggestion(suggestionIdx)}
+                                >
+                                  {isSelected ? (
+                                    <>
+                                      <Check className="mr-1 h-3 w-3" />
+                                      Applied
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Wand2 className="mr-1 h-3 w-3" />
+                                      Apply
+                                    </>
+                                  )}
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </TabsContent>
+
+                    <TabsContent value="content" className="space-y-4 mt-4">
+                      <div>
+                        <h4 className="font-semibold mb-2">Strengths</h4>
+                        <ul className="list-disc list-inside space-y-1">
+                          {(analysisResult.content_strengths || []).map((strength: string, idx: number) => (
+                            <li key={idx} className="text-sm">{strength}</li>
+                          ))}
+                        </ul>
+                      </div>
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <h4 className="font-semibold">Improvements</h4>
                           {selectedSuggestions.size > 0 && (
                             <Button
                               onClick={handleOptimizeResume}
@@ -1123,20 +1186,24 @@ const ResumeOptimizer = () => {
                             </Button>
                           )}
                         </div>
-                        {formattingIssues.map((issue: any, idx: number) => {
+                        {contentImprovements.map((improvement: any, idx: number) => {
                           const actionItemsCount = (analysisResult.action_items || []).length;
-                          const suggestionIdx = actionItemsCount + idx;
+                          const formattingCount = (analysisResult.formatting_issues || []).length;
+                          const suggestionIdx = actionItemsCount + formattingCount + idx;
                           const isSelected = selectedSuggestions.has(suggestionIdx);
                           return (
-                            <div key={idx} className={`p-4 border rounded-lg transition-colors ${isSelected ? 'border-accent bg-accent/5' : ''}`}>
+                            <div key={idx} className={`p-4 border rounded-lg mb-2 transition-colors ${isSelected ? 'border-accent bg-accent/5' : ''}`}>
                               <div className="flex items-start justify-between mb-2">
                                 <div className="flex-1">
-                                  <h4 className="font-semibold">{issue.issue}</h4>
-                                  <p className="text-sm text-muted-foreground mt-1">{issue.recommendation}</p>
+                                  <h5 className="font-medium">{improvement.area}</h5>
+                                  <p className="text-sm text-muted-foreground mt-1 mb-1">
+                                    <strong>Current:</strong> {improvement.current_state}
+                                  </p>
+                                  <p className="text-sm">{improvement.suggestion}</p>
                                 </div>
                                 <div className="flex items-center gap-2 ml-4">
-                                  <Badge variant={issue.severity === "high" ? "destructive" : "secondary"}>
-                                    {issue.severity}
+                                  <Badge variant={improvement.priority === "high" ? "destructive" : "secondary"}>
+                                    {improvement.priority}
                                   </Badge>
                                   <Button
                                     variant={isSelected ? "default" : "outline"}
@@ -1160,353 +1227,276 @@ const ResumeOptimizer = () => {
                             </div>
                           );
                         })}
-                      </TabsContent>
+                      </div>
+                    </TabsContent>
 
-                      <TabsContent value="content" className="space-y-4 mt-4">
-                        <div>
-                          <h4 className="font-semibold mb-2">Strengths</h4>
-                          <ul className="list-disc list-inside space-y-1">
-                            {(analysisResult.content_strengths || []).map((strength: string, idx: number) => (
-                              <li key={idx} className="text-sm">{strength}</li>
-                            ))}
-                          </ul>
-                        </div>
-                        <div>
-                          <div className="flex items-center justify-between mb-2">
-                            <h4 className="font-semibold">Improvements</h4>
-                            {selectedSuggestions.size > 0 && (
-                              <Button
-                                onClick={handleOptimizeResume}
-                                disabled={optimizing}
-                                size="sm"
-                                className="bg-accent hover:bg-accent/90"
-                              >
-                                {optimizing ? (
-                                  <>
-                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                    Optimizing...
-                                  </>
-                                ) : (
-                                  <>
-                                    <Wand2 className="mr-2 h-4 w-4" />
-                                    Apply Selected
-                                  </>
-                                )}
-                              </Button>
+                    <TabsContent value="actions" className="space-y-4 mt-4">
+                      <div className="flex items-center justify-between mb-4">
+                        <p className="text-sm text-muted-foreground">
+                          Select suggestions to apply ({selectedSuggestions.size} selected)
+                        </p>
+                        {selectedSuggestions.size > 0 && (
+                          <Button
+                            onClick={handleOptimizeResume}
+                            disabled={optimizing}
+                            size="sm"
+                            className="bg-accent hover:bg-accent/90"
+                          >
+                            {optimizing ? (
+                              <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Optimizing...
+                              </>
+                            ) : (
+                              <>
+                                <Wand2 className="mr-2 h-4 w-4" />
+                                Apply Selected ({selectedSuggestions.size})
+                              </>
                             )}
-                          </div>
-                          {contentImprovements.map((improvement: any, idx: number) => {
-                            const actionItemsCount = (analysisResult.action_items || []).length;
-                            const formattingCount = (analysisResult.formatting_issues || []).length;
-                            const suggestionIdx = actionItemsCount + formattingCount + idx;
-                            const isSelected = selectedSuggestions.has(suggestionIdx);
+                          </Button>
+                        )}
+                      </div>
+                      <ol className="list-decimal list-inside space-y-3">
+                        {actionItems
+                          .sort((a: any, b: any) => a.priority - b.priority)
+                          .map((item: any, idx: number) => {
+                            const isSelected = selectedSuggestions.has(idx);
                             return (
-                              <div key={idx} className={`p-4 border rounded-lg mb-2 transition-colors ${isSelected ? 'border-accent bg-accent/5' : ''}`}>
+                              <li key={idx} className={`p-4 border rounded-lg transition-colors ${isSelected ? 'border-accent bg-accent/5' : ''}`}>
                                 <div className="flex items-start justify-between mb-2">
                                   <div className="flex-1">
-                                    <h5 className="font-medium">{improvement.area}</h5>
-                                    <p className="text-sm text-muted-foreground mt-1 mb-1">
-                                      <strong>Current:</strong> {improvement.current_state}
-                                    </p>
-                                    <p className="text-sm">{improvement.suggestion}</p>
+                                    <div className="flex items-center gap-2 mb-1">
+                                      <h4 className="font-semibold">{item.action}</h4>
+                                      <Badge variant="outline">{item.category}</Badge>
+                                    </div>
+                                    <p className="text-sm text-muted-foreground">{item.impact}</p>
                                   </div>
-                                  <div className="flex items-center gap-2 ml-4">
-                                    <Badge variant={improvement.priority === "high" ? "destructive" : "secondary"}>
-                                      {improvement.priority}
-                                    </Badge>
-                                    <Button
-                                      variant={isSelected ? "default" : "outline"}
-                                      size="sm"
-                                      onClick={() => toggleSuggestion(suggestionIdx)}
-                                    >
-                                      {isSelected ? (
-                                        <>
-                                          <Check className="mr-1 h-3 w-3" />
-                                          Applied
-                                        </>
-                                      ) : (
-                                        <>
-                                          <Wand2 className="mr-1 h-3 w-3" />
-                                          Apply
-                                        </>
-                                      )}
-                                    </Button>
-                                  </div>
+                                  <Button
+                                    variant={isSelected ? "default" : "outline"}
+                                    size="sm"
+                                    onClick={() => toggleSuggestion(idx)}
+                                    className="ml-4"
+                                  >
+                                    {isSelected ? (
+                                      <>
+                                        <Check className="mr-1 h-3 w-3" />
+                                        Applied
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Wand2 className="mr-1 h-3 w-3" />
+                                        Apply
+                                      </>
+                                    )}
+                                  </Button>
                                 </div>
-                              </div>
+                              </li>
                             );
                           })}
-                        </div>
-                      </TabsContent>
+                      </ol>
+                    </TabsContent>
+                  </Tabs>
+                </CardContent>
+              </Card>
+            )}
 
-                      <TabsContent value="actions" className="space-y-4 mt-4">
-                        <div className="flex items-center justify-between mb-4">
-                          <p className="text-sm text-muted-foreground">
-                            Select suggestions to apply ({selectedSuggestions.size} selected)
-                          </p>
-                          {selectedSuggestions.size > 0 && (
-                            <Button
-                              onClick={handleOptimizeResume}
-                              disabled={optimizing}
-                              size="sm"
-                              className="bg-accent hover:bg-accent/90"
-                            >
-                              {optimizing ? (
-                                <>
-                                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                  Optimizing...
-                                </>
-                              ) : (
-                                <>
-                                  <Wand2 className="mr-2 h-4 w-4" />
-                                  Apply Selected ({selectedSuggestions.size})
-                                </>
-                              )}
-                            </Button>
-                          )}
-                        </div>
-                        <ol className="list-decimal list-inside space-y-3">
-                          {actionItems
-                            .sort((a: any, b: any) => a.priority - b.priority)
-                            .map((item: any, idx: number) => {
-                              const isSelected = selectedSuggestions.has(idx);
-                              return (
-                                <li key={idx} className={`p-4 border rounded-lg transition-colors ${isSelected ? 'border-accent bg-accent/5' : ''}`}>
-                                  <div className="flex items-start justify-between mb-2">
-                                    <div className="flex-1">
-                                      <div className="flex items-center gap-2 mb-1">
-                                        <h4 className="font-semibold">{item.action}</h4>
-                                        <Badge variant="outline">{item.category}</Badge>
-                                      </div>
-                                      <p className="text-sm text-muted-foreground">{item.impact}</p>
-                                    </div>
-                                    <Button
-                                      variant={isSelected ? "default" : "outline"}
-                                      size="sm"
-                                      onClick={() => toggleSuggestion(idx)}
-                                      className="ml-4"
-                                    >
-                                      {isSelected ? (
-                                        <>
-                                          <Check className="mr-1 h-3 w-3" />
-                                          Applied
-                                        </>
-                                      ) : (
-                                        <>
-                                          <Wand2 className="mr-1 h-3 w-3" />
-                                          Apply
-                                        </>
-                                      )}
-                                    </Button>
-                                  </div>
-                                </li>
-                              );
-                            })}
-                        </ol>
-                      </TabsContent>
-                    </Tabs>
-                  </CardContent>
-                </Card>
-              )}
-
-              {/* Post-Analysis Actions */}
-              {currentAnalysis && !showOptimized && (
-                <Card className="border-2 border-accent/50 bg-accent/5">
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Palette className="h-5 w-5 text-accent" />
-                      Next Steps
-                    </CardTitle>
-                    <CardDescription>
-                      Choose how you want to proceed with your resume
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      {/* Choose Template Button */}
-                      <Button
-                        onClick={() => {
-                          if (structuredResumeData) {
-                            setShowTemplateBuilder(true);
-                          } else {
-                            setShowTemplates(true);
-                          }
-                        }}
-                        variant="outline"
-                        className="h-auto flex-col items-center justify-center p-6 space-y-2 hover:bg-accent/10 hover:border-accent"
-                        disabled={extractingData}
-                      >
-                        <Palette className="h-8 w-8 text-accent mb-2" />
-                        <span className="font-semibold">Choose Template</span>
-                        <span className="text-xs text-muted-foreground text-center">
-                          {extractingData
-                            ? "Extracting data..."
-                            : structuredResumeData
-                              ? "Edit & choose from templates"
-                              : "Select a professional template"}
-                        </span>
-                      </Button>
-
-                      {/* Template Builder Button */}
-                      <Button
-                        onClick={async () => {
-                          if (!resumeText.trim()) {
-                            toast.error("Please provide resume text first");
-                            return;
-                          }
-
-                          // If we don't have structured data yet, try to extract it
-                          if (!structuredResumeData) {
-                            setExtractingData(true);
-                            try {
-                              await extractStructuredData(resumeText);
-                            } catch (error) {
-                              // Extraction failed, but we'll still open the builder
-                              console.log("Data extraction failed, opening template builder with empty form");
-                            } finally {
-                              setExtractingData(false);
-                            }
-                          }
-
-                          // Always open template builder, even if extraction failed
-                          // The builder can work with empty/partial data
-                          setShowTemplateBuilder(true);
-                        }}
-                        variant="outline"
-                        className="h-auto flex-col items-center justify-center p-6 space-y-2 hover:bg-accent/10 hover:border-accent"
-                        disabled={extractingData || !resumeText.trim()}
-                      >
-                        <FileText className="h-8 w-8 text-accent mb-2" />
-                        <span className="font-semibold">Template Builder</span>
-                        <span className="text-xs text-muted-foreground text-center">
-                          {extractingData
-                            ? "Extracting data..."
-                            : structuredResumeData
-                              ? "Edit with auto-filled data"
-                              : "Open builder (manual entry available)"}
-                        </span>
-                      </Button>
-
-                      {/* Manual Editing Button */}
-                      <Button
-                        onClick={() => {
-                          // Scroll to the resume text area
-                          const textarea = document.querySelector('textarea[placeholder*="paste your resume text"]') as HTMLElement;
-                          if (textarea) {
-                            textarea.focus();
-                            textarea.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                          }
-                          toast.info("You can now edit your resume text above");
-                        }}
-                        variant="outline"
-                        className="h-auto flex-col items-center justify-center p-6 space-y-2 hover:bg-accent/10 hover:border-accent"
-                      >
-                        <Wand2 className="h-8 w-8 text-accent mb-2" />
-                        <span className="font-semibold">Manual Editing</span>
-                        <span className="text-xs text-muted-foreground text-center">
-                          Edit resume text in form fields
-                        </span>
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-            </div>
-
-            {/* Right Sidebar */}
-            <div className="space-y-6">
-              {/* ATS Score Display */}
-              {currentAnalysis && (
-                <Card>
-                  <CardHeader>
-                    <div className="flex items-center justify-between">
-                      <CardTitle>ATS Score</CardTitle>
-                      {uploadedFilePath && originalFileType && (
-                        <Button
-                          onClick={handleDownloadOriginal}
-                          variant="outline"
-                          size="sm"
-                        >
-                          <Download className="mr-2 h-4 w-4" />
-                          Original {originalFileType.toUpperCase()}
-                        </Button>
-                      )}
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="text-center">
-                      <div className={`text-6xl font-bold ${getScoreColor(currentAnalysis.ats_score)}`}>
-                        {currentAnalysis.ats_score}
-                      </div>
-                      <div className="text-sm text-muted-foreground mt-2">out of 100</div>
-                    </div>
-                    <Progress value={currentAnalysis.ats_score} className="h-3" />
-
-                    <div className="space-y-3 pt-4 border-t">
-                      <div>
-                        <div className="flex justify-between text-sm mb-1">
-                          <span>Keywords</span>
-                          <span>{currentAnalysis.keyword_match_score || 0}%</span>
-                        </div>
-                        <Progress value={currentAnalysis.keyword_match_score || 0} className="h-2" />
-                      </div>
-                      <div>
-                        <div className="flex justify-between text-sm mb-1">
-                          <span>Formatting</span>
-                          <span>{analysisResult.analysis_data?.formatting_score || 0}%</span>
-                        </div>
-                        <Progress value={analysisResult.analysis_data?.formatting_score || 0} className="h-2" />
-                      </div>
-                      <div>
-                        <div className="flex justify-between text-sm mb-1">
-                          <span>Content</span>
-                          <span>{analysisResult.analysis_data?.content_score || 0}%</span>
-                        </div>
-                        <Progress value={analysisResult.analysis_data?.content_score || 0} className="h-2" />
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-
-              {/* Analysis History */}
-              <Card>
+            {/* Post-Analysis Actions */}
+            {currentAnalysis && !showOptimized && (
+              <Card className="border-2 border-accent/50 bg-accent/5">
                 <CardHeader>
-                  <CardTitle>Recent Analyses</CardTitle>
+                  <CardTitle className="flex items-center gap-2">
+                    <Palette className="h-5 w-5 text-accent" />
+                    Next Steps
+                  </CardTitle>
+                  <CardDescription>
+                    Choose how you want to proceed with your resume
+                  </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-3">
-                    {analysisHistory.length === 0 ? (
-                      <p className="text-sm text-muted-foreground text-center py-4">
-                        No analyses yet
-                      </p>
-                    ) : (
-                      analysisHistory.map((analysis) => (
-                        <div
-                          key={analysis.id}
-                          className="p-3 border rounded-lg cursor-pointer hover:bg-accent/5 transition-colors"
-                          onClick={() => setCurrentAnalysis(analysis)}
-                        >
-                          <div className="flex items-center justify-between mb-2">
-                            <div className={`text-2xl font-bold ${getScoreColor(analysis.ats_score)}`}>
-                              {analysis.ats_score}
-                            </div>
-                            {analysis.payment_status === "completed" ? (
-                              <CheckCircle2 className="h-4 w-4 text-green-500" />
-                            ) : (
-                              <Clock className="h-4 w-4 text-yellow-500" />
-                            )}
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            {new Date(analysis.created_at).toLocaleDateString()}
-                          </div>
-                        </div>
-                      ))
-                    )}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {/* Choose Template Button */}
+                    <Button
+                      onClick={() => {
+                        if (structuredResumeData) {
+                          setShowTemplateBuilder(true);
+                        } else {
+                          setShowTemplates(true);
+                        }
+                      }}
+                      variant="outline"
+                      className="h-auto flex-col items-center justify-center p-6 space-y-2 hover:bg-accent/10 hover:border-accent"
+                      disabled={extractingData}
+                    >
+                      <Palette className="h-8 w-8 text-accent mb-2" />
+                      <span className="font-semibold">Choose Template</span>
+                      <span className="text-xs text-muted-foreground text-center">
+                        {extractingData
+                          ? "Extracting data..."
+                          : structuredResumeData
+                            ? "Edit & choose from templates"
+                            : "Select a professional template"}
+                      </span>
+                    </Button>
+
+                    {/* Template Builder Button */}
+                    <Button
+                      onClick={async () => {
+                        if (!resumeText.trim()) {
+                          toast.error("Please provide resume text first");
+                          return;
+                        }
+
+                        // If we don't have structured data yet, try to extract it
+                        if (!structuredResumeData) {
+                          setExtractingData(true);
+                          try {
+                            await extractStructuredData(resumeText);
+                          } catch (error) {
+                            // Extraction failed, but we'll still open the builder
+                            console.log("Data extraction failed, opening template builder with empty form");
+                          } finally {
+                            setExtractingData(false);
+                          }
+                        }
+
+                        // Always open template builder, even if extraction failed
+                        // The builder can work with empty/partial data
+                        setShowTemplateBuilder(true);
+                      }}
+                      variant="outline"
+                      className="h-auto flex-col items-center justify-center p-6 space-y-2 hover:bg-accent/10 hover:border-accent"
+                      disabled={extractingData || !resumeText.trim()}
+                    >
+                      <FileText className="h-8 w-8 text-accent mb-2" />
+                      <span className="font-semibold">Template Builder</span>
+                      <span className="text-xs text-muted-foreground text-center">
+                        {extractingData
+                          ? "Extracting data..."
+                          : structuredResumeData
+                            ? "Edit with auto-filled data"
+                            : "Open builder (manual entry available)"}
+                      </span>
+                    </Button>
+
+                    {/* Manual Editing Button */}
+                    <Button
+                      onClick={() => {
+                        // Scroll to the resume text area
+                        const textarea = document.querySelector('textarea[placeholder*="paste your resume text"]') as HTMLElement;
+                        if (textarea) {
+                          textarea.focus();
+                          textarea.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        }
+                        toast.info("You can now edit your resume text above");
+                      }}
+                      variant="outline"
+                      className="h-auto flex-col items-center justify-center p-6 space-y-2 hover:bg-accent/10 hover:border-accent"
+                    >
+                      <Wand2 className="h-8 w-8 text-accent mb-2" />
+                      <span className="font-semibold">Manual Editing</span>
+                      <span className="text-xs text-muted-foreground text-center">
+                        Edit resume text in form fields
+                      </span>
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
-            </div>
+            )}
+          </div>
+
+          {/* Right Sidebar */}
+          <div className="space-y-6">
+            {/* ATS Score Display */}
+            {currentAnalysis && (
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardTitle>ATS Score</CardTitle>
+                    {uploadedFilePath && originalFileType && (
+                      <Button
+                        onClick={handleDownloadOriginal}
+                        variant="outline"
+                        size="sm"
+                      >
+                        <Download className="mr-2 h-4 w-4" />
+                        Original {originalFileType.toUpperCase()}
+                      </Button>
+                    )}
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="text-center">
+                    <div className={`text-6xl font-bold ${getScoreColor(currentAnalysis.ats_score)}`}>
+                      {currentAnalysis.ats_score}
+                    </div>
+                    <div className="text-sm text-muted-foreground mt-2">out of 100</div>
+                  </div>
+                  <Progress value={currentAnalysis.ats_score} className="h-3" />
+
+                  <div className="space-y-3 pt-4 border-t">
+                    <div>
+                      <div className="flex justify-between text-sm mb-1">
+                        <span>Keywords</span>
+                        <span>{currentAnalysis.keyword_match_score || 0}%</span>
+                      </div>
+                      <Progress value={currentAnalysis.keyword_match_score || 0} className="h-2" />
+                    </div>
+                    <div>
+                      <div className="flex justify-between text-sm mb-1">
+                        <span>Formatting</span>
+                        <span>{analysisResult.analysis_data?.formatting_score || 0}%</span>
+                      </div>
+                      <Progress value={analysisResult.analysis_data?.formatting_score || 0} className="h-2" />
+                    </div>
+                    <div>
+                      <div className="flex justify-between text-sm mb-1">
+                        <span>Content</span>
+                        <span>{analysisResult.analysis_data?.content_score || 0}%</span>
+                      </div>
+                      <Progress value={analysisResult.analysis_data?.content_score || 0} className="h-2" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Analysis History */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Recent Analyses</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {analysisHistory.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-4">
+                      No analyses yet
+                    </p>
+                  ) : (
+                    analysisHistory.map((analysis) => (
+                      <div
+                        key={analysis.id}
+                        className="p-3 border rounded-lg cursor-pointer hover:bg-accent/5 transition-colors"
+                        onClick={() => setCurrentAnalysis(analysis)}
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <div className={`text-2xl font-bold ${getScoreColor(analysis.ats_score)}`}>
+                            {analysis.ats_score}
+                          </div>
+                          {analysis.payment_status === "completed" ? (
+                            <CheckCircle2 className="h-4 w-4 text-green-500" />
+                          ) : (
+                            <Clock className="h-4 w-4 text-yellow-500" />
+                          )}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {new Date(analysis.created_at).toLocaleDateString()}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </CardContent>
+            </Card>
           </div>
         </div>
       </div>
@@ -1534,9 +1524,8 @@ const ResumeOptimizer = () => {
         professionalTitle={profile?.professional_title}
         formattingData={currentAnalysis?.formatting_analysis || currentAnalysis?.formatting_preservation || null}
       />
-    </>
+    </DashboardLayout>
   );
 };
 
 export default ResumeOptimizer;
-

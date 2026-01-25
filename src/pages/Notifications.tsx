@@ -8,10 +8,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/hooks/useAuth";
-import { 
-  Bell, 
-  Check, 
-  CheckCheck, 
+import {
+  Bell,
+  Check,
+  CheckCheck,
   ArrowLeft,
   Info,
   AlertTriangle,
@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
+import DashboardLayout from "@/components/DashboardLayout";
 
 interface Notification {
   id: string;
@@ -135,129 +136,123 @@ export default function Notifications() {
   }
 
   return (
-    <>
+    <DashboardLayout>
       <Helmet>
         <title>Notifications - JobSeeker</title>
         <meta name="description" content="View your notifications and updates" />
       </Helmet>
 
-      <div className="min-h-screen bg-background">
-        <div className="max-w-3xl mx-auto px-4 py-8">
-          {/* Header */}
-          <div className="flex items-center justify-between mb-8">
-            <div className="flex items-center gap-4">
-              <Button variant="ghost" size="icon" onClick={() => navigate("/dashboard")}>
-                <ArrowLeft className="h-5 w-5" />
-              </Button>
-              <div>
-                <h1 className="text-2xl font-bold flex items-center gap-2">
-                  <Bell className="h-6 w-6" />
-                  Notifications
-                  {unreadCount > 0 && (
-                    <Badge variant="destructive">{unreadCount} new</Badge>
-                  )}
-                </h1>
-                <p className="text-muted-foreground">Stay updated with the latest news</p>
-              </div>
+      <div className="max-w-3xl mx-auto px-4 py-8">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center gap-4">
+            <div>
+              <h1 className="text-2xl font-bold flex items-center gap-2">
+                <Bell className="h-6 w-6" />
+                Notifications
+                {unreadCount > 0 && (
+                  <Badge variant="destructive">{unreadCount} new</Badge>
+                )}
+              </h1>
+              <p className="text-muted-foreground">Stay updated with the latest news</p>
             </div>
-            {unreadCount > 0 && (
-              <Button variant="outline" onClick={markAllAsRead}>
-                <CheckCheck className="h-4 w-4 mr-2" />
-                Mark all read
-              </Button>
-            )}
           </div>
+          {unreadCount > 0 && (
+            <Button variant="outline" onClick={markAllAsRead}>
+              <CheckCheck className="h-4 w-4 mr-2" />
+              Mark all read
+            </Button>
+          )}
+        </div>
 
-          {/* Notifications List */}
-          <div className="space-y-4">
-            {loading ? (
-              Array.from({ length: 3 }).map((_, i) => (
-                <Card key={i}>
+        {/* Notifications List */}
+        <div className="space-y-4">
+          {loading ? (
+            Array.from({ length: 3 }).map((_, i) => (
+              <Card key={i}>
+                <CardContent className="p-6">
+                  <div className="flex gap-4">
+                    <Skeleton className="h-10 w-10 rounded-full" />
+                    <div className="flex-1 space-y-2">
+                      <Skeleton className="h-5 w-1/3" />
+                      <Skeleton className="h-4 w-full" />
+                      <Skeleton className="h-3 w-20" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))
+          ) : notifications.length === 0 ? (
+            <Card>
+              <CardContent className="p-12 text-center">
+                <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
+                  <Bell className="h-8 w-8 text-muted-foreground" />
+                </div>
+                <h3 className="text-lg font-semibold mb-2">No notifications yet</h3>
+                <p className="text-muted-foreground">
+                  You'll see updates and announcements here
+                </p>
+              </CardContent>
+            </Card>
+          ) : (
+            notifications.map((notification, index) => (
+              <motion.div
+                key={notification.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3, delay: index * 0.05 }}
+              >
+                <Card
+                  className={`cursor-pointer transition-all hover:shadow-md ${!notification.is_read ? "border-l-4 border-l-primary bg-primary/5" : ""
+                    }`}
+                  onClick={() => !notification.is_read && markAsRead(notification.id)}
+                >
                   <CardContent className="p-6">
                     <div className="flex gap-4">
-                      <Skeleton className="h-10 w-10 rounded-full" />
-                      <div className="flex-1 space-y-2">
-                        <Skeleton className="h-5 w-1/3" />
-                        <Skeleton className="h-4 w-full" />
-                        <Skeleton className="h-3 w-20" />
+                      <div className="flex-shrink-0">
+                        <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
+                          {getTypeIcon(notification.type)}
+                        </div>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-4">
+                          <div>
+                            <div className="flex items-center gap-2 mb-1">
+                              <h3 className="font-semibold">{notification.title}</h3>
+                              {!notification.is_read && (
+                                <span className="h-2 w-2 rounded-full bg-primary animate-pulse" />
+                              )}
+                            </div>
+                            <p className="text-muted-foreground">{notification.message}</p>
+                            <div className="flex items-center gap-3 mt-3">
+                              {getTypeBadge(notification.type)}
+                              <span className="text-sm text-muted-foreground">
+                                {formatDistanceToNow(new Date(notification.created_at), { addSuffix: true })}
+                              </span>
+                            </div>
+                          </div>
+                          {!notification.is_read && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                markAsRead(notification.id);
+                              }}
+                            >
+                              <Check className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </CardContent>
                 </Card>
-              ))
-            ) : notifications.length === 0 ? (
-              <Card>
-                <CardContent className="p-12 text-center">
-                  <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
-                    <Bell className="h-8 w-8 text-muted-foreground" />
-                  </div>
-                  <h3 className="text-lg font-semibold mb-2">No notifications yet</h3>
-                  <p className="text-muted-foreground">
-                    You'll see updates and announcements here
-                  </p>
-                </CardContent>
-              </Card>
-            ) : (
-              notifications.map((notification, index) => (
-                <motion.div
-                  key={notification.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.3, delay: index * 0.05 }}
-                >
-                  <Card 
-                    className={`cursor-pointer transition-all hover:shadow-md ${
-                      !notification.is_read ? "border-l-4 border-l-primary bg-primary/5" : ""
-                    }`}
-                    onClick={() => !notification.is_read && markAsRead(notification.id)}
-                  >
-                    <CardContent className="p-6">
-                      <div className="flex gap-4">
-                        <div className="flex-shrink-0">
-                          <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
-                            {getTypeIcon(notification.type)}
-                          </div>
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-start justify-between gap-4">
-                            <div>
-                              <div className="flex items-center gap-2 mb-1">
-                                <h3 className="font-semibold">{notification.title}</h3>
-                                {!notification.is_read && (
-                                  <span className="h-2 w-2 rounded-full bg-primary animate-pulse" />
-                                )}
-                              </div>
-                              <p className="text-muted-foreground">{notification.message}</p>
-                              <div className="flex items-center gap-3 mt-3">
-                                {getTypeBadge(notification.type)}
-                                <span className="text-sm text-muted-foreground">
-                                  {formatDistanceToNow(new Date(notification.created_at), { addSuffix: true })}
-                                </span>
-                              </div>
-                            </div>
-                            {!notification.is_read && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  markAsRead(notification.id);
-                                }}
-                              >
-                                <Check className="h-4 w-4" />
-                              </Button>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </motion.div>
-              ))
-            )}
-          </div>
+              </motion.div>
+            ))
+          )}
         </div>
       </div>
-    </>
+    </DashboardLayout>
   );
 }

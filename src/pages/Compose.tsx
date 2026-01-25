@@ -45,6 +45,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
+import DashboardLayout from "@/components/DashboardLayout";
 
 interface Recruiter {
   id: string;
@@ -732,464 +733,455 @@ Best regards,
   const uniqueRecruiterDomains = [...new Set(recruiters.map(r => r.domain).filter(Boolean))];
 
   return (
-    <>
+    <DashboardLayout>
       <Helmet>
         <title>Compose Email | JobSeeker</title>
         <meta name="description" content="Compose and send professional emails to recruiters" />
       </Helmet>
 
-      <div className="min-h-screen bg-background">
-        {/* Header */}
-        <header className="sticky top-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-xl">
-          <div className="container mx-auto px-3 sm:px-4 py-3 sm:py-4">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-              <div className="flex items-center gap-2 sm:gap-4 w-full sm:w-auto">
-                <Button variant="ghost" size="icon" onClick={() => navigate("/dashboard")}>
-                  <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5" />
-                </Button>
-                <div className="flex-1 sm:flex-none">
-                  <h1 className="text-lg sm:text-xl font-bold text-foreground">Compose Email</h1>
-                  <p className="text-xs sm:text-sm text-muted-foreground hidden sm:block">Craft your perfect outreach</p>
-                </div>
-              </div>
-              <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full sm:w-auto justify-end sm:justify-start">
-                {emailLimit && (
-                  <Badge
-                    variant="outline"
-                    className={`text-[10px] sm:text-xs py-1 ${emailLimit.remaining <= 0
-                      ? "text-destructive border-destructive/30"
-                      : emailLimit.remaining <= 3
-                        ? "text-warning border-warning/30"
-                        : "text-success border-success/30"
-                      }`}
-                  >
-                    <span className="hidden sm:inline">{emailLimit.remaining}/{emailLimit.dailyLimit} emails left today</span>
-                    <span className="sm:hidden">{emailLimit.remaining}/{emailLimit.dailyLimit} remaining</span>
-                  </Badge>
-                )}
-                <Badge variant="outline" className="text-[10px] sm:text-xs text-accent border-accent/30 py-1">
-                  {selectedRecruiters.length} selected
-                </Badge>
-                <Button
-                  variant="hero"
-                  size="sm"
-                  className="text-[10px] sm:text-sm h-8 sm:h-9 px-2 sm:px-4"
-                  onClick={handleSend}
-                  disabled={!isGmailConnected || isSending || (emailLimit?.remaining || 0) <= 0}
-                >
-                  {isSending ? (
-                    <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2 animate-spin" />
-                  ) : (
-                    <Send className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
-                  )}
-                  <span className="hidden sm:inline">{isSending ? "Sending..." : "Send Email"}</span>
-                  <span className="sm:hidden">{isSending ? "Sending" : "Send"}</span>
-                </Button>
-              </div>
-            </div>
+      <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-8">
+        {/* Action Header */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">Compose Email</h1>
+            <p className="text-sm text-muted-foreground">Craft your perfect outreach</p>
           </div>
-        </header>
 
-        <main className="container mx-auto px-3 sm:px-4 py-4 sm:py-8">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-8">
-            {/* Email Composer */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="lg:col-span-2 space-y-6"
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full sm:w-auto justify-end sm:justify-start">
+            {emailLimit && (
+              <Badge
+                variant="outline"
+                className={`text-[10px] sm:text-xs py-1 ${emailLimit.remaining <= 0
+                  ? "text-destructive border-destructive/30"
+                  : emailLimit.remaining <= 3
+                    ? "text-warning border-warning/30"
+                    : "text-success border-success/30"
+                  }`}
+              >
+                <span className="hidden sm:inline">{emailLimit.remaining}/{emailLimit.dailyLimit} emails left today</span>
+                <span className="sm:hidden">{emailLimit.remaining}/{emailLimit.dailyLimit} remaining</span>
+              </Badge>
+            )}
+            <Badge variant="outline" className="text-[10px] sm:text-xs text-accent border-accent/30 py-1">
+              {selectedRecruiters.length} selected
+            </Badge>
+            <Button
+              variant="hero"
+              size="sm"
+              className="text-[10px] sm:text-sm h-8 sm:h-9 px-2 sm:px-4"
+              onClick={handleSend}
+              disabled={!isGmailConnected || isSending || (emailLimit?.remaining || 0) <= 0}
             >
-              {/* Gmail Connection Status */}
-              {isCheckingGmail ? (
-                <Card className="border-border/50 bg-card/50 backdrop-blur">
-                  <CardContent className="flex items-center justify-center py-8">
-                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                    <span className="ml-2 text-muted-foreground">Checking Gmail connection...</span>
-                  </CardContent>
-                </Card>
-              ) : !isGmailConnected ? (
-                <Card className="border-warning/30 bg-warning/5 backdrop-blur">
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-warning">
-                      <AlertCircle className="h-5 w-5" />
-                      Connect Your Gmail
-                    </CardTitle>
-                    <CardDescription>
-                      To send emails to recruiters, you need to connect your Gmail account.
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-                      <div className="flex-1">
-                        <p className="text-sm text-muted-foreground">
-                          Connect your Gmail account to enable email sending through our platform.
-                          Your account is connected securely via Gmail and you can disconnect anytime.
-                        </p>
-                      </div>
-                      <Button
-                        variant="accent"
-                        onClick={handleConnectGmail}
-                        disabled={isConnectingGmail}
-                        className="shrink-0"
-                      >
-                        {isConnectingGmail ? (
-                          <>
-                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                            Connecting...
-                          </>
-                        ) : (
-                          <>
-                            <Mail className="h-4 w-4 mr-2" />
-                            Connect Gmail
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
+              {isSending ? (
+                <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2 animate-spin" />
               ) : (
-                <Card className="border-success/30 bg-success/5 backdrop-blur">
-                  <CardContent className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 py-4">
-                    <div className="flex items-center gap-3">
-                      <div className="flex items-center justify-center h-8 w-8 rounded-full bg-success/20 shrink-0">
-                        <CheckCircle2 className="h-4 w-4 text-success" />
-                      </div>
-                      <div>
-                        <p className="text-sm font-bold text-success">Gmail Connected</p>
-                        <p className="text-[10px] sm:text-xs text-muted-foreground whitespace-nowrap">You can now send emails to recruiters</p>
-                      </div>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={handleDisconnectGmail}
-                      disabled={isDisconnectingGmail}
-                      className="text-muted-foreground hover:text-destructive h-8 text-xs w-full sm:w-auto border border-success/20 sm:border-0"
-                    >
-                      {isDisconnectingGmail ? (
-                        <Loader2 className="h-3 w-3 animate-spin" />
-                      ) : (
-                        <>
-                          <Unlink className="h-3.5 w-3.5 mr-1.5" />
-                          Disconnect
-                        </>
-                      )}
-                    </Button>
-                  </CardContent>
-                </Card>
+                <Send className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
               )}
+              <span className="hidden sm:inline">{isSending ? "Sending..." : "Send Email"}</span>
+              <span className="sm:hidden">{isSending ? "Sending" : "Send"}</span>
+            </Button>
+          </div>
+        </div>
 
-              {/* Blocked Recruiters Warning */}
-              {blockedInSelection > 0 && (
-                <Card className="border-warning/30 bg-warning/5 backdrop-blur">
-                  <CardContent className="flex items-center gap-3 py-4">
-                    <AlertTriangle className="h-5 w-5 text-warning shrink-0" />
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-warning">
-                        {blockedInSelection} selected recruiter(s) are blocked by cooldown
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        These recruiters cannot receive emails yet. They will be skipped when sending.
-                      </p>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-8">
+          {/* Email Composer */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="lg:col-span-2 space-y-6"
+          >
+            {/* Gmail Connection Status */}
+            {isCheckingGmail ? (
               <Card className="border-border/50 bg-card/50 backdrop-blur">
-                <CardHeader className="p-4 sm:p-6">
-                  <div className="flex flex-col sm:flex-row gap-4 sm:items-center justify-between">
-                    <div>
-                      <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
-                        <Mail className="h-5 w-5 text-accent" />
-                        Email Content
-                      </CardTitle>
-                      <CardDescription className="text-xs sm:text-sm">Compose your message or use AI to generate</CardDescription>
+                <CardContent className="flex items-center justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                  <span className="ml-2 text-muted-foreground">Checking Gmail connection...</span>
+                </CardContent>
+              </Card>
+            ) : !isGmailConnected ? (
+              <Card className="border-warning/30 bg-warning/5 backdrop-blur">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-warning">
+                    <AlertCircle className="h-5 w-5" />
+                    Connect Your Gmail
+                  </CardTitle>
+                  <CardDescription>
+                    To send emails to recruiters, you need to connect your Gmail account.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                    <div className="flex-1">
+                      <p className="text-sm text-muted-foreground">
+                        Connect your Gmail account to enable email sending through our platform.
+                        Your account is connected securely via Gmail and you can disconnect anytime.
+                      </p>
                     </div>
                     <Button
                       variant="accent"
-                      size="sm"
-                      onClick={handleGenerateAI}
-                      disabled={isGenerating}
-                      className="w-full sm:w-auto h-9 sm:h-10 text-xs sm:text-sm"
+                      onClick={handleConnectGmail}
+                      disabled={isConnectingGmail}
+                      className="shrink-0"
                     >
-                      <Sparkles className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-2" />
-                      {isGenerating ? "Generating..." : "Generate with AI"}
+                      {isConnectingGmail ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Connecting...
+                        </>
+                      ) : (
+                        <>
+                          <Mail className="h-4 w-4 mr-2" />
+                          Connect Gmail
+                        </>
+                      )}
                     </Button>
                   </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div>
-                    <label className="text-sm font-medium text-foreground mb-2 block">Subject</label>
-                    <Input
-                      placeholder="Enter email subject..."
-                      value={subject}
-                      onChange={(e) => setSubject(e.target.value)}
-                      className="bg-background/50"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-foreground mb-2 block">Body</label>
-                    <Textarea
-                      placeholder="Write your email content..."
-                      value={body}
-                      onChange={(e) => setBody(e.target.value)}
-                      className="min-h-[300px] bg-background/50 resize-none"
-                    />
-                  </div>
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-4 border-t border-border/50">
-                    <div className="flex flex-wrap items-center gap-3 sm:gap-4">
-                      <div className="flex items-center gap-2">
-                        <Checkbox
-                          id="resume"
-                          checked={attachResume}
-                          onCheckedChange={(checked) => setAttachResume(checked as boolean)}
-                        />
-                        <label htmlFor="resume" className="text-xs sm:text-sm text-muted-foreground cursor-pointer">
-                          Attach Resume
-                        </label>
-                      </div>
-                      <Button variant="ghost" size="sm" onClick={handleAddAttachment} type="button" className="h-8 text-xs px-2">
-                        <Paperclip className="h-3.5 w-3.5 mr-1.5" />
-                        Add Attachment
-                      </Button>
-                      <input
-                        ref={fileInputRef}
-                        type="file"
-                        multiple
-                        className="hidden"
-                        onChange={handleFileChange}
-                        accept=".pdf,.doc,.docx,.txt"
-                      />
-                    </div>
-                    <Button variant="outline" size="sm" onClick={handleUseTemplate} type="button" className="w-full sm:w-auto h-8 text-xs">
-                      <FileText className="h-3.5 w-3.5 mr-1.5" />
-                      Use Template
-                    </Button>
-                  </div>
-                  {attachments.length > 0 && (
-                    <div className="pt-4 space-y-2">
-                      <label className="text-sm font-medium text-foreground">Attachments:</label>
-                      <div className="flex flex-wrap gap-2">
-                        {attachments.map((file, index) => (
-                          <Badge key={index} variant="secondary" className="flex items-center gap-2">
-                            <FileText className="h-3 w-3" />
-                            {file.name}
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveAttachment(index)}
-                              className="ml-1 hover:text-destructive"
-                            >
-                              ×
-                            </button>
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                  )}
                 </CardContent>
               </Card>
-            </motion.div>
+            ) : (
+              <Card className="border-success/30 bg-success/5 backdrop-blur">
+                <CardContent className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 py-4">
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center justify-center h-8 w-8 rounded-full bg-success/20 shrink-0">
+                      <CheckCircle2 className="h-4 w-4 text-success" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-success">Gmail Connected</p>
+                      <p className="text-[10px] sm:text-xs text-muted-foreground whitespace-nowrap">You can now send emails to recruiters</p>
+                    </div>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleDisconnectGmail}
+                    disabled={isDisconnectingGmail}
+                    className="text-muted-foreground hover:text-destructive h-8 text-xs w-full sm:w-auto border border-success/20 sm:border-0"
+                  >
+                    {isDisconnectingGmail ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <>
+                        <Unlink className="h-3.5 w-3.5 mr-1.5" />
+                        Disconnect
+                      </>
+                    )}
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
 
-            {/* Recruiter Selection */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 }}
-            >
-              <Card className="border-border/50 bg-card/50 backdrop-blur lg:sticky lg:top-24">
-                <CardHeader className="p-4 sm:p-6">
-                  <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-                    <Users className="h-4 w-4 sm:h-5 sm:w-5 text-accent" />
-                    Select Recipients
-                  </CardTitle>
-                  <CardDescription className="text-xs sm:text-sm">Choose recruiters to contact</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-3 sm:space-y-4 p-4 sm:p-6">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      placeholder="Search recruiters..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="pl-10 bg-background/50 text-sm"
+            {/* Blocked Recruiters Warning */}
+            {blockedInSelection > 0 && (
+              <Card className="border-warning/30 bg-warning/5 backdrop-blur">
+                <CardContent className="flex items-center gap-3 py-4">
+                  <AlertTriangle className="h-5 w-5 text-warning shrink-0" />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-warning">
+                      {blockedInSelection} selected recruiter(s) are blocked by cooldown
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      These recruiters cannot receive emails yet. They will be skipped when sending.
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            <Card className="border-border/50 bg-card/50 backdrop-blur">
+              <CardHeader className="p-4 sm:p-6">
+                <div className="flex flex-col sm:flex-row gap-4 sm:items-center justify-between">
+                  <div>
+                    <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
+                      <Mail className="h-5 w-5 text-accent" />
+                      Email Content
+                    </CardTitle>
+                    <CardDescription className="text-xs sm:text-sm">Compose your message or use AI to generate</CardDescription>
+                  </div>
+                  <Button
+                    variant="accent"
+                    size="sm"
+                    onClick={handleGenerateAI}
+                    disabled={isGenerating}
+                    className="w-full sm:w-auto h-9 sm:h-10 text-xs sm:text-sm"
+                  >
+                    <Sparkles className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-2" />
+                    {isGenerating ? "Generating..." : "Generate with AI"}
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium text-foreground mb-2 block">Subject</label>
+                  <Input
+                    placeholder="Enter email subject..."
+                    value={subject}
+                    onChange={(e) => setSubject(e.target.value)}
+                    className="bg-background/50"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-foreground mb-2 block">Body</label>
+                  <Textarea
+                    placeholder="Write your email content..."
+                    value={body}
+                    onChange={(e) => setBody(e.target.value)}
+                    className="min-h-[300px] bg-background/50 resize-none"
+                  />
+                </div>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-4 border-t border-border/50">
+                  <div className="flex flex-wrap items-center gap-3 sm:gap-4">
+                    <div className="flex items-center gap-2">
+                      <Checkbox
+                        id="resume"
+                        checked={attachResume}
+                        onCheckedChange={(checked) => setAttachResume(checked as boolean)}
+                      />
+                      <label htmlFor="resume" className="text-xs sm:text-sm text-muted-foreground cursor-pointer">
+                        Attach Resume
+                      </label>
+                    </div>
+                    <Button variant="ghost" size="sm" onClick={handleAddAttachment} type="button" className="h-8 text-xs px-2">
+                      <Paperclip className="h-3.5 w-3.5 mr-1.5" />
+                      Add Attachment
+                    </Button>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      multiple
+                      className="hidden"
+                      onChange={handleFileChange}
+                      accept=".pdf,.doc,.docx,.txt"
                     />
                   </div>
-                  <div className="flex flex-col gap-2">
-                    <Select value={selectedDomain} onValueChange={setSelectedDomain}>
-                      <SelectTrigger className="w-full text-sm">
-                        <Filter className="h-3 w-3 mr-2" />
-                        <SelectValue placeholder="All Domains" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Domains</SelectItem>
-                        {domains.length > 0 ? (
-                          domains.map((domain) => (
-                            <SelectItem key={domain.id} value={domain.name}>
-                              {domain.display_name}
-                            </SelectItem>
-                          ))
-                        ) : (
-                          uniqueRecruiterDomains.map((domain) => (
-                            <SelectItem key={domain} value={domain!}>
-                              {domain}
-                            </SelectItem>
-                          ))
-                        )}
-                      </SelectContent>
-                    </Select>
-                    <div className="flex gap-1.5">
+                  <Button variant="outline" size="sm" onClick={handleUseTemplate} type="button" className="w-full sm:w-auto h-8 text-xs">
+                    <FileText className="h-3.5 w-3.5 mr-1.5" />
+                    Use Template
+                  </Button>
+                </div>
+                {attachments.length > 0 && (
+                  <div className="pt-4 space-y-2">
+                    <label className="text-sm font-medium text-foreground">Attachments:</label>
+                    <div className="flex flex-wrap gap-2">
+                      {attachments.map((file, index) => (
+                        <Badge key={index} variant="secondary" className="flex items-center gap-2">
+                          <FileText className="h-3 w-3" />
+                          {file.name}
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveAttachment(index)}
+                            className="ml-1 hover:text-destructive"
+                          >
+                            ×
+                          </button>
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </motion.div>
+
+          {/* Recruiter Selection */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+          >
+            <Card className="border-border/50 bg-card/50 backdrop-blur lg:sticky lg:top-24">
+              <CardHeader className="p-4 sm:p-6">
+                <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+                  <Users className="h-4 w-4 sm:h-5 sm:w-5 text-accent" />
+                  Select Recipients
+                </CardTitle>
+                <CardDescription className="text-xs sm:text-sm">Choose recruiters to contact</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3 sm:space-y-4 p-4 sm:p-6">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search recruiters..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-10 bg-background/50 text-sm"
+                  />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <Select value={selectedDomain} onValueChange={setSelectedDomain}>
+                    <SelectTrigger className="w-full text-sm">
+                      <Filter className="h-3 w-3 mr-2" />
+                      <SelectValue placeholder="All Domains" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Domains</SelectItem>
+                      {domains.length > 0 ? (
+                        domains.map((domain) => (
+                          <SelectItem key={domain.id} value={domain.name}>
+                            {domain.display_name}
+                          </SelectItem>
+                        ))
+                      ) : (
+                        uniqueRecruiterDomains.map((domain) => (
+                          <SelectItem key={domain} value={domain!}>
+                            {domain}
+                          </SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                  <div className="flex gap-1.5">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="flex-1 text-[10px] sm:text-xs h-8 px-1"
+                      onClick={handleSelectAvailable}
+                      disabled={availableRecruiters.length === 0}
+                    >
+                      Available ({availableRecruiters.length})
+                    </Button>
+                    {selectedRecruiters.length === filteredRecruiters.length && filteredRecruiters.length > 0 ? (
                       <Button
                         variant="ghost"
                         size="sm"
                         className="flex-1 text-[10px] sm:text-xs h-8 px-1"
-                        onClick={handleSelectAvailable}
-                        disabled={availableRecruiters.length === 0}
+                        onClick={() => setSelectedRecruiters([])}
                       >
-                        Available ({availableRecruiters.length})
+                        Unselect All
                       </Button>
-                      {selectedRecruiters.length === filteredRecruiters.length && filteredRecruiters.length > 0 ? (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="flex-1 text-[10px] sm:text-xs h-8 px-1"
-                          onClick={() => setSelectedRecruiters([])}
-                        >
-                          Unselect All
-                        </Button>
-                      ) : (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="flex-1 text-[10px] sm:text-xs h-8 px-1"
-                          onClick={() => setSelectedRecruiters(filteredRecruiters.map((r) => r.id))}
-                          disabled={filteredRecruiters.length === 0}
-                        >
-                          Select All
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                  <div className="space-y-2 max-h-[300px] sm:max-h-[400px] overflow-y-auto">
-                    {isLoadingRecruiters ? (
-                      <div className="flex items-center justify-center py-8">
-                        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                      </div>
-                    ) : filteredRecruiters.length === 0 ? (
-                      <div className="text-center py-8 text-muted-foreground">
-                        <Users className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                        <p className="text-sm">No recruiters found</p>
-                      </div>
                     ) : (
-                      filteredRecruiters.map((recruiter) => {
-                        const cooldownInfo = getCooldownInfo(recruiter.email);
-                        const isBlocked = cooldownInfo !== null;
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="flex-1 text-[10px] sm:text-xs h-8 px-1"
+                        onClick={() => setSelectedRecruiters(filteredRecruiters.map((r) => r.id))}
+                        disabled={filteredRecruiters.length === 0}
+                      >
+                        Select All
+                      </Button>
+                    )}
+                  </div>
+                </div>
+                <div className="space-y-2 max-h-[300px] sm:max-h-[400px] overflow-y-auto">
+                  {isLoadingRecruiters ? (
+                    <div className="flex items-center justify-center py-8">
+                      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                    </div>
+                  ) : filteredRecruiters.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <Users className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                      <p className="text-sm">No recruiters found</p>
+                    </div>
+                  ) : (
+                    filteredRecruiters.map((recruiter) => {
+                      const cooldownInfo = getCooldownInfo(recruiter.email);
+                      const isBlocked = cooldownInfo !== null;
 
-                        return (
-                          <div
-                            key={recruiter.id}
-                            onClick={() => toggleRecruiter(recruiter.id)}
-                            className={`p-3 rounded-lg border transition-all ${isBlocked
-                              ? "border-destructive/30 bg-destructive/5 opacity-60 cursor-not-allowed"
-                              : selectedRecruiters.includes(recruiter.id)
-                                ? "border-accent/50 bg-accent/10 cursor-pointer"
-                                : "border-border/50 bg-background/30 hover:border-border cursor-pointer"
-                              }`}
-                          >
-                            <div className="flex items-start gap-3">
-                              <Checkbox
-                                checked={selectedRecruiters.includes(recruiter.id)}
-                                onCheckedChange={() => toggleRecruiter(recruiter.id)}
-                                disabled={isBlocked}
-                              />
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2">
-                                  <User className="h-4 w-4 text-muted-foreground" />
-                                  <span className="font-medium text-sm truncate">{recruiter.name}</span>
-                                  {isBlocked && (
-                                    <Badge variant="destructive" className="text-xs shrink-0">
-                                      <Ban className="h-3 w-3 mr-1" />
-                                      {cooldownInfo.daysRemaining}d
-                                    </Badge>
-                                  )}
-                                </div>
-                                {recruiter.company && (
-                                  <div className="flex items-center gap-2 mt-1">
-                                    <Building2 className="h-3 w-3 text-muted-foreground" />
-                                    <span className="text-xs text-muted-foreground truncate">
-                                      {recruiter.company}
-                                    </span>
-                                  </div>
-                                )}
-                                <p className="text-xs text-muted-foreground mt-1 truncate">
-                                  {recruiter.email}
-                                </p>
+                      return (
+                        <div
+                          key={recruiter.id}
+                          onClick={() => toggleRecruiter(recruiter.id)}
+                          className={`p-3 rounded-lg border transition-all ${isBlocked
+                            ? "border-destructive/30 bg-destructive/5 opacity-60 cursor-not-allowed"
+                            : selectedRecruiters.includes(recruiter.id)
+                              ? "border-accent/50 bg-accent/10 cursor-pointer"
+                              : "border-border/50 bg-background/30 hover:border-border cursor-pointer"
+                            }`}
+                        >
+                          <div className="flex items-start gap-3">
+                            <Checkbox
+                              checked={selectedRecruiters.includes(recruiter.id)}
+                              onCheckedChange={() => toggleRecruiter(recruiter.id)}
+                              disabled={isBlocked}
+                            />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <User className="h-4 w-4 text-muted-foreground" />
+                                <span className="font-medium text-sm truncate">{recruiter.name}</span>
                                 {isBlocked && (
-                                  <p className="text-xs text-destructive mt-1">
-                                    Blocked for {cooldownInfo.daysRemaining} more day(s)
-                                  </p>
+                                  <Badge variant="destructive" className="text-xs shrink-0">
+                                    <Ban className="h-3 w-3 mr-1" />
+                                    {cooldownInfo.daysRemaining}d
+                                  </Badge>
                                 )}
                               </div>
-                              {!isBlocked && recruiter.domain && (
-                                <Badge variant="secondary" className="text-xs shrink-0">
-                                  {recruiter.domain}
-                                </Badge>
+                              {recruiter.company && (
+                                <div className="flex items-center gap-2 mt-1">
+                                  <Building2 className="h-3 w-3 text-muted-foreground" />
+                                  <span className="text-xs text-muted-foreground truncate">
+                                    {recruiter.company}
+                                  </span>
+                                </div>
+                              )}
+                              <p className="text-xs text-muted-foreground mt-1 truncate">
+                                {recruiter.email}
+                              </p>
+                              {isBlocked && (
+                                <p className="text-xs text-destructive mt-1">
+                                  Blocked for {cooldownInfo.daysRemaining} more day(s)
+                                </p>
                               )}
                             </div>
+                            {!isBlocked && recruiter.domain && (
+                              <Badge variant="secondary" className="text-xs shrink-0">
+                                {recruiter.domain}
+                              </Badge>
+                            )}
                           </div>
-                        );
-                      })
-                    )}
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        </div>
+      </main>
+    </div>
+
+    {/* Template Dialog */ }
+  <Dialog open={showTemplateDialog} onOpenChange={setShowTemplateDialog}>
+    <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+      <DialogHeader>
+        <DialogTitle>Select a Template</DialogTitle>
+        <DialogDescription>
+          Choose a template to quickly fill in your email subject and body
+        </DialogDescription>
+      </DialogHeader>
+      <div className="space-y-3 mt-4">
+        <div className="space-y-3 mt-4">
+          {templates.length === 0 ? (
+            <div className="text-center py-4 text-muted-foreground">
+              <p>No templates found. Create one in the Templates page.</p>
+            </div>
+          ) : (
+            templates.map((template: any) => (
+              <Card
+                key={template.id}
+                className="cursor-pointer hover:border-accent transition-colors"
+                onClick={() => handleSelectTemplate(template)}
+              >
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <h4 className="font-semibold text-foreground mb-1">{template.name}</h4>
+                      <p className="text-sm text-muted-foreground mb-2">
+                        <strong>Subject:</strong> {template.subject}
+                      </p>
+                      <p className="text-xs text-muted-foreground line-clamp-2">
+                        {template.body.substring(0, 150)}...
+                      </p>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
-            </motion.div>
-          </div>
-        </main>
+            ))
+          )}
+        </div>
       </div>
-
-      {/* Template Dialog */}
-      <Dialog open={showTemplateDialog} onOpenChange={setShowTemplateDialog}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Select a Template</DialogTitle>
-            <DialogDescription>
-              Choose a template to quickly fill in your email subject and body
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3 mt-4">
-            <div className="space-y-3 mt-4">
-              {templates.length === 0 ? (
-                <div className="text-center py-4 text-muted-foreground">
-                  <p>No templates found. Create one in the Templates page.</p>
-                </div>
-              ) : (
-                templates.map((template: any) => (
-                  <Card
-                    key={template.id}
-                    className="cursor-pointer hover:border-accent transition-colors"
-                    onClick={() => handleSelectTemplate(template)}
-                  >
-                    <CardContent className="p-4">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <h4 className="font-semibold text-foreground mb-1">{template.name}</h4>
-                          <p className="text-sm text-muted-foreground mb-2">
-                            <strong>Subject:</strong> {template.subject}
-                          </p>
-                          <p className="text-xs text-muted-foreground line-clamp-2">
-                            {template.body.substring(0, 150)}...
-                          </p>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))
-              )}
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-    </>
+    </DialogContent>
+  </Dialog>
+    </DashboardLayout >
   );
 };
 

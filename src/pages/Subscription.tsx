@@ -9,6 +9,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { PricingContainer, PricingPlan } from "@/components/ui/pricing-container";
 import SEOHead from "@/components/SEO/SEOHead";
 import StructuredData from "@/components/SEO/StructuredData";
+import DashboardLayout from "@/components/DashboardLayout";
 
 declare global {
   interface Window {
@@ -171,7 +172,7 @@ const Subscription = () => {
         handler: async (response: any) => {
           try {
             console.log("Payment successful, verifying...", response);
-            
+
             const { data: verifyData, error: verifyError } = await supabase.functions.invoke(
               "verify-razorpay-payment",
               {
@@ -193,11 +194,11 @@ const Subscription = () => {
 
             // Payment verified successfully
             toast.success("Subscription upgraded successfully!");
-            
+
             // Refresh both local and global profile to get updated subscription tier
             await fetchProfile();
             await refreshGlobalProfile();
-            
+
             // Navigate to dashboard
             setTimeout(() => {
               navigate("/dashboard");
@@ -206,7 +207,7 @@ const Subscription = () => {
             console.error("Payment verification error:", error);
             const errorMessage = error?.message || "Payment verification failed. Please contact support.";
             toast.error(`Payment verification failed: ${errorMessage}`);
-            
+
             // Stay on subscription page and refresh profile
             // User can try again or contact support
             await fetchProfile();
@@ -238,14 +239,14 @@ const Subscription = () => {
       };
 
       const razorpay = new window.Razorpay(options);
-      
+
       // Add error handler for Razorpay
       razorpay.on('payment.failed', function (response: any) {
         console.error("Payment failed:", response.error);
         toast.error(`Payment failed: ${response.error.description || 'Unknown error'}`);
         setProcessingPayment(null);
       });
-      
+
       razorpay.open();
     } catch (error: any) {
       console.error("Payment error:", error);
@@ -265,25 +266,25 @@ const Subscription = () => {
 
   const convertToPricingPlans = (): PricingPlan[] => {
     const currentTierLevel = getPlanLevel(profile.subscriptionTier);
-    
+
     return plans.map((plan, index) => {
       const monthlyPrice = plan.price;
-      const yearlyPrice = (plan.price === 0 || plan.duration_days === 0) 
-        ? 0 
+      const yearlyPrice = (plan.price === 0 || plan.duration_days === 0)
+        ? 0
         : Math.round(monthlyPrice * 12 * 0.8); // 20% discount for yearly
-      
+
       // Get this plan's tier level
       const planLevel = getPlanLevel(plan.name);
-      
+
       // Check if this is the current plan by comparing tier levels and names
       const isCurrent = planLevel === currentTierLevel && currentTierLevel >= 0;
-      
+
       // Check if this is a downgrade (lower tier than current)
       const isDowngrade = planLevel < currentTierLevel && planLevel >= 0;
-      
+
       // Check if this is an upgrade (higher tier than current)
       const isUpgrade = planLevel > currentTierLevel;
-      
+
       // Determine button text
       let buttonText = plan.button_text || "Upgrade";
       if (isCurrent) {
@@ -293,14 +294,14 @@ const Subscription = () => {
       } else if (plan.price === 0) {
         buttonText = "Free Plan";
       }
-      
+
       // Determine if button should be disabled
       // Disabled if: current plan, downgrade, free plan, or processing payment
       const isDisabled = isCurrent || isDowngrade || processingPayment === plan.id || plan.price === 0;
-      
+
       // Calculate the price to charge based on yearly toggle
       const priceToCharge = isYearly ? yearlyPrice : monthlyPrice;
-      
+
       return {
         id: plan.id,
         name: plan.display_name || plan.name,
@@ -325,7 +326,7 @@ const Subscription = () => {
   };
 
   return (
-    <>
+    <DashboardLayout>
       <SEOHead
         title="Subscription Plans & Pricing | JobSeeker - Choose Your Plan"
         description="Choose your subscription plan and upgrade your JobSeeker account. Free, Pro, and Pro Max plans available. Start automating your job search today."
@@ -334,73 +335,62 @@ const Subscription = () => {
         ogImage="/icon-512.png"
         ogImageAlt="Subscription Plans - JobSeeker"
       />
-      <StructuredData 
-        type="page" 
-        pageTitle="Subscription Plans" 
+      <StructuredData
+        type="page"
+        pageTitle="Subscription Plans"
         pageDescription="Choose your subscription plan and upgrade your JobSeeker account"
         pageUrl="/subscription"
       />
 
-      <div className="min-h-screen bg-background">
-        <div className="container mx-auto px-4 sm:px-6 py-6 sm:py-8 max-w-7xl">
-          {/* Header */}
-          <div className="mb-6 sm:mb-8">
-            <Button
-              variant="ghost"
-              onClick={() => navigate(-1)}
-              className="mb-4"
-            >
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Back
-            </Button>
-            
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5 }}
-              className="text-center"
-            >
-              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-accent/10 border border-accent/20 mb-4">
-                <CreditCard className="w-4 h-4 text-accent" />
-                <span className="text-sm font-medium text-accent">Subscription Management</span>
-              </div>
-              <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-foreground mb-4">
-                Choose Your Plan
-              </h1>
-              <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-                Select the perfect subscription plan for your job search needs. Upgrade anytime to unlock more features.
-              </p>
-            </motion.div>
-          </div>
+      <div className="container mx-auto px-4 sm:px-6 py-6 sm:py-8 max-w-7xl">
+        {/* Header */}
+        <div className="mb-6 sm:mb-8">
 
-          {/* Pricing Plans */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.2 }}
+            transition={{ duration: 0.5 }}
+            className="text-center"
           >
-            {loadingPlans ? (
-              <div className="flex justify-center py-12">
-                <Loader2 className="h-8 w-8 animate-spin text-accent" />
-              </div>
-            ) : (
-              <div className="bg-background rounded-lg p-4 sm:p-6">
-                <PricingContainer
-                  title="Subscription Plans"
-                  plans={convertToPricingPlans()}
-                  className="bg-transparent min-h-0"
-                  showYearlyToggle={true}
-                  isYearly={isYearly}
-                  onYearlyChange={setIsYearly}
-                />
-              </div>
-            )}
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-accent/10 border border-accent/20 mb-4">
+              <CreditCard className="w-4 h-4 text-accent" />
+              <span className="text-sm font-medium text-accent">Subscription Management</span>
+            </div>
+            <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-foreground mb-4">
+              Choose Your Plan
+            </h1>
+            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+              Select the perfect subscription plan for your job search needs. Upgrade anytime to unlock more features.
+            </p>
           </motion.div>
         </div>
+
+        {/* Pricing Plans */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.2 }}
+        >
+          {loadingPlans ? (
+            <div className="flex justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-accent" />
+            </div>
+          ) : (
+            <div className="bg-background rounded-lg p-4 sm:p-6">
+              <PricingContainer
+                title="Subscription Plans"
+                plans={convertToPricingPlans()}
+                className="bg-transparent min-h-0"
+                showYearlyToggle={true}
+                isYearly={isYearly}
+                onYearlyChange={setIsYearly}
+              />
+            </div>
+          )}
+        </motion.div>
       </div>
-    </>
+    </DashboardLayout>
   );
 };
 
 export default Subscription;
-

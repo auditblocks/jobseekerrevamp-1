@@ -36,6 +36,7 @@ import {
   Cell
 } from "recharts";
 import { format, subDays, startOfDay, parseISO } from "date-fns";
+import DashboardLayout from "@/components/DashboardLayout";
 
 interface EmailStats {
   totalSent: number;
@@ -87,7 +88,7 @@ const Analytics = () => {
   useEffect(() => {
     const fetchAnalytics = async () => {
       if (!user?.id) return;
-      
+
       setIsLoading(true);
       try {
         const { data: emails, error } = await supabase
@@ -129,7 +130,7 @@ const Analytics = () => {
           const dateStr = format(date, "yyyy-MM-dd");
           const dayStart = startOfDay(date).toISOString();
           const dayEnd = startOfDay(subDays(date, -1)).toISOString();
-          
+
           const dayEmails = emails.filter(e => {
             const sentAt = e.sent_at;
             return sentAt && sentAt >= dayStart && sentAt < dayEnd;
@@ -218,331 +219,254 @@ const Analytics = () => {
   ];
 
   return (
-    <>
+    <DashboardLayout>
       <Helmet>
         <title>Analytics | JobSeeker</title>
         <meta name="description" content="Track your email outreach performance with real-time analytics" />
       </Helmet>
 
-      <div className="min-h-screen bg-background">
-        {/* Header */}
-        <header className="sticky top-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-xl">
-          <div className="container mx-auto px-3 sm:px-4 py-3 sm:py-4">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-              <div className="flex items-center gap-2 sm:gap-4">
-                <Button variant="ghost" size="icon" onClick={() => navigate("/dashboard")}>
-                  <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5" />
-                </Button>
-                <div>
-                  <h1 className="text-lg sm:text-xl font-bold text-foreground">Analytics</h1>
-                  <p className="text-sm text-muted-foreground">Real-time outreach performance</p>
-                </div>
-              </div>
-              <Button variant="outline">
-                <Calendar className="h-4 w-4 mr-2" />
-                Last 30 Days
-              </Button>
+      <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-8">
+        {/* Action Header */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-6">
+          <div className="flex items-center gap-2 sm:gap-4">
+            <div>
+              <h1 className="text-lg sm:text-xl font-bold text-foreground">Analytics</h1>
+              <p className="text-sm text-muted-foreground">Real-time outreach performance</p>
             </div>
           </div>
-        </header>
+          <Button variant="outline">
+            <Calendar className="h-4 w-4 mr-2" />
+            Last 30 Days
+          </Button>
+        </div>
 
-        <main className="container mx-auto px-3 sm:px-4 py-4 sm:py-8">
-          {/* Key Metrics */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8"
-          >
-            {statCards.map((stat, index) => {
-              const Icon = stat.icon;
-              return (
-                <Card key={stat.label} className="border-border/50 bg-card/50">
-                  <CardContent className="p-4">
-                    {isLoading ? (
-                      <>
-                        <Skeleton className="h-5 w-5 mb-2" />
-                        <Skeleton className="h-8 w-16 mb-1" />
-                        <Skeleton className="h-4 w-20" />
-                      </>
-                    ) : (
-                      <>
-                        <div className="flex items-center justify-between mb-2">
-                          <Icon className={`h-5 w-5 ${stat.color}`} />
-                          {stat.rate !== undefined && (
-                            <Badge variant="secondary" className="text-xs text-success">
-                              {stat.rate}%
-                            </Badge>
-                          )}
-                          {stat.change && (
-                            <Badge variant="secondary" className="text-xs">
-                              <TrendingUp className="h-3 w-3 mr-1 text-success" />
-                              {stat.change}
-                            </Badge>
-                          )}
-                        </div>
-                        <p className="text-3xl font-bold">{stat.value}</p>
-                        <p className="text-sm text-muted-foreground">{stat.label}</p>
-                      </>
-                    )}
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </motion.div>
-
-          {/* Additional Stats Row */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.05 }}
-            className="grid grid-cols-2 md:grid-cols-2 gap-4 mb-8"
-          >
-            <Card className="border-border/50 bg-card/50">
-              <CardContent className="p-4">
-                {isLoading ? (
-                  <Skeleton className="h-16 w-full" />
-                ) : (
-                  <>
-                    <div className="flex items-center justify-between mb-2">
-                      <CheckCircle2 className="h-5 w-5 text-blue-500" />
-                      <Badge variant="secondary" className="text-xs">
-                        {stats.totalSent > 0 ? Math.round((stats.delivered / stats.totalSent) * 100) : 0}%
-                      </Badge>
-                    </div>
-                    <p className="text-3xl font-bold">{stats.delivered}</p>
-                    <p className="text-sm text-muted-foreground">Delivered</p>
-                  </>
-                )}
-              </CardContent>
-            </Card>
-            <Card className="border-border/50 bg-card/50">
-              <CardContent className="p-4">
-                {isLoading ? (
-                  <Skeleton className="h-16 w-full" />
-                ) : (
-                  <>
-                    <div className="flex items-center justify-between mb-2">
-                      <AlertCircle className="h-5 w-5 text-destructive" />
-                      <Badge variant="secondary" className="text-xs text-destructive">
-                        {stats.totalSent > 0 ? Math.round((stats.bounced / stats.totalSent) * 100) : 0}%
-                      </Badge>
-                    </div>
-                    <p className="text-3xl font-bold">{stats.bounced}</p>
-                    <p className="text-sm text-muted-foreground">Bounced</p>
-                  </>
-                )}
-              </CardContent>
-            </Card>
-          </motion.div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-            {/* Daily Trend Chart */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 }}
-              className="lg:col-span-2"
-            >
-              <Card className="border-border/50 bg-card/50">
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <CardTitle className="flex items-center gap-2">
-                        <BarChart3 className="h-5 w-5 text-accent" />
-                        Daily Performance
-                      </CardTitle>
-                      <CardDescription>Email activity over the past week</CardDescription>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent>
+        {/* Key Metrics */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8"
+        >
+          {statCards.map((stat, index) => {
+            const Icon = stat.icon;
+            return (
+              <Card key={stat.label} className="border-border/50 bg-card/50">
+                <CardContent className="p-4">
                   {isLoading ? (
-                    <Skeleton className="h-[300px] w-full" />
-                  ) : dailyStats.length === 0 || dailyStats.every(d => d.sent === 0) ? (
-                    <div className="h-[300px] flex items-center justify-center">
-                      <div className="text-center">
-                        <Mail className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                        <p className="text-muted-foreground">No email data yet</p>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="h-[300px]">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <LineChart data={dailyStats}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                          <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                          <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                          <Tooltip
-                            contentStyle={{
-                              backgroundColor: "hsl(var(--card))",
-                              border: "1px solid hsl(var(--border))",
-                              borderRadius: "8px",
-                            }}
-                          />
-                          <Line
-                            type="monotone"
-                            dataKey="sent"
-                            name="Sent"
-                            stroke="hsl(var(--accent))"
-                            strokeWidth={2}
-                            dot={{ fill: "hsl(var(--accent))" }}
-                          />
-                          <Line
-                            type="monotone"
-                            dataKey="opened"
-                            name="Opened"
-                            stroke="hsl(200, 80%, 50%)"
-                            strokeWidth={2}
-                            dot={{ fill: "hsl(200, 80%, 50%)" }}
-                          />
-                          <Line
-                            type="monotone"
-                            dataKey="clicked"
-                            name="Clicked"
-                            stroke="hsl(270, 80%, 60%)"
-                            strokeWidth={2}
-                            dot={{ fill: "hsl(270, 80%, 60%)" }}
-                          />
-                          <Line
-                            type="monotone"
-                            dataKey="replied"
-                            name="Replied"
-                            stroke="hsl(var(--success))"
-                            strokeWidth={2}
-                            dot={{ fill: "hsl(var(--success))" }}
-                          />
-                        </LineChart>
-                      </ResponsiveContainer>
-                    </div>
-                  )}
-                  <div className="flex items-center justify-center gap-6 mt-4">
-                    <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 rounded-full bg-accent" />
-                      <span className="text-sm text-muted-foreground">Sent</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 rounded-full" style={{ background: "hsl(200, 80%, 50%)" }} />
-                      <span className="text-sm text-muted-foreground">Opened</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 rounded-full" style={{ background: "hsl(270, 80%, 60%)" }} />
-                      <span className="text-sm text-muted-foreground">Clicked</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 rounded-full" style={{ background: "hsl(var(--success))" }} />
-                      <span className="text-sm text-muted-foreground">Replied</span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </motion.div>
-
-            {/* Status Distribution */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-            >
-              <Card className="border-border/50 bg-card/50 h-full">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <PieChart className="h-5 w-5 text-accent" />
-                    Status Distribution
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {isLoading ? (
-                    <Skeleton className="h-[200px] w-full" />
-                  ) : statusDistribution.length === 0 ? (
-                    <div className="h-[200px] flex items-center justify-center">
-                      <p className="text-muted-foreground">No data yet</p>
-                    </div>
+                    <>
+                      <Skeleton className="h-5 w-5 mb-2" />
+                      <Skeleton className="h-8 w-16 mb-1" />
+                      <Skeleton className="h-4 w-20" />
+                    </>
                   ) : (
                     <>
-                      <div className="h-[200px]">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <RechartsPie>
-                            <Pie
-                              data={statusDistribution}
-                              cx="50%"
-                              cy="50%"
-                              innerRadius={50}
-                              outerRadius={80}
-                              dataKey="value"
-                            >
-                              {statusDistribution.map((entry, index) => (
-                                <Cell key={`cell-${index}`} fill={entry.color} />
-                              ))}
-                            </Pie>
-                            <Tooltip
-                              contentStyle={{
-                                backgroundColor: "hsl(var(--card))",
-                                border: "1px solid hsl(var(--border))",
-                                borderRadius: "8px",
-                              }}
-                            />
-                          </RechartsPie>
-                        </ResponsiveContainer>
+                      <div className="flex items-center justify-between mb-2">
+                        <Icon className={`h-5 w-5 ${stat.color}`} />
+                        {stat.rate !== undefined && (
+                          <Badge variant="secondary" className="text-xs text-success">
+                            {stat.rate}%
+                          </Badge>
+                        )}
+                        {stat.change && (
+                          <Badge variant="secondary" className="text-xs">
+                            <TrendingUp className="h-3 w-3 mr-1 text-success" />
+                            {stat.change}
+                          </Badge>
+                        )}
                       </div>
-                      <div className="space-y-2 mt-4">
-                        {statusDistribution.map((item) => (
-                          <div key={item.name} className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <div
-                                className="w-3 h-3 rounded-full"
-                                style={{ background: item.color }}
-                              />
-                              <span className="text-sm">{item.name}</span>
-                            </div>
-                            <span className="text-sm font-medium">{item.value}</span>
-                          </div>
-                        ))}
-                      </div>
+                      <p className="text-3xl font-bold">{stat.value}</p>
+                      <p className="text-sm text-muted-foreground">{stat.label}</p>
                     </>
                   )}
                 </CardContent>
               </Card>
-            </motion.div>
-          </div>
+            );
+          })}
+        </motion.div>
 
-          {/* Domain Performance */}
+        {/* Additional Stats Row */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.05 }}
+          className="grid grid-cols-2 md:grid-cols-2 gap-4 mb-8"
+        >
+          <Card className="border-border/50 bg-card/50">
+            <CardContent className="p-4">
+              {isLoading ? (
+                <Skeleton className="h-16 w-full" />
+              ) : (
+                <>
+                  <div className="flex items-center justify-between mb-2">
+                    <CheckCircle2 className="h-5 w-5 text-blue-500" />
+                    <Badge variant="secondary" className="text-xs">
+                      {stats.totalSent > 0 ? Math.round((stats.delivered / stats.totalSent) * 100) : 0}%
+                    </Badge>
+                  </div>
+                  <p className="text-3xl font-bold">{stats.delivered}</p>
+                  <p className="text-sm text-muted-foreground">Delivered</p>
+                </>
+              )}
+            </CardContent>
+          </Card>
+          <Card className="border-border/50 bg-card/50">
+            <CardContent className="p-4">
+              {isLoading ? (
+                <Skeleton className="h-16 w-full" />
+              ) : (
+                <>
+                  <div className="flex items-center justify-between mb-2">
+                    <AlertCircle className="h-5 w-5 text-destructive" />
+                    <Badge variant="secondary" className="text-xs text-destructive">
+                      {stats.totalSent > 0 ? Math.round((stats.bounced / stats.totalSent) * 100) : 0}%
+                    </Badge>
+                  </div>
+                  <p className="text-3xl font-bold">{stats.bounced}</p>
+                  <p className="text-sm text-muted-foreground">Bounced</p>
+                </>
+              )}
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+          {/* Daily Trend Chart */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
+            transition={{ delay: 0.1 }}
+            className="lg:col-span-2"
           >
             <Card className="border-border/50 bg-card/50">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <TrendingUp className="h-5 w-5 text-accent" />
-                  Top Performing Domains
-                </CardTitle>
-                <CardDescription>Performance breakdown by domain</CardDescription>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <BarChart3 className="h-5 w-5 text-accent" />
+                      Daily Performance
+                    </CardTitle>
+                    <CardDescription>Email activity over the past week</CardDescription>
+                  </div>
+                </div>
               </CardHeader>
               <CardContent>
                 {isLoading ? (
-                  <Skeleton className="h-[250px] w-full" />
-                ) : domainPerformance.length === 0 ? (
-                  <div className="h-[250px] flex items-center justify-center">
+                  <Skeleton className="h-[300px] w-full" />
+                ) : dailyStats.length === 0 || dailyStats.every(d => d.sent === 0) ? (
+                  <div className="h-[300px] flex items-center justify-center">
                     <div className="text-center">
-                      <BarChart3 className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                      <p className="text-muted-foreground">No domain data yet</p>
+                      <Mail className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                      <p className="text-muted-foreground">No email data yet</p>
                     </div>
                   </div>
                 ) : (
+                  <div className="h-[300px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={dailyStats}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                        <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" fontSize={12} />
+                        <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor: "hsl(var(--card))",
+                            border: "1px solid hsl(var(--border))",
+                            borderRadius: "8px",
+                          }}
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="sent"
+                          name="Sent"
+                          stroke="hsl(var(--accent))"
+                          strokeWidth={2}
+                          dot={{ fill: "hsl(var(--accent))" }}
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="opened"
+                          name="Opened"
+                          stroke="hsl(200, 80%, 50%)"
+                          strokeWidth={2}
+                          dot={{ fill: "hsl(200, 80%, 50%)" }}
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="clicked"
+                          name="Clicked"
+                          stroke="hsl(270, 80%, 60%)"
+                          strokeWidth={2}
+                          dot={{ fill: "hsl(270, 80%, 60%)" }}
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="replied"
+                          name="Replied"
+                          stroke="hsl(var(--success))"
+                          strokeWidth={2}
+                          dot={{ fill: "hsl(var(--success))" }}
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
+                <div className="flex items-center justify-center gap-6 mt-4">
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full bg-accent" />
+                    <span className="text-sm text-muted-foreground">Sent</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full" style={{ background: "hsl(200, 80%, 50%)" }} />
+                    <span className="text-sm text-muted-foreground">Opened</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full" style={{ background: "hsl(270, 80%, 60%)" }} />
+                    <span className="text-sm text-muted-foreground">Clicked</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full" style={{ background: "hsl(var(--success))" }} />
+                    <span className="text-sm text-muted-foreground">Replied</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+
+          {/* Status Distribution */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+          >
+            <Card className="border-border/50 bg-card/50 h-full">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <PieChart className="h-5 w-5 text-accent" />
+                  Status Distribution
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {isLoading ? (
+                  <Skeleton className="h-[200px] w-full" />
+                ) : statusDistribution.length === 0 ? (
+                  <div className="h-[200px] flex items-center justify-center">
+                    <p className="text-muted-foreground">No data yet</p>
+                  </div>
+                ) : (
                   <>
-                    <div className="h-[250px]">
+                    <div className="h-[200px]">
                       <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={domainPerformance} layout="vertical">
-                          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                          <XAxis type="number" stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                          <YAxis
-                            dataKey="domain"
-                            type="category"
-                            stroke="hsl(var(--muted-foreground))"
-                            fontSize={12}
-                            width={100}
-                          />
+                        <RechartsPie>
+                          <Pie
+                            data={statusDistribution}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={50}
+                            outerRadius={80}
+                            dataKey="value"
+                          >
+                            {statusDistribution.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={entry.color} />
+                            ))}
+                          </Pie>
                           <Tooltip
                             contentStyle={{
                               backgroundColor: "hsl(var(--card))",
@@ -550,29 +474,97 @@ const Analytics = () => {
                               borderRadius: "8px",
                             }}
                           />
-                          <Bar dataKey="openRate" name="Open Rate %" fill="hsl(var(--accent))" radius={[0, 4, 4, 0]} />
-                          <Bar dataKey="clickRate" name="Click Rate %" fill="hsl(270, 80%, 60%)" radius={[0, 4, 4, 0]} />
-                        </BarChart>
+                        </RechartsPie>
                       </ResponsiveContainer>
                     </div>
-                    <div className="flex items-center justify-center gap-6 mt-4">
-                      <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 rounded-full bg-accent" />
-                        <span className="text-sm text-muted-foreground">Open Rate %</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 rounded-full" style={{ background: "hsl(270, 80%, 60%)" }} />
-                        <span className="text-sm text-muted-foreground">Click Rate %</span>
-                      </div>
+                    <div className="space-y-2 mt-4">
+                      {statusDistribution.map((item) => (
+                        <div key={item.name} className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <div
+                              className="w-3 h-3 rounded-full"
+                              style={{ background: item.color }}
+                            />
+                            <span className="text-sm">{item.name}</span>
+                          </div>
+                          <span className="text-sm font-medium">{item.value}</span>
+                        </div>
+                      ))}
                     </div>
                   </>
                 )}
               </CardContent>
             </Card>
           </motion.div>
-        </main>
+        </div>
+
+        {/* Domain Performance */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+        >
+          <Card className="border-border/50 bg-card/50">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <TrendingUp className="h-5 w-5 text-accent" />
+                Top Performing Domains
+              </CardTitle>
+              <CardDescription>Performance breakdown by domain</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {isLoading ? (
+                <Skeleton className="h-[250px] w-full" />
+              ) : domainPerformance.length === 0 ? (
+                <div className="h-[250px] flex items-center justify-center">
+                  <div className="text-center">
+                    <BarChart3 className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                    <p className="text-muted-foreground">No domain data yet</p>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="h-[250px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={domainPerformance} layout="vertical">
+                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                        <XAxis type="number" stroke="hsl(var(--muted-foreground))" fontSize={12} />
+                        <YAxis
+                          dataKey="domain"
+                          type="category"
+                          stroke="hsl(var(--muted-foreground))"
+                          fontSize={12}
+                          width={100}
+                        />
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor: "hsl(var(--card))",
+                            border: "1px solid hsl(var(--border))",
+                            borderRadius: "8px",
+                          }}
+                        />
+                        <Bar dataKey="openRate" name="Open Rate %" fill="hsl(var(--accent))" radius={[0, 4, 4, 0]} />
+                        <Bar dataKey="clickRate" name="Click Rate %" fill="hsl(270, 80%, 60%)" radius={[0, 4, 4, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <div className="flex items-center justify-center gap-6 mt-4">
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 rounded-full bg-accent" />
+                      <span className="text-sm text-muted-foreground">Open Rate %</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 rounded-full" style={{ background: "hsl(270, 80%, 60%)" }} />
+                      <span className="text-sm text-muted-foreground">Click Rate %</span>
+                    </div>
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
+        </motion.div>
       </div>
-    </>
+    </DashboardLayout>
   );
 };
 

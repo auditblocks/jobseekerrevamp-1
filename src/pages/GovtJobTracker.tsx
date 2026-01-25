@@ -41,6 +41,7 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+import DashboardLayout from "@/components/DashboardLayout";
 
 interface TrackedJob {
     id: string;
@@ -192,18 +193,16 @@ const GovtJobTracker = () => {
     );
 
     return (
-        <>
+        <DashboardLayout>
             <Helmet>
                 <title>My Job Tracker | JobSeeker</title>
             </Helmet>
 
-            <div className="min-h-screen bg-background pb-12">
-                <header className="sticky top-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-xl">
-                    <div className="container mx-auto px-4 py-4 flex items-center justify-between">
+            <div className="container mx-auto px-4 pt-8">
+                <div className="max-w-6xl mx-auto space-y-6">
+                    {/* Header */}
+                    <div className="flex items-center justify-between">
                         <div className="flex items-center gap-4">
-                            <Button variant="ghost" size="icon" onClick={() => navigate("/dashboard")}>
-                                <ArrowLeft className="h-5 w-5" />
-                            </Button>
                             <h1 className="text-xl font-bold">Job Tracker</h1>
                         </div>
                         <div className="flex gap-2">
@@ -213,167 +212,163 @@ const GovtJobTracker = () => {
                             </Button>
                         </div>
                     </div>
-                </header>
 
-                <main className="container mx-auto px-4 pt-8">
-                    <div className="max-w-6xl mx-auto space-y-6">
-                        {/* Summary Stats */}
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                            <Card>
-                                <CardContent className="p-4">
-                                    <p className="text-xs text-muted-foreground uppercase font-bold">Total Jobs</p>
-                                    <p className="text-2xl font-bold">{trackedJobs.length}</p>
-                                </CardContent>
-                            </Card>
-                            <Card>
-                                <CardContent className="p-4">
-                                    <p className="text-xs text-muted-foreground uppercase font-bold">Applied</p>
-                                    <p className="text-2xl font-bold text-success">
-                                        {trackedJobs.filter(j => j.application_status.toLowerCase() === 'applied').length}
-                                    </p>
-                                </CardContent>
-                            </Card>
-                            <Card>
-                                <CardContent className="p-4">
-                                    <p className="text-xs text-muted-foreground uppercase font-bold">Upcoming Exams</p>
-                                    <p className="text-2xl font-bold text-accent">
-                                        {trackedJobs.filter(j => j.exam_date && new Date(j.exam_date) > new Date()).length}
-                                    </p>
-                                </CardContent>
-                            </Card>
-                            <Card>
-                                <CardContent className="p-4">
-                                    <p className="text-xs text-muted-foreground uppercase font-bold">Success Rate</p>
-                                    <p className="text-2xl font-bold text-warning">--</p>
-                                </CardContent>
-                            </Card>
-                        </div>
-
-                        <div className="flex flex-col md:flex-row gap-4">
-                            <div className="relative flex-1">
-                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                <Input
-                                    placeholder="Filter your tracker..."
-                                    value={searchQuery}
-                                    onChange={(e) => setSearchQuery(e.target.value)}
-                                    className="pl-10"
-                                />
-                            </div>
-                        </div>
-
-                        {isLoading ? (
-                            <div className="flex justify-center py-20">
-                                <Loader2 className="h-8 w-8 animate-spin text-accent" />
-                            </div>
-                        ) : filteredJobs.length === 0 ? (
-                            <div className="text-center py-20 border rounded-2xl bg-card/50">
-                                <Clock className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-20" />
-                                <p className="text-muted-foreground">You haven't added any jobs to your tracker yet.</p>
-                                <Button variant="link" onClick={() => navigate("/government-jobs")} className="mt-2 text-accent">
-                                    Browse Govt. Jobs
-                                </Button>
-                            </div>
-                        ) : (
-                            <div className="rounded-xl border border-border overflow-hidden bg-card">
-                                <div className="overflow-x-auto">
-                                    <table className="w-full text-left border-collapse">
-                                        <thead>
-                                            <tr className="bg-muted/50 border-b border-border">
-                                                <th className="p-4 font-semibold text-sm">Job Details</th>
-                                                <th className="p-4 font-semibold text-sm">App. Status</th>
-                                                <th className="p-4 font-semibold text-sm">Payment</th>
-                                                <th className="p-4 font-semibold text-sm">Admit Card</th>
-                                                <th className="p-4 font-semibold text-sm">Exam Date</th>
-                                                <th className="p-4 font-semibold text-sm">Actions</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            <AnimatePresence>
-                                                {filteredJobs.map((job) => (
-                                                    <motion.tr
-                                                        key={job.id}
-                                                        initial={{ opacity: 0 }}
-                                                        animate={{ opacity: 1 }}
-                                                        exit={{ opacity: 0 }}
-                                                        className="border-b border-border/50 hover:bg-muted/20 transition-colors"
-                                                    >
-                                                        <td className="p-4">
-                                                            <p className="font-bold text-foreground text-sm leading-tight">{job.post_name}</p>
-                                                            <p className="text-xs text-muted-foreground mt-0.5">{job.organization}</p>
-                                                        </td>
-                                                        <td className="p-4">
-                                                            <Select
-                                                                defaultValue={job.application_status}
-                                                                onValueChange={(val) => handleUpdateStatus(job.id, { application_status: val })}
-                                                            >
-                                                                <SelectTrigger className={`w-[130px] h-8 text-xs ${getStatusColor(job.application_status)}`}>
-                                                                    <SelectValue />
-                                                                </SelectTrigger>
-                                                                <SelectContent>
-                                                                    <SelectItem value="Not Applied">Not Applied</SelectItem>
-                                                                    <SelectItem value="In Progress">In Progress</SelectItem>
-                                                                    <SelectItem value="Applied">Applied</SelectItem>
-                                                                    <SelectItem value="Cancelled">Cancelled</SelectItem>
-                                                                </SelectContent>
-                                                            </Select>
-                                                        </td>
-                                                        <td className="p-4">
-                                                            <Select
-                                                                defaultValue={job.payment_status}
-                                                                onValueChange={(val) => handleUpdateStatus(job.id, { payment_status: val })}
-                                                            >
-                                                                <SelectTrigger className={`w-[120px] h-8 text-xs ${getStatusColor(job.payment_status)}`}>
-                                                                    <SelectValue />
-                                                                </SelectTrigger>
-                                                                <SelectContent>
-                                                                    <SelectItem value="Pending">Pending</SelectItem>
-                                                                    <SelectItem value="Paid">Paid</SelectItem>
-                                                                    <SelectItem value="Failed">Failed</SelectItem>
-                                                                    <SelectItem value="Refunded">Refunded</SelectItem>
-                                                                </SelectContent>
-                                                            </Select>
-                                                        </td>
-                                                        <td className="p-4">
-                                                            <Badge variant="outline" className={`font-normal text-[10px] ${getStatusColor(job.admit_card_status)}`}>
-                                                                {job.admit_card_status}
-                                                            </Badge>
-                                                        </td>
-                                                        <td className="p-4 text-sm whitespace-nowrap">
-                                                            {job.exam_date ? format(new Date(job.exam_date), 'MMM dd, yyyy') : '--'}
-                                                        </td>
-                                                        <td className="p-4">
-                                                            <div className="flex gap-2">
-                                                                <Button
-                                                                    variant="ghost"
-                                                                    size="icon"
-                                                                    className="h-8 w-8 text-muted-foreground hover:text-accent"
-                                                                    onClick={() => {
-                                                                        setEditingJob(job);
-                                                                        setIsEditDialogOpen(true);
-                                                                    }}
-                                                                >
-                                                                    <Edit2 className="h-4 w-4" />
-                                                                </Button>
-                                                                <Button
-                                                                    variant="ghost"
-                                                                    size="icon"
-                                                                    className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                                                                    onClick={() => handleDelete(job.id)}
-                                                                >
-                                                                    <Trash2 className="h-4 w-4" />
-                                                                </Button>
-                                                            </div>
-                                                        </td>
-                                                    </motion.tr>
-                                                ))}
-                                            </AnimatePresence>
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        )}
+                    {/* Summary Stats */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <Card>
+                            <CardContent className="p-4">
+                                <p className="text-xs text-muted-foreground uppercase font-bold">Total Jobs</p>
+                                <p className="text-2xl font-bold">{trackedJobs.length}</p>
+                            </CardContent>
+                        </Card>
+                        <Card>
+                            <CardContent className="p-4">
+                                <p className="text-xs text-muted-foreground uppercase font-bold">Applied</p>
+                                <p className="text-2xl font-bold text-success">
+                                    {trackedJobs.filter(j => j.application_status.toLowerCase() === 'applied').length}
+                                </p>
+                            </CardContent>
+                        </Card>
+                        <Card>
+                            <CardContent className="p-4">
+                                <p className="text-xs text-muted-foreground uppercase font-bold">Upcoming Exams</p>
+                                <p className="text-2xl font-bold text-accent">
+                                    {trackedJobs.filter(j => j.exam_date && new Date(j.exam_date) > new Date()).length}
+                                </p>
+                            </CardContent>
+                        </Card>
+                        <Card>
+                            <CardContent className="p-4">
+                                <p className="text-xs text-muted-foreground uppercase font-bold">Success Rate</p>
+                                <p className="text-2xl font-bold text-warning">--</p>
+                            </CardContent>
+                        </Card>
                     </div>
-                </main>
+
+                    <div className="flex flex-col md:flex-row gap-4">
+                        <div className="relative flex-1">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            <Input
+                                placeholder="Filter your tracker..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className="pl-10"
+                            />
+                        </div>
+                    </div>
+
+                    {isLoading ? (
+                        <div className="flex justify-center py-20">
+                            <Loader2 className="h-8 w-8 animate-spin text-accent" />
+                        </div>
+                    ) : filteredJobs.length === 0 ? (
+                        <div className="text-center py-20 border rounded-2xl bg-card/50">
+                            <Clock className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-20" />
+                            <p className="text-muted-foreground">You haven't added any jobs to your tracker yet.</p>
+                            <Button variant="link" onClick={() => navigate("/government-jobs")} className="mt-2 text-accent">
+                                Browse Govt. Jobs
+                            </Button>
+                        </div>
+                    ) : (
+                        <div className="rounded-xl border border-border overflow-hidden bg-card">
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left border-collapse">
+                                    <thead>
+                                        <tr className="bg-muted/50 border-b border-border">
+                                            <th className="p-4 font-semibold text-sm">Job Details</th>
+                                            <th className="p-4 font-semibold text-sm">App. Status</th>
+                                            <th className="p-4 font-semibold text-sm">Payment</th>
+                                            <th className="p-4 font-semibold text-sm">Admit Card</th>
+                                            <th className="p-4 font-semibold text-sm">Exam Date</th>
+                                            <th className="p-4 font-semibold text-sm">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <AnimatePresence>
+                                            {filteredJobs.map((job) => (
+                                                <motion.tr
+                                                    key={job.id}
+                                                    initial={{ opacity: 0 }}
+                                                    animate={{ opacity: 1 }}
+                                                    exit={{ opacity: 0 }}
+                                                    className="border-b border-border/50 hover:bg-muted/20 transition-colors"
+                                                >
+                                                    <td className="p-4">
+                                                        <p className="font-bold text-foreground text-sm leading-tight">{job.post_name}</p>
+                                                        <p className="text-xs text-muted-foreground mt-0.5">{job.organization}</p>
+                                                    </td>
+                                                    <td className="p-4">
+                                                        <Select
+                                                            defaultValue={job.application_status}
+                                                            onValueChange={(val) => handleUpdateStatus(job.id, { application_status: val })}
+                                                        >
+                                                            <SelectTrigger className={`w-[130px] h-8 text-xs ${getStatusColor(job.application_status)}`}>
+                                                                <SelectValue />
+                                                            </SelectTrigger>
+                                                            <SelectContent>
+                                                                <SelectItem value="Not Applied">Not Applied</SelectItem>
+                                                                <SelectItem value="In Progress">In Progress</SelectItem>
+                                                                <SelectItem value="Applied">Applied</SelectItem>
+                                                                <SelectItem value="Cancelled">Cancelled</SelectItem>
+                                                            </SelectContent>
+                                                        </Select>
+                                                    </td>
+                                                    <td className="p-4">
+                                                        <Select
+                                                            defaultValue={job.payment_status}
+                                                            onValueChange={(val) => handleUpdateStatus(job.id, { payment_status: val })}
+                                                        >
+                                                            <SelectTrigger className={`w-[120px] h-8 text-xs ${getStatusColor(job.payment_status)}`}>
+                                                                <SelectValue />
+                                                            </SelectTrigger>
+                                                            <SelectContent>
+                                                                <SelectItem value="Pending">Pending</SelectItem>
+                                                                <SelectItem value="Paid">Paid</SelectItem>
+                                                                <SelectItem value="Failed">Failed</SelectItem>
+                                                                <SelectItem value="Refunded">Refunded</SelectItem>
+                                                            </SelectContent>
+                                                        </Select>
+                                                    </td>
+                                                    <td className="p-4">
+                                                        <Badge variant="outline" className={`font-normal text-[10px] ${getStatusColor(job.admit_card_status)}`}>
+                                                            {job.admit_card_status}
+                                                        </Badge>
+                                                    </td>
+                                                    <td className="p-4 text-sm whitespace-nowrap">
+                                                        {job.exam_date ? format(new Date(job.exam_date), 'MMM dd, yyyy') : '--'}
+                                                    </td>
+                                                    <td className="p-4">
+                                                        <div className="flex gap-2">
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="h-8 w-8 text-muted-foreground hover:text-accent"
+                                                                onClick={() => {
+                                                                    setEditingJob(job);
+                                                                    setIsEditDialogOpen(true);
+                                                                }}
+                                                            >
+                                                                <Edit2 className="h-4 w-4" />
+                                                            </Button>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                                                                onClick={() => handleDelete(job.id)}
+                                                            >
+                                                                <Trash2 className="h-4 w-4" />
+                                                            </Button>
+                                                        </div>
+                                                    </td>
+                                                </motion.tr>
+                                            ))}
+                                        </AnimatePresence>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    )}
+                </div>
             </div>
 
             <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
@@ -462,7 +457,7 @@ const GovtJobTracker = () => {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
-        </>
+        </DashboardLayout>
     );
 };
 

@@ -34,6 +34,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { PricingContainer, PricingPlan } from "@/components/ui/pricing-container";
+import DashboardLayout from "@/components/DashboardLayout";
 
 declare global {
   interface Window {
@@ -82,7 +83,7 @@ const Settings = () => {
   const { user } = useAuth();
   const photoInputRef = useRef<HTMLInputElement>(null);
   const resumeInputRef = useRef<HTMLInputElement>(null);
-  
+
   const [profile, setProfile] = useState({
     name: "",
     email: "",
@@ -174,7 +175,7 @@ const Settings = () => {
           profilePhotoUrl: data.profile_photo_url || "",
         });
         setSignature(`Best regards,\n${data.name || "Your Name"}\n${data.professional_title || ""}\n${data.email || ""}`);
-        
+
         const prefs = data.preferences as any;
         if (prefs?.notifications) {
           setNotifications({
@@ -211,7 +212,7 @@ const Settings = () => {
 
   const handleSaveProfile = async () => {
     if (!user?.id) return;
-    
+
     try {
       const { error } = await supabase
         .from("profiles")
@@ -265,10 +266,10 @@ const Settings = () => {
         .getPublicUrl(filePath);
 
       // Validate the URL before using it
-      const photoUrl = urlData?.publicUrl 
+      const photoUrl = urlData?.publicUrl
         ? `${urlData.publicUrl}?t=${Date.now()}`
         : null;
-      
+
       if (!photoUrl) {
         throw new Error("Failed to generate photo URL");
       }
@@ -349,7 +350,7 @@ const Settings = () => {
   const handleResumeUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
-    
+
     for (const file of Array.from(files)) {
       await uploadResumeFile(file);
     }
@@ -579,11 +580,11 @@ const Settings = () => {
       const monthlyPrice = plan.price;
       // Calculate yearly price (assuming 30 days = 1 month, so 12 months = 360 days)
       // If duration is 0 (forever) or price is 0, keep it as 0
-      const yearlyPrice = (plan.price === 0 || plan.duration_days === 0) 
-        ? 0 
+      const yearlyPrice = (plan.price === 0 || plan.duration_days === 0)
+        ? 0
         : (plan.duration_days === 30 ? monthlyPrice * 12 : monthlyPrice * 12);
       const isCurrent = profile.subscriptionTier === plan.id;
-      
+
       return {
         id: plan.id,
         name: plan.display_name || plan.name,
@@ -593,7 +594,7 @@ const Settings = () => {
         isPopular: plan.is_recommended || false,
         accent: getAccentColor(plan.name, index),
         isCurrent: isCurrent,
-        buttonText: isCurrent 
+        buttonText: isCurrent
           ? (plan.button_disabled_text || "Current Plan")
           : (plan.button_text || "Upgrade"),
         onButtonClick: () => {
@@ -621,410 +622,399 @@ const Settings = () => {
   };
 
   return (
-    <>
+    <DashboardLayout>
       <Helmet>
         <title>Settings | JobSeeker</title>
         <meta name="description" content="Manage your account settings and preferences" />
       </Helmet>
 
-      <div className="min-h-screen bg-background">
-        <header className="sticky top-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-xl">
-          <div className="container mx-auto px-3 sm:px-4 py-3 sm:py-4">
-            <div className="flex items-center gap-2 sm:gap-4">
-              <Button variant="ghost" size="icon" onClick={() => navigate("/dashboard")}>
-                <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5" />
-              </Button>
-              <div>
-                <h1 className="text-lg sm:text-xl font-bold text-foreground">Settings</h1>
-                <p className="text-xs sm:text-sm text-muted-foreground hidden sm:block">Manage your account</p>
-              </div>
-            </div>
+      <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-8">
+        <div className="flex items-center gap-2 sm:gap-4 mb-6">
+          <div>
+            <h1 className="text-lg sm:text-xl font-bold text-foreground">Settings</h1>
+            <p className="text-xs sm:text-sm text-muted-foreground">Manage your account</p>
           </div>
-        </header>
+        </div>
 
-        <main className="container mx-auto px-3 sm:px-4 py-4 sm:py-8">
-          <Tabs defaultValue="profile" className="space-y-8">
-            <TabsList className="bg-card/50 border border-border/50 p-1">
-              <TabsTrigger value="profile" className="data-[state=active]:bg-accent data-[state=active]:text-accent-foreground">
-                <User className="h-4 w-4 mr-2" />
-                Profile
-              </TabsTrigger>
-              <TabsTrigger value="resume" className="data-[state=active]:bg-accent data-[state=active]:text-accent-foreground">
-                <FileText className="h-4 w-4 mr-2" />
-                Resume
-              </TabsTrigger>
-              <TabsTrigger value="notifications" className="data-[state=active]:bg-accent data-[state=active]:text-accent-foreground">
-                <Bell className="h-4 w-4 mr-2" />
-                Notifications
-              </TabsTrigger>
-              <TabsTrigger value="subscription" className="data-[state=active]:bg-accent data-[state=active]:text-accent-foreground">
-                <CreditCard className="h-4 w-4 mr-2" />
-                Subscription
-              </TabsTrigger>
-            </TabsList>
+        <Tabs defaultValue="profile" className="space-y-8">
+          <TabsList className="bg-card/50 border border-border/50 p-1">
+            <TabsTrigger value="profile" className="data-[state=active]:bg-accent data-[state=active]:text-accent-foreground">
+              <User className="h-4 w-4 mr-2" />
+              Profile
+            </TabsTrigger>
+            <TabsTrigger value="resume" className="data-[state=active]:bg-accent data-[state=active]:text-accent-foreground">
+              <FileText className="h-4 w-4 mr-2" />
+              Resume
+            </TabsTrigger>
+            <TabsTrigger value="notifications" className="data-[state=active]:bg-accent data-[state=active]:text-accent-foreground">
+              <Bell className="h-4 w-4 mr-2" />
+              Notifications
+            </TabsTrigger>
+            <TabsTrigger value="subscription" className="data-[state=active]:bg-accent data-[state=active]:text-accent-foreground">
+              <CreditCard className="h-4 w-4 mr-2" />
+              Subscription
+            </TabsTrigger>
+          </TabsList>
 
-            {/* Profile Tab */}
-            <TabsContent value="profile">
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="grid grid-cols-1 lg:grid-cols-3 gap-6"
-              >
-                <Card className="border-border/50 bg-card/50">
-                  <CardHeader>
-                    <CardTitle>Profile Photo</CardTitle>
-                  </CardHeader>
-                  <CardContent className="flex flex-col items-center gap-4">
-                    <Avatar className="h-24 w-24">
-                      <AvatarImage src={profile.profilePhotoUrl} />
-                      <AvatarFallback className="bg-accent/20 text-accent text-2xl">
-                        {profile.name.split(" ").map(n => n[0]).join("").toUpperCase() || "U"}
-                      </AvatarFallback>
-                    </Avatar>
-                    <input
-                      ref={photoInputRef}
-                      type="file"
-                      accept="image/*"
-                      onChange={handlePhotoUpload}
-                      className="hidden"
-                    />
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      onClick={() => photoInputRef.current?.click()}
-                      disabled={uploadingPhoto}
-                    >
-                      {uploadingPhoto ? (
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      ) : (
-                        <Upload className="h-4 w-4 mr-2" />
-                      )}
-                      {uploadingPhoto ? "Uploading..." : "Upload Photo"}
-                    </Button>
-                  </CardContent>
-                </Card>
+          {/* Profile Tab */}
+          <TabsContent value="profile">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="grid grid-cols-1 lg:grid-cols-3 gap-6"
+            >
+              <Card className="border-border/50 bg-card/50">
+                <CardHeader>
+                  <CardTitle>Profile Photo</CardTitle>
+                </CardHeader>
+                <CardContent className="flex flex-col items-center gap-4">
+                  <Avatar className="h-24 w-24">
+                    <AvatarImage src={profile.profilePhotoUrl} />
+                    <AvatarFallback className="bg-accent/20 text-accent text-2xl">
+                      {profile.name.split(" ").map(n => n[0]).join("").toUpperCase() || "U"}
+                    </AvatarFallback>
+                  </Avatar>
+                  <input
+                    ref={photoInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handlePhotoUpload}
+                    className="hidden"
+                  />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => photoInputRef.current?.click()}
+                    disabled={uploadingPhoto}
+                  >
+                    {uploadingPhoto ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Upload className="h-4 w-4 mr-2" />
+                    )}
+                    {uploadingPhoto ? "Uploading..." : "Upload Photo"}
+                  </Button>
+                </CardContent>
+              </Card>
 
-                <Card className="border-border/50 bg-card/50 lg:col-span-2">
-                  <CardHeader>
-                    <CardTitle>Personal Information</CardTitle>
-                    <CardDescription>Update your profile details</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="text-sm font-medium mb-2 block">Full Name</label>
-                        <Input
-                          value={profile.name}
-                          onChange={(e) => setProfile({ ...profile, name: e.target.value })}
-                          className="bg-background/50"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium mb-2 block">Email</label>
-                        <Input
-                          value={profile.email}
-                          disabled
-                          className="bg-background/50 opacity-60"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium mb-2 block">Phone</label>
-                        <Input
-                          value={profile.phone}
-                          onChange={(e) => setProfile({ ...profile, phone: e.target.value })}
-                          className="bg-background/50"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium mb-2 block">Location</label>
-                        <Input
-                          value={profile.location}
-                          onChange={(e) => setProfile({ ...profile, location: e.target.value })}
-                          className="bg-background/50"
-                        />
-                      </div>
-                    </div>
+              <Card className="border-border/50 bg-card/50 lg:col-span-2">
+                <CardHeader>
+                  <CardTitle>Personal Information</CardTitle>
+                  <CardDescription>Update your profile details</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="text-sm font-medium mb-2 block">Professional Title</label>
+                      <label className="text-sm font-medium mb-2 block">Full Name</label>
                       <Input
-                        value={profile.professionalTitle}
-                        onChange={(e) => setProfile({ ...profile, professionalTitle: e.target.value })}
+                        value={profile.name}
+                        onChange={(e) => setProfile({ ...profile, name: e.target.value })}
                         className="bg-background/50"
                       />
                     </div>
                     <div>
-                      <label className="text-sm font-medium mb-2 block">Bio</label>
-                      <Textarea
-                        value={profile.bio}
-                        onChange={(e) => setProfile({ ...profile, bio: e.target.value })}
-                        className="bg-background/50 resize-none"
-                        rows={3}
+                      <label className="text-sm font-medium mb-2 block">Email</label>
+                      <Input
+                        value={profile.email}
+                        disabled
+                        className="bg-background/50 opacity-60"
                       />
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="text-sm font-medium mb-2 block">LinkedIn URL</label>
-                        <Input
-                          value={profile.linkedinUrl}
-                          onChange={(e) => setProfile({ ...profile, linkedinUrl: e.target.value })}
-                          className="bg-background/50"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium mb-2 block">Portfolio URL</label>
-                        <Input
-                          value={profile.portfolioUrl}
-                          onChange={(e) => setProfile({ ...profile, portfolioUrl: e.target.value })}
-                          className="bg-background/50"
-                        />
-                      </div>
+                    <div>
+                      <label className="text-sm font-medium mb-2 block">Phone</label>
+                      <Input
+                        value={profile.phone}
+                        onChange={(e) => setProfile({ ...profile, phone: e.target.value })}
+                        className="bg-background/50"
+                      />
                     </div>
-                    <Button variant="hero" onClick={handleSaveProfile}>
-                      <Save className="h-4 w-4 mr-2" />
-                      Save Changes
-                    </Button>
-                  </CardContent>
-                </Card>
-
-                <Card className="border-border/50 bg-card/50 lg:col-span-3">
-                  <CardHeader>
-                    <CardTitle>Email Signature</CardTitle>
-                    <CardDescription>Your signature will be appended to all emails</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
+                    <div>
+                      <label className="text-sm font-medium mb-2 block">Location</label>
+                      <Input
+                        value={profile.location}
+                        onChange={(e) => setProfile({ ...profile, location: e.target.value })}
+                        className="bg-background/50"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">Professional Title</label>
+                    <Input
+                      value={profile.professionalTitle}
+                      onChange={(e) => setProfile({ ...profile, professionalTitle: e.target.value })}
+                      className="bg-background/50"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">Bio</label>
                     <Textarea
-                      value={signature}
-                      onChange={(e) => setSignature(e.target.value)}
-                      className="bg-background/50 resize-none font-mono text-sm"
-                      rows={5}
+                      value={profile.bio}
+                      onChange={(e) => setProfile({ ...profile, bio: e.target.value })}
+                      className="bg-background/50 resize-none"
+                      rows={3}
                     />
-                    <Button variant="outline" onClick={() => toast.success("Signature saved!")}>
-                      <Save className="h-4 w-4 mr-2" />
-                      Save Signature
-                    </Button>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            </TabsContent>
-
-            {/* Resume Tab */}
-            <TabsContent value="resume">
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="space-y-6"
-              >
-                <Card className="border-border/50 bg-card/50">
-                  <CardHeader>
-                    <CardTitle>Resume Management</CardTitle>
-                    <CardDescription>Upload and manage multiple resume versions</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <input
-                      ref={resumeInputRef}
-                      type="file"
-                      accept=".pdf,.doc,.docx"
-                      onChange={handleResumeUpload}
-                      multiple
-                      className="hidden"
-                    />
-                    
-                    {/* Drag and Drop Zone */}
-                    <div 
-                      className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-all ${
-                        isDragging 
-                          ? "border-accent bg-accent/10" 
-                          : "border-border/50 hover:border-accent/50"
-                      }`}
-                      onClick={() => resumeInputRef.current?.click()}
-                      onDragOver={handleDragOver}
-                      onDragLeave={handleDragLeave}
-                      onDrop={handleDrop}
-                    >
-                      <FileText className={`h-12 w-12 mx-auto mb-4 ${isDragging ? "text-accent" : "text-muted-foreground"}`} />
-                      <h3 className="text-lg font-medium mb-2">
-                        {isDragging ? "Drop your resume here" : "Drag & drop your resume"}
-                      </h3>
-                      <p className="text-sm text-muted-foreground mb-4">
-                        or click to browse • PDF or DOCX, max 5MB
-                      </p>
-                      <Button variant="hero" disabled={uploadingResume}>
-                        {uploadingResume ? (
-                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        ) : (
-                          <Upload className="h-4 w-4 mr-2" />
-                        )}
-                        {uploadingResume ? "Uploading..." : "Choose Files"}
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Resume List */}
-                {loadingResumes ? (
-                  <div className="flex justify-center py-8">
-                    <Loader2 className="h-8 w-8 animate-spin text-accent" />
                   </div>
-                ) : resumes.length > 0 ? (
-                  <Card className="border-border/50 bg-card/50">
-                    <CardHeader>
-                      <CardTitle>Your Resumes ({resumes.length})</CardTitle>
-                      <CardDescription>Click the star to set as primary resume for email attachments</CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                      {resumes.map((resume) => (
-                        <div
-                          key={resume.id}
-                          className={`flex items-center justify-between p-4 rounded-lg border transition-colors ${
-                            resume.is_primary 
-                              ? "border-accent bg-accent/5" 
-                              : "border-border/50 hover:border-border"
-                          }`}
-                        >
-                          <div className="flex items-center gap-3">
-                            <div className={`p-2 rounded-lg ${resume.is_primary ? "bg-accent/20" : "bg-muted"}`}>
-                              <File className={`h-5 w-5 ${resume.is_primary ? "text-accent" : "text-muted-foreground"}`} />
-                            </div>
-                            <div>
-                              <div className="flex items-center gap-2">
-                                <p className="font-medium">{resume.file_name}</p>
-                                {resume.is_primary && (
-                                  <Badge className="bg-accent text-accent-foreground text-xs">Primary</Badge>
-                                )}
-                              </div>
-                              <p className="text-sm text-muted-foreground">
-                                {formatFileSize(resume.file_size)} • Uploaded {new Date(resume.created_at).toLocaleDateString()}
-                              </p>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleSetPrimary(resume.id)}
-                              title={resume.is_primary ? "Primary resume" : "Set as primary"}
-                            >
-                              {resume.is_primary ? (
-                                <Star className="h-4 w-4 text-accent fill-accent" />
-                              ) : (
-                                <StarOff className="h-4 w-4 text-muted-foreground" />
-                              )}
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => window.open(resume.file_url, "_blank")}
-                              title="Download"
-                            >
-                              <Download className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleDeleteResume(resume.id, resume.file_url)}
-                              title="Delete"
-                            >
-                              <Trash2 className="h-4 w-4 text-destructive" />
-                            </Button>
-                          </div>
-                        </div>
-                      ))}
-                    </CardContent>
-                  </Card>
-                ) : null}
-              </motion.div>
-            </TabsContent>
-
-            {/* Notifications Tab */}
-            <TabsContent value="notifications">
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-              >
-                <Card className="border-border/50 bg-card/50">
-                  <CardHeader>
-                    <CardTitle>Notification Preferences</CardTitle>
-                    <CardDescription>Choose how you want to be notified</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-6">
-                    {[
-                      { key: "emailNotifications", label: "Email Notifications", description: "Receive updates via email" },
-                      { key: "inAppNotifications", label: "In-App Notifications", description: "Show notifications in the app" },
-                      { key: "weeklySummary", label: "Weekly Summary", description: "Get a weekly summary of your activity" },
-                      { key: "responseAlerts", label: "Response Alerts", description: "Get notified when recruiters respond" },
-                    ].map((item) => (
-                      <div key={item.key} className="flex items-center justify-between">
-                        <div>
-                          <p className="font-medium">{item.label}</p>
-                          <p className="text-sm text-muted-foreground">{item.description}</p>
-                        </div>
-                        <Switch
-                          checked={notifications[item.key as keyof typeof notifications]}
-                          onCheckedChange={(checked) =>
-                            setNotifications({ ...notifications, [item.key]: checked })
-                          }
-                        />
-                      </div>
-                    ))}
-                    <Button variant="hero" onClick={handleSaveNotifications} disabled={savingNotifications}>
-                      {savingNotifications && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                      <Save className="h-4 w-4 mr-2" />
-                      Save Preferences
-                    </Button>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            </TabsContent>
-
-            {/* Subscription Tab */}
-            <TabsContent value="subscription">
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-              >
-                {loadingPlans ? (
-                  <div className="flex justify-center py-12">
-                    <Loader2 className="h-8 w-8 animate-spin text-accent" />
-                  </div>
-                ) : (
-                  <div className="space-y-6">
-                    <div className="bg-background rounded-lg p-4">
-                      <PricingContainer
-                        title="Subscription Plans"
-                        plans={convertToPricingPlans()}
-                        className="bg-transparent min-h-0"
-                        showYearlyToggle={true}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-sm font-medium mb-2 block">LinkedIn URL</label>
+                      <Input
+                        value={profile.linkedinUrl}
+                        onChange={(e) => setProfile({ ...profile, linkedinUrl: e.target.value })}
+                        className="bg-background/50"
                       />
                     </div>
-                    
-                    {/* Order History Link */}
-                    <Card>
-                      <CardContent className="p-6">
-                        <div className="flex items-center justify-between">
+                    <div>
+                      <label className="text-sm font-medium mb-2 block">Portfolio URL</label>
+                      <Input
+                        value={profile.portfolioUrl}
+                        onChange={(e) => setProfile({ ...profile, portfolioUrl: e.target.value })}
+                        className="bg-background/50"
+                      />
+                    </div>
+                  </div>
+                  <Button variant="hero" onClick={handleSaveProfile}>
+                    <Save className="h-4 w-4 mr-2" />
+                    Save Changes
+                  </Button>
+                </CardContent>
+              </Card>
+
+              <Card className="border-border/50 bg-card/50 lg:col-span-3">
+                <CardHeader>
+                  <CardTitle>Email Signature</CardTitle>
+                  <CardDescription>Your signature will be appended to all emails</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <Textarea
+                    value={signature}
+                    onChange={(e) => setSignature(e.target.value)}
+                    className="bg-background/50 resize-none font-mono text-sm"
+                    rows={5}
+                  />
+                  <Button variant="outline" onClick={() => toast.success("Signature saved!")}>
+                    <Save className="h-4 w-4 mr-2" />
+                    Save Signature
+                  </Button>
+                </CardContent>
+              </Card>
+            </motion.div>
+          </TabsContent>
+
+          {/* Resume Tab */}
+          <TabsContent value="resume">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="space-y-6"
+            >
+              <Card className="border-border/50 bg-card/50">
+                <CardHeader>
+                  <CardTitle>Resume Management</CardTitle>
+                  <CardDescription>Upload and manage multiple resume versions</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <input
+                    ref={resumeInputRef}
+                    type="file"
+                    accept=".pdf,.doc,.docx"
+                    onChange={handleResumeUpload}
+                    multiple
+                    className="hidden"
+                  />
+
+                  {/* Drag and Drop Zone */}
+                  <div
+                    className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-all ${isDragging
+                        ? "border-accent bg-accent/10"
+                        : "border-border/50 hover:border-accent/50"
+                      }`}
+                    onClick={() => resumeInputRef.current?.click()}
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    onDrop={handleDrop}
+                  >
+                    <FileText className={`h-12 w-12 mx-auto mb-4 ${isDragging ? "text-accent" : "text-muted-foreground"}`} />
+                    <h3 className="text-lg font-medium mb-2">
+                      {isDragging ? "Drop your resume here" : "Drag & drop your resume"}
+                    </h3>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      or click to browse • PDF or DOCX, max 5MB
+                    </p>
+                    <Button variant="hero" disabled={uploadingResume}>
+                      {uploadingResume ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <Upload className="h-4 w-4 mr-2" />
+                      )}
+                      {uploadingResume ? "Uploading..." : "Choose Files"}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Resume List */}
+              {loadingResumes ? (
+                <div className="flex justify-center py-8">
+                  <Loader2 className="h-8 w-8 animate-spin text-accent" />
+                </div>
+              ) : resumes.length > 0 ? (
+                <Card className="border-border/50 bg-card/50">
+                  <CardHeader>
+                    <CardTitle>Your Resumes ({resumes.length})</CardTitle>
+                    <CardDescription>Click the star to set as primary resume for email attachments</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {resumes.map((resume) => (
+                      <div
+                        key={resume.id}
+                        className={`flex items-center justify-between p-4 rounded-lg border transition-colors ${resume.is_primary
+                            ? "border-accent bg-accent/5"
+                            : "border-border/50 hover:border-border"
+                          }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className={`p-2 rounded-lg ${resume.is_primary ? "bg-accent/20" : "bg-muted"}`}>
+                            <File className={`h-5 w-5 ${resume.is_primary ? "text-accent" : "text-muted-foreground"}`} />
+                          </div>
                           <div>
-                            <h3 className="text-lg font-semibold mb-1">Order History</h3>
+                            <div className="flex items-center gap-2">
+                              <p className="font-medium">{resume.file_name}</p>
+                              {resume.is_primary && (
+                                <Badge className="bg-accent text-accent-foreground text-xs">Primary</Badge>
+                              )}
+                            </div>
                             <p className="text-sm text-muted-foreground">
-                              View all your subscription purchases and receipts
+                              {formatFileSize(resume.file_size)} • Uploaded {new Date(resume.created_at).toLocaleDateString()}
                             </p>
                           </div>
+                        </div>
+                        <div className="flex items-center gap-2">
                           <Button
-                            variant="outline"
-                            onClick={() => navigate("/order-history")}
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleSetPrimary(resume.id)}
+                            title={resume.is_primary ? "Primary resume" : "Set as primary"}
                           >
-                            <Receipt className="mr-2 h-4 w-4" />
-                            View Orders
+                            {resume.is_primary ? (
+                              <Star className="h-4 w-4 text-accent fill-accent" />
+                            ) : (
+                              <StarOff className="h-4 w-4 text-muted-foreground" />
+                            )}
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => window.open(resume.file_url, "_blank")}
+                            title="Download"
+                          >
+                            <Download className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDeleteResume(resume.id, resume.file_url)}
+                            title="Delete"
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
                           </Button>
                         </div>
-                      </CardContent>
-                    </Card>
+                      </div>
+                    ))}
+                  </CardContent>
+                </Card>
+              ) : null}
+            </motion.div>
+          </TabsContent>
+
+          {/* Notifications Tab */}
+          <TabsContent value="notifications">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+            >
+              <Card className="border-border/50 bg-card/50">
+                <CardHeader>
+                  <CardTitle>Notification Preferences</CardTitle>
+                  <CardDescription>Choose how you want to be notified</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {[
+                    { key: "emailNotifications", label: "Email Notifications", description: "Receive updates via email" },
+                    { key: "inAppNotifications", label: "In-App Notifications", description: "Show notifications in the app" },
+                    { key: "weeklySummary", label: "Weekly Summary", description: "Get a weekly summary of your activity" },
+                    { key: "responseAlerts", label: "Response Alerts", description: "Get notified when recruiters respond" },
+                  ].map((item) => (
+                    <div key={item.key} className="flex items-center justify-between">
+                      <div>
+                        <p className="font-medium">{item.label}</p>
+                        <p className="text-sm text-muted-foreground">{item.description}</p>
+                      </div>
+                      <Switch
+                        checked={notifications[item.key as keyof typeof notifications]}
+                        onCheckedChange={(checked) =>
+                          setNotifications({ ...notifications, [item.key]: checked })
+                        }
+                      />
+                    </div>
+                  ))}
+                  <Button variant="hero" onClick={handleSaveNotifications} disabled={savingNotifications}>
+                    {savingNotifications && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                    <Save className="h-4 w-4 mr-2" />
+                    Save Preferences
+                  </Button>
+                </CardContent>
+              </Card>
+            </motion.div>
+          </TabsContent>
+
+          {/* Subscription Tab */}
+          <TabsContent value="subscription">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+            >
+              {loadingPlans ? (
+                <div className="flex justify-center py-12">
+                  <Loader2 className="h-8 w-8 animate-spin text-accent" />
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  <div className="bg-background rounded-lg p-4">
+                    <PricingContainer
+                      title="Subscription Plans"
+                      plans={convertToPricingPlans()}
+                      className="bg-transparent min-h-0"
+                      showYearlyToggle={true}
+                    />
                   </div>
-                )}
-              </motion.div>
-            </TabsContent>
-          </Tabs>
-        </main>
+
+                  {/* Order History Link */}
+                  <Card>
+                    <CardContent className="p-6">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h3 className="text-lg font-semibold mb-1">Order History</h3>
+                          <p className="text-sm text-muted-foreground">
+                            View all your subscription purchases and receipts
+                          </p>
+                        </div>
+                        <Button
+                          variant="outline"
+                          onClick={() => navigate("/order-history")}
+                        >
+                          <Receipt className="mr-2 h-4 w-4" />
+                          View Orders
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
+            </motion.div>
+          </TabsContent>
+        </Tabs>
       </div>
-    </>
+    </DashboardLayout>
   );
 };
 
