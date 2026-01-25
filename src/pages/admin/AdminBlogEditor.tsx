@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -8,8 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { ArrowLeft, Save, Loader2, Upload } from "lucide-react";
-import ReactQuill from "react-quill";
-import "react-quill/dist/quill.snow.css";
+import TiptapEditor from "@/components/ui/tiptap-editor";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { compressImage } from "@/lib/image-compression";
 import { useRef } from "react";
@@ -53,7 +52,7 @@ const AdminBlogEditor = () => {
                 .single();
 
             if (error) throw error;
-            setFormData(data);
+            setFormData(data as any);
         } catch (error) {
             console.error("Error fetching blog:", error);
             toast.error("Failed to fetch blog details");
@@ -159,6 +158,8 @@ const AdminBlogEditor = () => {
         }
     };
 
+
+
     if (loading) {
         return (
             <div className="flex justify-center items-center h-screen">
@@ -242,27 +243,10 @@ const AdminBlogEditor = () => {
                                 <div className="space-y-2">
                                     <Label>Content</Label>
                                     <div className="prose-editor h-[500px] mb-12">
-                                        <ReactQuill
-                                            theme="snow"
+                                        <TiptapEditor
                                             value={formData.content}
                                             onChange={(value) => handleChange("content", value)}
-                                            className="h-[450px]"
-                                            formats={[
-                                                'header', 'bold', 'italic', 'underline', 'strike', 'blockquote',
-                                                'list', 'bullet', 'indent', 'link', 'image', 'table'
-                                            ]}
-                                            modules={{
-                                                toolbar: [
-                                                    [{ 'header': [1, 2, 3, false] }],
-                                                    ['bold', 'italic', 'underline', 'strike', 'blockquote'],
-                                                    [{ 'list': 'ordered' }, { 'list': 'bullet' }, { 'indent': '-1' }, { 'indent': '+1' }],
-                                                    ['link', 'image', 'table'],
-                                                    ['clean']
-                                                ],
-                                                clipboard: {
-                                                    matchVisual: false,
-                                                },
-                                            }}
+                                            className="min-h-[500px]"
                                         />
                                         <div className="mb-12" />
                                     </div>
