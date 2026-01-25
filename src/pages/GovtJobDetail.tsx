@@ -346,7 +346,7 @@ const GovtJobDetail = () => {
                                     Detailed Notification Overview
                                 </h2>
                                 <div
-                                    className="prose prose-invert max-w-none text-muted-foreground leading-relaxed marker:text-accent selection:bg-accent/20"
+                                    className="prose max-w-none text-foreground/80 leading-relaxed marker:text-accent selection:bg-accent/20"
                                     dangerouslySetInnerHTML={{ __html: job.description || "No detailed description available." }}
                                 />
                             </div>

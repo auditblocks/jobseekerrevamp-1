@@ -140,31 +140,38 @@
 
   /* Custom Prose Table Styling */
   .prose table {
-    @apply w-full border-collapse border border-border/60 mt-6 mb-6 rounded-lg overflow-hidden;
+    @apply w-full border-collapse border border-border/80 mt-6 mb-6 rounded-lg overflow-hidden shadow-sm;
   }
 
   .prose th,
   .prose td {
-    @apply border border-border/60 p-3 text-sm text-left;
+    @apply border border-border/80 p-4 text-sm text-left leading-relaxed;
   }
 
   .prose th {
-    @apply bg-muted font-bold text-foreground uppercase tracking-wider text-[10px];
+    @apply bg-muted/60 font-bold text-foreground uppercase tracking-wider text-[11px] py-3;
   }
 
   .prose tr:nth-child(even) {
-    @apply bg-muted/30;
+    @apply bg-muted/20;
   }
 
   /* Quill Editor Table Support */
   .ql-editor table {
-    @apply border-collapse border border-border/60 !important;
+    @apply border-collapse border border-border/80 !important;
     width: 100%;
+    margin: 1rem 0;
   }
 
   .ql-editor td,
   .ql-editor th {
-    @apply border border-border/60 p-2 !important;
+    @apply border border-border/80 p-3 !important;
+    min-width: 100px;
+    height: 40px;
+  }
+
+  .ql-editor th {
+    @apply bg-muted/40 font-bold !important;
   }
 }
 

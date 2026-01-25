@@ -247,16 +247,24 @@ const AdminBlogEditor = () => {
                                             value={formData.content}
                                             onChange={(value) => handleChange("content", value)}
                                             className="h-[450px]"
+                                            formats={[
+                                                'header', 'bold', 'italic', 'underline', 'strike', 'blockquote',
+                                                'list', 'bullet', 'indent', 'link', 'image', 'table'
+                                            ]}
                                             modules={{
                                                 toolbar: [
                                                     [{ 'header': [1, 2, 3, false] }],
                                                     ['bold', 'italic', 'underline', 'strike', 'blockquote'],
                                                     [{ 'list': 'ordered' }, { 'list': 'bullet' }, { 'indent': '-1' }, { 'indent': '+1' }],
-                                                    ['link', 'image'],
+                                                    ['link', 'image', 'table'],
                                                     ['clean']
                                                 ],
+                                                clipboard: {
+                                                    matchVisual: false,
+                                                },
                                             }}
                                         />
+                                        <div className="mb-12" />
                                     </div>
                                 </div>
                             </div>

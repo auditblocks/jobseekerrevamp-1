@@ -264,17 +264,25 @@ const AdminGovtJobEditor = () => {
                                                     value={formData.description}
                                                     onChange={(value) => handleChange("description", value)}
                                                     className="h-[430px]"
+                                                    formats={[
+                                                        'header', 'bold', 'italic', 'underline', 'strike',
+                                                        'list', 'bullet', 'indent', 'link', 'table'
+                                                    ]}
                                                     modules={{
                                                         toolbar: [
                                                             [{ 'header': [1, 2, 3, false] }],
                                                             ['bold', 'italic', 'underline', 'strike'],
                                                             [{ 'list': 'ordered' }, { 'list': 'bullet' }],
                                                             [{ 'indent': '-1' }, { 'indent': '+1' }],
-                                                            ['link'],
+                                                            ['link', 'table'],
                                                             ['clean']
                                                         ],
+                                                        clipboard: {
+                                                            matchVisual: false,
+                                                        },
                                                     }}
                                                 />
+                                                <div className="mb-12" />
                                             </div>
                                         </div>
                                     </div>
