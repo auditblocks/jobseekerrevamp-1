@@ -1136,51 +1136,50 @@ Best regards,
             </Card>
           </motion.div>
         </div>
-      </main>
-    </div>
-
-    {/* Template Dialog */ }
-  <Dialog open={showTemplateDialog} onOpenChange={setShowTemplateDialog}>
-    <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-      <DialogHeader>
-        <DialogTitle>Select a Template</DialogTitle>
-        <DialogDescription>
-          Choose a template to quickly fill in your email subject and body
-        </DialogDescription>
-      </DialogHeader>
-      <div className="space-y-3 mt-4">
-        <div className="space-y-3 mt-4">
-          {templates.length === 0 ? (
-            <div className="text-center py-4 text-muted-foreground">
-              <p>No templates found. Create one in the Templates page.</p>
-            </div>
-          ) : (
-            templates.map((template: any) => (
-              <Card
-                key={template.id}
-                className="cursor-pointer hover:border-accent transition-colors"
-                onClick={() => handleSelectTemplate(template)}
-              >
-                <CardContent className="p-4">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <h4 className="font-semibold text-foreground mb-1">{template.name}</h4>
-                      <p className="text-sm text-muted-foreground mb-2">
-                        <strong>Subject:</strong> {template.subject}
-                      </p>
-                      <p className="text-xs text-muted-foreground line-clamp-2">
-                        {template.body.substring(0, 150)}...
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))
-          )}
-        </div>
       </div>
-    </DialogContent>
-  </Dialog>
+
+      {/* Template Dialog */}
+      <Dialog open={showTemplateDialog} onOpenChange={setShowTemplateDialog}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Select a Template</DialogTitle>
+            <DialogDescription>
+              Choose a template to quickly fill in your email subject and body
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 mt-4">
+            <div className="space-y-3 mt-4">
+              {templates.length === 0 ? (
+                <div className="text-center py-4 text-muted-foreground">
+                  <p>No templates found. Create one in the Templates page.</p>
+                </div>
+              ) : (
+                templates.map((template: any) => (
+                  <Card
+                    key={template.id}
+                    className="cursor-pointer hover:border-accent transition-colors"
+                    onClick={() => handleSelectTemplate(template)}
+                  >
+                    <CardContent className="p-4">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <h4 className="font-semibold text-foreground mb-1">{template.name}</h4>
+                          <p className="text-sm text-muted-foreground mb-2">
+                            <strong>Subject:</strong> {template.subject}
+                          </p>
+                          <p className="text-xs text-muted-foreground line-clamp-2">
+                            {template.body.substring(0, 150)}...
+                          </p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))
+              )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </DashboardLayout >
   );
 };
