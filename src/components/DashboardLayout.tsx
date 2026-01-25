@@ -19,7 +19,8 @@ import {
     LogOut,
     Menu,
     X,
-    Sparkles
+    Sparkles,
+    PanelLeft
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -35,12 +36,27 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
     const location = useLocation();
     const { user, profile, isSuperadmin, signOut } = useAuth();
     const [sidebarOpen, setSidebarOpen] = useState(false);
+
+    // Initialize collapsed state from localStorage to persist across navigation
+    const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
+        if (typeof window !== 'undefined') {
+            return localStorage.getItem("sidebarCollapsed") === "true";
+        }
+        return false;
+    });
+
     const isProUser = profile?.subscription_tier === "PRO" || profile?.subscription_tier === "PRO_MAX";
 
     const handleSignOut = async () => {
         await signOut();
         toast.success("Signed out successfully");
         navigate("/");
+    };
+
+    const toggleSidebar = () => {
+        const newState = !isSidebarCollapsed;
+        setIsSidebarCollapsed(newState);
+        localStorage.setItem("sidebarCollapsed", String(newState));
     };
 
     const navItems = [
@@ -60,7 +76,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
         ...(isSuperadmin ? [{ icon: Shield, label: "Admin Portal", path: "/admin" }] : []),
     ];
 
-    // Close sidebar on navigation
+    // Close mobile sidebar on navigation
     useEffect(() => {
         setSidebarOpen(false);
     }, [location.pathname]);
@@ -68,7 +84,11 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
     return (
         <div className="min-h-screen bg-background flex">
             {/* Sidebar */}
-            <aside className={`fixed inset-y-0 left-0 z-50 w-64 bg-sidebar transform transition-transform duration-300 lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+            <aside
+                className={`fixed inset-y-0 left-0 z-50 w-64 bg-sidebar transform transition-transform duration-300 
+                ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} 
+                ${isSidebarCollapsed ? 'lg:-translate-x-full' : 'lg:translate-x-0'}`}
+            >
                 <div className="flex flex-col h-full">
                     {/* Logo */}
                     <div className="flex items-center gap-2 px-6 py-6 border-b border-sidebar-border">
@@ -155,7 +175,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
             </AnimatePresence>
 
             {/* Main Content */}
-            <div className="flex-1 lg:ml-64 flex flex-col min-w-0">
+            <div className={`flex-1 flex flex-col min-w-0 transition-all duration-300 ${isSidebarCollapsed ? 'lg:ml-0' : 'lg:ml-64'}`}>
                 {/* Top Bar */}
                 <header className="sticky top-0 z-30 flex items-center justify-between gap-4 px-4 sm:px-6 py-3 bg-background/80 backdrop-blur-xl border-b border-border">
                     <div className="flex items-center gap-3 sm:gap-4">
@@ -165,6 +185,16 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                         >
                             <Menu className="w-5 h-5 sm:w-6 sm:h-6" />
                         </button>
+
+                        {/* Desktop Sidebar Toggle */}
+                        <button
+                            onClick={toggleSidebar}
+                            className="hidden lg:flex items-center justify-center p-2 rounded-lg hover:bg-accent/10 text-foreground/60 hover:text-accent transition-colors"
+                            title={isSidebarCollapsed ? "Show Sidebar" : "Hide Sidebar"}
+                        >
+                            <PanelLeft className={`w-5 h-5 transition-transform ${isSidebarCollapsed ? 'rotate-180' : ''}`} />
+                        </button>
+
                         <h1 className="text-lg sm:text-xl font-bold text-foreground">
                             {navItems.find(item => item.path === location.pathname)?.label || "Dashboard"}
                         </h1>
