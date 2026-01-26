@@ -270,9 +270,9 @@ serve(async (req) => {
 
     // Helper function to try generating content with different models (supports Vision API)
     const tryGenerateContent = async (prompt: any) => {
-      // Use gemini-2.0-flash-exp as primary (API key configured for this model)
-      // Fallback to gemini-1.5-pro if gemini-2.0-flash-exp fails
-      const modelNames = ["gemini-2.0-flash-exp"];
+      // Use gemini-1.5-flash as primary for stability and quota
+      // Fallback to gemini-1.5-pro if gemini-1.5-flash fails
+      const modelNames = ["gemini-1.5-flash"];
 
       for (const modelName of modelNames) {
         try {
