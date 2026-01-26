@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
+import { GoogleGenerativeAI } from "https://esm.sh/@google/generative-ai@0.21.0";
 
 const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
@@ -22,7 +23,7 @@ serve(async (req) => {
     try {
         const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
         const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-        const lovableApiKey = Deno.env.get("LOVABLE_API_KEY")!;
+        const geminiApiKey = Deno.env.get("GEMINI_API_KEY")!;
 
         const authHeader = req.headers.get("Authorization");
         if (!authHeader) {
@@ -32,6 +33,9 @@ serve(async (req) => {
         const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
         const { jobId, examName, postName, organization, count = 10 }: GenerateRequest = await req.json();
+
+        const genAI = new GoogleGenerativeAI(geminiApiKey);
+        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
         const systemPrompt = `You are an expert government job examination coach in India. 
 Generate a set of practice questions for the following job profile.
@@ -61,32 +65,11 @@ Exam Name: ${examName || "General Recruitment"}
 Post Name: ${postName}
 Organization: ${organization}
 
-Ensure the level of difficulty matches the standard for this government sector role.`;
+Ensure the level of difficulty matches the standard for this government sector role. Respond ONLY with the JSON array.`;
 
-        const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-            method: "POST",
-            headers: {
-                Authorization: `Bearer ${lovableApiKey}`,
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-                model: "google/gemini-2.0-flash-exp",
-                messages: [
-                    { role: "system", content: systemPrompt },
-                    { role: "user", content: userPrompt }
-                ],
-                temperature: 0.7,
-            }),
-        });
-
-        if (!response.ok) {
-            const errorText = await response.text();
-            console.error("AI API error:", response.status, errorText);
-            throw new Error("Failed to generate questions");
-        }
-
-        const aiData = await response.json();
-        const content = aiData.choices?.[0]?.message?.content;
+        const result = await model.generateContent(`${systemPrompt}\n\n${userPrompt}`);
+        const response = await result.response;
+        const content = response.text();
 
         // Parse JSON
         let questions;
