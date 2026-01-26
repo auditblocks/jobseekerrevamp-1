@@ -203,13 +203,29 @@ const GovtJobs = () => {
                                             </div>
                                         </div>
 
-                                        <Button
-                                            variant="secondary"
-                                            className="w-full mt-4 bg-muted/50 group-hover:bg-accent group-hover:text-accent-foreground transition-all duration-300 font-bold"
-                                        >
-                                            {!user ? "Sign Up to View Details" : "View Details"}
-                                            <ChevronRight className="h-4 w-4 ml-2" />
-                                        </Button>
+                                        <div className="grid grid-cols-2 gap-3 mt-4">
+                                            <Button
+                                                variant="outline"
+                                                className="w-full bg-accent/5 hover:bg-accent hover:text-white transition-all duration-300 font-bold"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    if (!user) {
+                                                        navigate("/auth?mode=signup&redirect=" + encodeURIComponent(`/govt-jobs/exam/${job.id}`));
+                                                    } else {
+                                                        navigate(`/govt-jobs/exam/${job.id}`);
+                                                    }
+                                                }}
+                                            >
+                                                Practice Test
+                                            </Button>
+                                            <Button
+                                                variant="secondary"
+                                                className="w-full bg-muted/50 group-hover:bg-accent group-hover:text-accent-foreground transition-all duration-300 font-bold"
+                                            >
+                                                {!user ? "Sign Up" : "View Details"}
+                                                <ChevronRight className="h-4 w-4 ml-1" />
+                                            </Button>
+                                        </div>
                                     </CardContent>
                                 </Card>
                             </motion.div>

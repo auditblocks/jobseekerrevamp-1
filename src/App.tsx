@@ -39,6 +39,8 @@ const BlogDetail = lazy(() => import("./pages/BlogDetail"));
 const GovtJobs = lazy(() => import("./pages/GovtJobs"));
 const GovtJobDetail = lazy(() => import("./pages/GovtJobDetail"));
 const GovtJobTracker = lazy(() => import("./pages/GovtJobTracker"));
+const GovtJobExam = lazy(() => import("./pages/GovtJobExam"));
+const GovtJobAnalytics = lazy(() => import("./pages/GovtJobAnalytics"));
 
 // Admin pages - lazy loaded
 const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));
@@ -60,6 +62,7 @@ const AdminOrderHistory = lazy(() => import("./pages/admin/AdminOrderHistory"));
 const AdminEmailCooldowns = lazy(() => import("./pages/admin/AdminEmailCooldowns"));
 const AdminGovtJobs = lazy(() => import("./pages/admin/AdminGovtJobs"));
 const AdminGovtJobEditor = lazy(() => import("./pages/admin/AdminGovtJobEditor"));
+const AdminExamQuestions = lazy(() => import("./pages/admin/AdminExamQuestions"));
 
 
 
@@ -101,6 +104,8 @@ const App = () => (
                   <Route path="/government-jobs" element={<GovtJobs />} />
                   <Route path="/government-jobs/:slug" element={<GovtJobDetail />} />
                   <Route path="/govt-jobs/tracker" element={<GovtJobTracker />} />
+                  <Route path="/govt-jobs/exam/:jobId" element={<GovtJobExam />} />
+                  <Route path="/govt-jobs/analytics" element={<GovtJobAnalytics />} />
 
                   {/* Legal & Info Pages */}
                   <Route path="/about" element={<About />} />
@@ -137,6 +142,7 @@ const App = () => (
                   <Route path="/admin/govt-jobs" element={<AdminGovtJobs />} />
                   <Route path="/admin/govt-jobs/new" element={<AdminGovtJobEditor />} />
                   <Route path="/admin/govt-jobs/:id" element={<AdminGovtJobEditor />} />
+                  <Route path="/admin/govt-jobs/:jobId/questions" element={<AdminExamQuestions />} />
 
                   {/* Public Blog Routes */}
                   <Route path="/blog" element={<BlogListing />} />

@@ -12,7 +12,7 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Edit, Trash2, Plus, Search, Building2, Calendar } from "lucide-react";
+import { Edit, Trash2, Plus, Search, Building2, Calendar, FileQuestion } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { AdminLayout } from "@/components/admin/AdminLayout";
@@ -159,6 +159,11 @@ const AdminGovtJobs = () => {
                                             </TableCell>
                                             <TableCell className="text-right">
                                                 <div className="flex justify-end gap-2">
+                                                    <Link to={`/admin/govt-jobs/${job.id}/questions`}>
+                                                        <Button variant="ghost" size="icon" title="Manage Exam Questions">
+                                                            <FileQuestion className="w-4 h-4 text-primary" />
+                                                        </Button>
+                                                    </Link>
                                                     <Link to={`/admin/govt-jobs/${job.id}`}>
                                                         <Button variant="ghost" size="icon">
                                                             <Edit className="w-4 h-4 text-accent" />
