@@ -18,17 +18,17 @@ serve(async (req) => {
 
   try {
     console.log("=== extract-resume-data function called ===");
-    
+
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-    
+
     if (!supabaseUrl || !supabaseServiceKey) {
       return new Response(
         JSON.stringify({ error: "Server configuration error" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
-    
+
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Get auth token
@@ -42,7 +42,7 @@ serve(async (req) => {
 
     const token = authHeader.replace("Bearer ", "");
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-    
+
     if (authError || !user) {
       return new Response(
         JSON.stringify({ error: "Unauthorized" }),
@@ -75,14 +75,12 @@ serve(async (req) => {
 
     // Model names to try (in order of preference)
     const modelNames = [
-      "gemini-2.5-flash",
-      "gemini-1.5-pro",
-      "gemini-1.5-flash",
+      "gemini-3-flash-preview",
     ];
 
     const tryGenerateContent = async (prompt: string) => {
       let lastError: Error | null = null;
-      
+
       for (const modelName of modelNames) {
         try {
           console.log(`Trying model: ${modelName}`);
@@ -95,7 +93,7 @@ serve(async (req) => {
           // Continue to next model
         }
       }
-      
+
       throw lastError || new Error("All models failed");
     };
 
@@ -184,26 +182,26 @@ The goal is to extract data while maintaining the professional, polished appeara
     console.log("Successfully extracted structured resume data");
 
     return new Response(
-      JSON.stringify({ 
+      JSON.stringify({
         success: true,
-        data: structuredData 
+        data: structuredData
       }),
-      { 
-        status: 200, 
-        headers: { ...corsHeaders, "Content-Type": "application/json" } 
+      {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" }
       }
     );
 
   } catch (error: any) {
     console.error("Extraction error:", error);
     return new Response(
-      JSON.stringify({ 
-        error: "Failed to extract resume data", 
-        details: error.message 
+      JSON.stringify({
+        error: "Failed to extract resume data",
+        details: error.message
       }),
-      { 
-        status: 500, 
-        headers: { ...corsHeaders, "Content-Type": "application/json" } 
+      {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" }
       }
     );
   }

@@ -28,7 +28,7 @@ serve(async (req) => {
 
     const authHeader = req.headers.get("Authorization");
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
-    
+
     let userId: string | null = null;
     if (authHeader) {
       const token = authHeader.replace("Bearer ", "");
@@ -55,7 +55,7 @@ ${context ? `\nContext: ${context}` : ""}`;
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model: "google/gemini-3-flash-preview",
         messages: [
           { role: "system", content: systemPrompt },
           ...messages

@@ -26,7 +26,7 @@ serve(async (req) => {
     }
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
-    
+
     const token = authHeader.replace("Bearer ", "");
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     if (authError || !user) {
@@ -60,7 +60,7 @@ serve(async (req) => {
     const lastMessage = thread.conversation_messages
       ?.sort((a: any, b: any) => new Date(b.sent_at).getTime() - new Date(a.sent_at).getTime())[0];
 
-    const daysSinceLastContact = lastMessage 
+    const daysSinceLastContact = lastMessage
       ? Math.floor((Date.now() - new Date(lastMessage.sent_at).getTime()) / (1000 * 60 * 60 * 24))
       : 7;
 
@@ -88,7 +88,7 @@ Return your response as JSON with "subject", "body", "priority" (low/medium/high
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model: "google/gemini-3-flash-preview",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt }

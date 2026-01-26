@@ -23,21 +23,21 @@ serve(async (req) => {
   try {
     console.log("=== analyze-resume-ats function called ===");
     console.log("Method:", req.method);
-    
+
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-    
+
     if (!supabaseUrl || !supabaseServiceKey) {
-      console.error("Missing environment variables:", { 
-        hasUrl: !!supabaseUrl, 
-        hasKey: !!supabaseServiceKey 
+      console.error("Missing environment variables:", {
+        hasUrl: !!supabaseUrl,
+        hasKey: !!supabaseServiceKey
       });
       return new Response(
         JSON.stringify({ error: "Server configuration error" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
-    
+
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Get auth token
@@ -51,7 +51,7 @@ serve(async (req) => {
 
     const token = authHeader.replace("Bearer ", "");
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-    
+
     if (authError || !user) {
       return new Response(
         JSON.stringify({ error: "Unauthorized" }),
@@ -90,9 +90,9 @@ serve(async (req) => {
     // Validate resume content - check for empty strings and invalid data URLs
     const hasResumeText = resume_text && typeof resume_text === 'string' && resume_text.trim().length > 0;
     const hasFilePath = file_path && typeof file_path === 'string' && file_path.trim().length > 0;
-    const hasFileUrl = file_url && typeof file_url === 'string' && file_url.trim().length > 0 && 
-                       !file_url.startsWith('data:;base64,') && // Filter out invalid data URLs
-                       !file_url.startsWith('data:;base64,='); // Filter out empty data URLs
+    const hasFileUrl = file_url && typeof file_url === 'string' && file_url.trim().length > 0 &&
+      !file_url.startsWith('data:;base64,') && // Filter out invalid data URLs
+      !file_url.startsWith('data:;base64,='); // Filter out empty data URLs
 
     if (!hasResumeText && !hasFilePath && !hasFileUrl) {
       console.error("Validation failed: No resume content provided", {
@@ -101,7 +101,7 @@ serve(async (req) => {
         file_url: file_url || 'null/undefined',
       });
       return new Response(
-        JSON.stringify({ 
+        JSON.stringify({
           error: "Missing required field: resume_text, file_path, or file_url",
           details: "Please provide either resume text (non-empty) or upload a file with a valid path/URL"
         }),
@@ -140,7 +140,7 @@ serve(async (req) => {
     }
 
     const isProUser = profile?.subscription_tier === "PRO" || profile?.subscription_tier === "PRO_MAX";
-    
+
     if (!isProUser && analysis.payment_status !== "completed") {
       return new Response(
         JSON.stringify({ error: "Payment required for FREE users" }),
@@ -198,23 +198,23 @@ serve(async (req) => {
       // Download PDF from storage
       try {
         let pdfBuffer: ArrayBuffer;
-        
+
         if (hasFilePath && file_path) {
           // Download from storage bucket
           console.log("Downloading file from storage:", file_path);
           const { data: fileData, error: downloadError } = await supabase.storage
             .from("resumes")
             .download(file_path);
-          
+
           if (downloadError) {
             console.error("Storage download error:", downloadError);
             throw new Error(`Failed to download file from storage: ${downloadError.message}`);
           }
-          
+
           if (!fileData) {
             throw new Error("File data is null after download");
           }
-          
+
           pdfBuffer = await fileData.arrayBuffer();
           console.log("File downloaded successfully, size:", pdfBuffer.byteLength, "bytes");
         } else if (hasFileUrl && file_url) {
@@ -241,9 +241,9 @@ serve(async (req) => {
       } catch (pdfError: any) {
         console.error("PDF processing error:", pdfError);
         return new Response(
-          JSON.stringify({ 
-            error: "Failed to process PDF file", 
-            details: pdfError.message 
+          JSON.stringify({
+            error: "Failed to process PDF file",
+            details: pdfError.message
           }),
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
@@ -267,18 +267,18 @@ serve(async (req) => {
 
     console.log("Initializing Gemini API...");
     const genAI = new GoogleGenerativeAI(geminiApiKey);
-    
+
     // Helper function to try generating content with different models (supports Vision API)
     const tryGenerateContent = async (prompt: any) => {
       // Use gemini-2.5-flash as primary (API key configured for this model)
       // Fallback to gemini-1.5-pro if gemini-2.5-flash fails
-      const modelNames = ["gemini-2.5-flash", "gemini-1.5-pro"];
-      
+      const modelNames = ["gemini-3-flash-preview"];
+
       for (const modelName of modelNames) {
         try {
           console.log(`Trying model: ${modelName}`);
           const model = genAI.getGenerativeModel({ model: modelName });
-          
+
           // If prompt is array, it includes images (Vision API)
           const result = await model.generateContent(prompt);
           console.log(`Successfully used model: ${modelName}`);
@@ -298,7 +298,7 @@ serve(async (req) => {
 
     // Build structured JSON prompt
     let analysisPrompt: any;
-    
+
     if (isPdfAnalysis && pdfBase64) {
       // PDF Vision Analysis - analyze layout and formatting
       analysisPrompt = [
@@ -419,6 +419,7 @@ Please provide a detailed analysis in the following EXACT JSON format (respond O
     }
   ]
 }`;
+    }
 
     // If job description provided, add matching analysis
     if (sanitizedJobDescription && sanitizedJobDescription.trim().length > 0) {
@@ -427,22 +428,22 @@ Please provide a detailed analysis in the following EXACT JSON format (respond O
 JOB DESCRIPTION:
 ${sanitizedJobDescription}
 
-Additionally, compare the resume against the job description and update the keyword_analysis section with:
-{
-  "keyword_analysis": {
-    "found_keywords": ["keywords from job description found in resume"],
-    "missing_keywords": ["keywords from job description NOT found in resume"],
-    "keyword_score": <number 0-100 based on match percentage>,
-    "job_match_percentage": <number 0-100>
+      Additionally, compare the resume against the job description and update the keyword_analysis section with:
+      {
+        "keyword_analysis": {
+          "found_keywords": ["keywords from job description found in resume"],
+            "missing_keywords": ["keywords from job description NOT found in resume"],
+              "keyword_score": <number 0 - 100 based on match percentage >,
+                "job_match_percentage": <number 0 - 100 >
   },
-  "job_specific_suggestions": [
-    {
-      "keyword": "specific keyword to add",
-      "where_to_add": "section suggestion",
-      "reason": "why this keyword is important for this job"
-    }
-  ]
-}`;
+        "job_specific_suggestions": [
+          {
+            "keyword": "specific keyword to add",
+            "where_to_add": "section suggestion",
+            "reason": "why this keyword is important for this job"
+          }
+        ]
+      } `;
 
       if (isPdfAnalysis && Array.isArray(analysisPrompt)) {
         // For PDF analysis, update the first element (prompt text)
@@ -458,8 +459,8 @@ Additionally, compare the resume against the job description and update the keyw
     // Add final instruction
     const finalInstruction = `
 
-IMPORTANT: Respond ONLY with valid JSON. Do not include markdown code blocks, explanations, or any text outside the JSON object.`;
-    
+      IMPORTANT: Respond ONLY with valid JSON.Do not include markdown code blocks, explanations, or any text outside the JSON object.`;
+
     if (isPdfAnalysis && Array.isArray(analysisPrompt)) {
       const firstElement = analysisPrompt[0];
       if (typeof firstElement === 'string') {
@@ -477,11 +478,11 @@ IMPORTANT: Respond ONLY with valid JSON. Do not include markdown code blocks, ex
       } else {
         console.log("Text analysis mode - text length:", sanitizedResumeText?.length || 0);
       }
-      
+
       const result = await tryGenerateContent(analysisPrompt);
       const response = await result.response;
       let analysisText = response.text().trim();
-      
+
       console.log("Gemini response received, length:", analysisText.length);
 
       // Parse JSON response (remove markdown code blocks if present)
@@ -504,12 +505,12 @@ IMPORTANT: Respond ONLY with valid JSON. Do not include markdown code blocks, ex
 
       // Extract scores with validation
       const atsScore = typeof analysisResult.ats_score === 'number' ? analysisResult.ats_score : 0;
-      const keywordScore = typeof analysisResult.keyword_analysis?.keyword_score === 'number' 
-        ? analysisResult.keyword_analysis.keyword_score 
+      const keywordScore = typeof analysisResult.keyword_analysis?.keyword_score === 'number'
+        ? analysisResult.keyword_analysis.keyword_score
         : 0;
       const formattingScore = Math.max(0, Math.min(100, 100 - (analysisResult.formatting_issues?.length || 0) * 10));
       const contentScore = (analysisResult.content_strengths?.length > 0) ? 70 : 50;
-      
+
       console.log("Scores extracted:", { atsScore, keywordScore, formattingScore, contentScore });
 
       // Update analysis in database
@@ -523,21 +524,21 @@ IMPORTANT: Respond ONLY with valid JSON. Do not include markdown code blocks, ex
           content_score: Math.max(0, Math.min(100, contentScore)),
           keyword_score: keywordScore,
         },
-        missing_keywords: Array.isArray(analysisResult.keyword_analysis?.missing_keywords) 
-          ? analysisResult.keyword_analysis.missing_keywords 
+        missing_keywords: Array.isArray(analysisResult.keyword_analysis?.missing_keywords)
+          ? analysisResult.keyword_analysis.missing_keywords
           : [],
-        matched_keywords: Array.isArray(analysisResult.keyword_analysis?.found_keywords) 
-          ? analysisResult.keyword_analysis.found_keywords 
+        matched_keywords: Array.isArray(analysisResult.keyword_analysis?.found_keywords)
+          ? analysisResult.keyword_analysis.found_keywords
           : [],
       };
-      
+
       console.log("Update data prepared:", {
         ats_score: updateData.ats_score,
         keyword_match_score: updateData.keyword_match_score,
         missing_keywords_count: updateData.missing_keywords.length,
         matched_keywords_count: updateData.matched_keywords.length,
       });
-      
+
       const { data: updatedAnalysis, error: updateError } = await supabase
         .from("resume_analyses")
         .update(updateData)
@@ -554,8 +555,8 @@ IMPORTANT: Respond ONLY with valid JSON. Do not include markdown code blocks, ex
           hint: updateError.hint,
         });
         return new Response(
-          JSON.stringify({ 
-            error: "Failed to save analysis", 
+          JSON.stringify({
+            error: "Failed to save analysis",
             details: updateError.message,
             code: updateError.code,
           }),
@@ -592,8 +593,8 @@ IMPORTANT: Respond ONLY with valid JSON. Do not include markdown code blocks, ex
       console.error("Error stack:", geminiError.stack);
       console.error("Error name:", geminiError.name);
       return new Response(
-        JSON.stringify({ 
-          error: "Failed to analyze resume", 
+        JSON.stringify({
+          error: "Failed to analyze resume",
           details: geminiError.message || "Invalid JSON response from AI",
           type: geminiError.name || "UnknownError",
         }),
@@ -607,10 +608,10 @@ IMPORTANT: Respond ONLY with valid JSON. Do not include markdown code blocks, ex
     console.error("Error stack:", error.stack);
     console.error("Error type:", typeof error);
     console.error("Error keys:", Object.keys(error));
-    
+
     return new Response(
-      JSON.stringify({ 
-        error: "Internal server error", 
+      JSON.stringify({
+        error: "Internal server error",
         details: error.message || "Unknown error occurred",
         type: error.name || "UnknownError",
         timestamp: new Date().toISOString(),

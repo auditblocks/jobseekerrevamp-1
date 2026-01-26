@@ -16,7 +16,7 @@ serve(async (req) => {
   console.log("=== analyze-resume function called ===");
   console.log("Method:", req.method);
   console.log("URL:", req.url);
-  
+
   if (req.method === "OPTIONS") {
     console.log("Handling OPTIONS request");
     return new Response(null, { headers: corsHeaders });
@@ -44,24 +44,24 @@ serve(async (req) => {
 
     const token = authHeader.replace("Bearer ", "");
     console.log("Token extracted, length:", token.length);
-    
+
     // Try to get user with the token
     console.log("Verifying user token");
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-    
+
     if (authError) {
       console.error("Auth error:", authError);
       console.error("Token length:", token.length);
       return new Response(
-        JSON.stringify({ 
-          error: "Invalid or expired token", 
+        JSON.stringify({
+          error: "Invalid or expired token",
           details: authError.message,
           hint: "Please refresh your session and try again"
         }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
-    
+
     if (!user) {
       console.error("No user found for token");
       return new Response(
@@ -69,7 +69,7 @@ serve(async (req) => {
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
-    
+
     console.log("User authenticated:", user.id);
 
     // Check subscription tier
@@ -98,13 +98,13 @@ serve(async (req) => {
     console.log("Request headers:", Object.fromEntries(req.headers.entries()));
     console.log("Request method:", req.method);
     console.log("Content-Type:", req.headers.get("Content-Type"));
-    
+
     let requestBody: AnalyzeRequest;
     try {
       requestBody = await req.json();
-      console.log("Request body parsed successfully:", { 
-        resume_id: requestBody.resume_id, 
-        has_job_description: !!requestBody.job_description 
+      console.log("Request body parsed successfully:", {
+        resume_id: requestBody.resume_id,
+        has_job_description: !!requestBody.job_description
       });
     } catch (parseError: any) {
       console.error("Error parsing request body:", parseError);
@@ -114,15 +114,15 @@ serve(async (req) => {
         stack: parseError?.stack
       });
       return new Response(
-        JSON.stringify({ 
-          error: "Invalid request body", 
+        JSON.stringify({
+          error: "Invalid request body",
           details: parseError?.message || "Unknown error",
           hint: "Expected JSON format: { resume_id: string, job_description?: string }"
         }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
-    
+
     const { resume_id, job_description } = requestBody;
 
     if (!resume_id) {
@@ -132,15 +132,15 @@ serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
-    
+
     console.log("Processing analysis for resume_id:", resume_id);
 
     // Fetch resume from both tables (resumes and user_resumes)
     console.log("Fetching resume with ID:", resume_id);
-    
+
     let resume: any = null;
     let resumeError: any = null;
-    
+
     // First try the resumes table (Resume Optimizer)
     const { data: optimizerResume, error: optimizerError } = await supabase
       .from("resumes")
@@ -148,7 +148,7 @@ serve(async (req) => {
       .eq("id", resume_id)
       .eq("user_id", user.id)
       .single();
-    
+
     if (optimizerResume && !optimizerError) {
       resume = optimizerResume;
       console.log("Resume found in resumes table");
@@ -161,7 +161,7 @@ serve(async (req) => {
         .eq("id", resume_id)
         .eq("user_id", user.id)
         .single();
-      
+
       if (userResume && !userResumeError) {
         // Convert user_resumes format to resumes format
         let fileType = "pdf";
@@ -174,7 +174,7 @@ serve(async (req) => {
             fileType = "txt";
           }
         }
-        
+
         resume = {
           id: userResume.id,
           user_id: userResume.user_id,
@@ -197,14 +197,14 @@ serve(async (req) => {
     if (resumeError || !resume) {
       console.error("Resume lookup failed:", resumeError);
       return new Response(
-        JSON.stringify({ 
+        JSON.stringify({
           error: "Resume not found",
           details: resumeError?.message || "The resume does not exist or you don't have access to it"
         }),
         { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
-    
+
     console.log("Resume found:", { id: resume.id, name: resume.name, file_type: resume.file_type, has_extracted_text: !!resume.extracted_text });
 
     // Get resume text (extract if not already extracted)
@@ -216,7 +216,7 @@ serve(async (req) => {
       console.log("No extracted text found, fetching file from URL:", resume.file_url);
       try {
         let fileBuffer: ArrayBuffer;
-        
+
         // Try to extract file path from Supabase Storage URL
         // URL format: https://[project].supabase.co/storage/v1/object/public/[bucket]/[path]
         // or: https://[project].supabase.co/storage/v1/object/sign/[bucket]/[path]?token=...
@@ -226,10 +226,10 @@ serve(async (req) => {
           const pathAfterStorage = urlParts[1];
           const isPublic = pathAfterStorage.startsWith('public/');
           const isSigned = pathAfterStorage.startsWith('sign/');
-          
+
           let bucketName = 'resumes';
           let filePath = '';
-          
+
           if (isPublic) {
             const publicPath = pathAfterStorage.replace('public/', '');
             const pathParts = publicPath.split('/');
@@ -249,19 +249,19 @@ serve(async (req) => {
               filePath = pathParts.slice(1).join('/');
             }
           }
-          
+
           console.log("Extracted storage path:", { bucketName, filePath });
-          
+
           // Download using Supabase Storage client (works for both public and private)
           const { data: fileData, error: downloadError } = await supabase.storage
             .from(bucketName)
             .download(filePath);
-          
+
           if (downloadError || !fileData) {
             console.error("Storage download error:", downloadError);
             throw new Error(`Failed to download file from storage: ${downloadError?.message || 'Unknown error'}`);
           }
-          
+
           fileBuffer = await fileData.arrayBuffer();
           console.log("File downloaded from storage, size:", fileBuffer.byteLength, "bytes");
         } else {
@@ -274,7 +274,7 @@ serve(async (req) => {
           fileBuffer = await fileResponse.arrayBuffer();
           console.log("File fetched via HTTP, size:", fileBuffer.byteLength, "bytes");
         }
-        
+
         if (resume.file_type === "txt") {
           resumeText = new TextDecoder().decode(fileBuffer);
           console.log("Extracted text from TXT file, length:", resumeText.length);
@@ -284,28 +284,28 @@ serve(async (req) => {
           try {
             // Import pdfjs-dist using esm.sh which works better with Deno
             const pdfjsLib = await import("https://esm.sh/pdfjs-dist@3.11.174");
-            
+
             // Check if getDocument is available
             const getDocument = pdfjsLib.getDocument || pdfjsLib.default?.getDocument;
-            
+
             if (!getDocument || typeof getDocument !== 'function') {
               console.error("getDocument not found. Module keys:", Object.keys(pdfjsLib));
               // Try alternative: use the module's default export
               const pdfjs = pdfjsLib.default || pdfjsLib;
               const getDoc = pdfjs.getDocument;
-              
+
               if (!getDoc || typeof getDoc !== 'function') {
                 throw new Error("getDocument function not available in pdfjs-dist module");
               }
-              
+
               // Load the PDF document
-              const loadingTask = getDoc({ 
+              const loadingTask = getDoc({
                 data: new Uint8Array(fileBuffer),
                 useSystemFonts: true,
               });
               const pdfDocument = await loadingTask.promise;
               console.log("PDF loaded, pages:", pdfDocument.numPages);
-              
+
               // Extract text from all pages
               const textParts: string[] = [];
               for (let pageNum = 1; pageNum <= pdfDocument.numPages; pageNum++) {
@@ -317,17 +317,17 @@ serve(async (req) => {
                 textParts.push(pageText);
                 console.log(`Extracted text from page ${pageNum}, length:`, pageText.length);
               }
-              
+
               resumeText = textParts.join("\n\n");
             } else {
               // Load the PDF document
-              const loadingTask = getDocument({ 
+              const loadingTask = getDocument({
                 data: new Uint8Array(fileBuffer),
                 useSystemFonts: true,
               });
               const pdfDocument = await loadingTask.promise;
               console.log("PDF loaded, pages:", pdfDocument.numPages);
-              
+
               // Extract text from all pages
               const textParts: string[] = [];
               for (let pageNum = 1; pageNum <= pdfDocument.numPages; pageNum++) {
@@ -339,12 +339,12 @@ serve(async (req) => {
                 textParts.push(pageText);
                 console.log(`Extracted text from page ${pageNum}, length:`, pageText.length);
               }
-              
+
               resumeText = textParts.join("\n\n");
             }
-            
+
             console.log("Total extracted text length:", resumeText.length);
-            
+
             // Update the resume record with extracted text if it's in the resumes table
             if (resume.source !== "user_resumes") {
               await supabase
@@ -371,8 +371,8 @@ serve(async (req) => {
       } catch (fetchError: any) {
         console.error("Error fetching/extracting resume file:", fetchError);
         return new Response(
-          JSON.stringify({ 
-            error: "Could not extract text from resume", 
+          JSON.stringify({
+            error: "Could not extract text from resume",
             details: fetchError.message || "Please ensure the file is readable and not corrupted"
           }),
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -383,14 +383,14 @@ serve(async (req) => {
     if (!resumeText || resumeText.trim().length === 0) {
       console.error("No text extracted from resume");
       return new Response(
-        JSON.stringify({ 
-          error: "Could not extract text from resume", 
+        JSON.stringify({
+          error: "Could not extract text from resume",
           details: "The resume file appears to be empty or unreadable. Please ensure the file contains text and is not corrupted."
         }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
-    
+
     console.log("Resume text ready for analysis, length:", resumeText.length);
 
     // Initialize Google Gemini
@@ -403,13 +403,13 @@ serve(async (req) => {
     }
 
     const genAI = new GoogleGenerativeAI(geminiApiKey);
-    
+
     // Helper function to try generating content with different models
     const tryGenerateContent = async (prompt: string) => {
       // Use gemini-2.5-flash as primary (API key configured for this model)
       // Fallback to gemini-1.5-pro if gemini-2.5-flash fails
-      const modelNames = ["gemini-2.5-flash", "gemini-1.5-pro"];
-      
+      const modelNames = ["gemini-3-flash-preview"];
+
       for (const modelName of modelNames) {
         try {
           console.log(`Trying model: ${modelName}`);
@@ -567,8 +567,8 @@ Please respond ONLY with valid JSON. Do not include any markdown formatting or c
       name: error?.name,
     });
     return new Response(
-      JSON.stringify({ 
-        error: "Internal server error", 
+      JSON.stringify({
+        error: "Internal server error",
         details: errorMessage,
         timestamp: new Date().toISOString(),
       }),

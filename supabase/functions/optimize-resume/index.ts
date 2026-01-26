@@ -42,7 +42,7 @@ serve(async (req) => {
 
     const token = authHeader.replace("Bearer ", "");
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-    
+
     if (authError || !user) {
       return new Response(
         JSON.stringify({ error: "Unauthorized" }),
@@ -118,13 +118,13 @@ serve(async (req) => {
     }
 
     const genAI = new GoogleGenerativeAI(geminiApiKey);
-    
+
     // Helper function to try generating content with different models
     const tryGenerateContent = async (prompt: string) => {
       // Use gemini-2.5-flash as primary (API key configured for this model)
       // Fallback to gemini-1.5-pro if gemini-2.5-flash fails
-      const modelNames = ["gemini-2.5-flash", "gemini-1.5-pro"];
-      
+      const modelNames = ["gemini-3-flash-preview"];
+
       for (const modelName of modelNames) {
         try {
           console.log(`Trying model: ${modelName}`);
@@ -210,9 +210,9 @@ IMPORTANT: Return ONLY the optimized resume text. Do not include explanations, m
     } catch (geminiError: any) {
       console.error("Gemini API error:", geminiError);
       return new Response(
-        JSON.stringify({ 
-          error: "Failed to optimize resume", 
-          details: geminiError.message || "AI optimization failed" 
+        JSON.stringify({
+          error: "Failed to optimize resume",
+          details: geminiError.message || "AI optimization failed"
         }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
@@ -220,8 +220,8 @@ IMPORTANT: Return ONLY the optimized resume text. Do not include explanations, m
   } catch (error: any) {
     console.error("Error:", error);
     return new Response(
-      JSON.stringify({ 
-        error: "Internal server error", 
+      JSON.stringify({
+        error: "Internal server error",
         details: error.message,
         timestamp: new Date().toISOString(),
       }),

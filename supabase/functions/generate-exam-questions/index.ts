@@ -70,7 +70,7 @@ Ensure the level of difficulty matches the standard for this government sector r
         if (geminiApiKey && geminiApiKey.startsWith("AIza")) {
             console.log("Using direct Google Gemini API...");
             const genAI = new GoogleGenerativeAI(geminiApiKey);
-            const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+            const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
             const result = await model.generateContent(`${systemPrompt}\n\n${userPrompt}`);
             const response = await result.response;
             content = response.text();
@@ -86,7 +86,7 @@ Ensure the level of difficulty matches the standard for this government sector r
                     "Content-Type": "application/json",
                 },
                 body: JSON.stringify({
-                    model: "google/gemini-2.0-flash-exp",
+                    model: "google/gemini-3-flash-preview",
                     messages: [
                         { role: "system", content: systemPrompt },
                         { role: "user", content: userPrompt }
