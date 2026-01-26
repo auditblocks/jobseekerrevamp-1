@@ -24,6 +24,7 @@ import {
     CheckCircle2,
     HelpCircle,
     PenLine,
+    Sparkles,
 } from "lucide-react";
 
 interface Question {
@@ -150,6 +151,31 @@ const AdminExamQuestions = () => {
         }
     };
 
+    const handleAIGenerate = async () => {
+        if (!confirm("This will use AI to generate 10 questions based on the job details. Continue?")) return;
+
+        setSaving(true);
+        try {
+            const { data, error } = await supabase.functions.invoke("generate-exam-questions", {
+                body: {
+                    jobId: jobId,
+                    examName: job?.exam_name || "",
+                    postName: job?.post_name || "",
+                    organization: job?.organization || ""
+                }
+            });
+
+            if (error) throw error;
+            toast.success("AI generated 10 questions successfully!");
+            fetchQuestions();
+        } catch (error: any) {
+            console.error("Error generating with AI:", error);
+            toast.error(error.message || "Failed to generate questions with AI");
+        } finally {
+            setSaving(false);
+        }
+    };
+
     if (loading && !job) {
         return (
             <AdminLayout>
@@ -177,9 +203,19 @@ const AdminExamQuestions = () => {
                             <p className="text-muted-foreground">{job?.post_name} - {job?.organization}</p>
                         </div>
                     </div>
-                    <Button onClick={handleAddQuestion} className="gap-2">
-                        <Plus className="h-4 w-4" /> Add Question
-                    </Button>
+                    <div className="flex gap-3">
+                        <Button
+                            variant="outline"
+                            onClick={handleAIGenerate}
+                            disabled={saving}
+                            className="gap-2 border-accent text-accent hover:bg-accent hover:text-white"
+                        >
+                            <Sparkles className="h-4 w-4" /> AI Bulk Generate
+                        </Button>
+                        <Button onClick={handleAddQuestion} className="gap-2">
+                            <Plus className="h-4 w-4" /> Add Question
+                        </Button>
+                    </div>
                 </div>
 
                 {editingQuestion && (

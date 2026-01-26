@@ -16,6 +16,7 @@ import {
     AlertCircle,
     CheckCircle2,
     XCircle,
+    Sparkles,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -98,6 +99,30 @@ const GovtJobExam = () => {
         setAnswers(prev => ({ ...prev, [questionId]: answer }));
     };
 
+    const handleAIGenerate = async () => {
+        setIsSubmitting(true);
+        try {
+            toast.info("AI is generating a fresh set of questions for you. This might take a few seconds...");
+            const { data, error } = await supabase.functions.invoke("generate-exam-questions", {
+                body: {
+                    jobId: jobId,
+                    examName: job?.exam_name || "",
+                    postName: job?.post_name || "",
+                    organization: job?.organization || ""
+                }
+            });
+
+            if (error) throw error;
+            toast.success("Exam questions generated! Starting your test...");
+            fetchJobAndQuestions();
+        } catch (error: any) {
+            console.error("Error generating with AI:", error);
+            toast.error(error.message || "Failed to generate questions with AI");
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
     const handleSubmit = async () => {
         if (isSubmitting || isCompleted) return;
         setIsSubmitting(true);
@@ -128,13 +153,13 @@ const GovtJobExam = () => {
                     completed_at: new Date().toISOString()
                 }])
                 .select()
-                .single();
+                .single() as any;
 
             if (examError) throw examError;
 
             // Save responses
             const responsePayload = responses.map(r => ({
-                user_exam_id: examData.id,
+                user_exam_id: (examData as any).id,
                 ...r
             }));
 
@@ -180,7 +205,20 @@ const GovtJobExam = () => {
                 <AlertCircle className="h-16 w-16 text-warning opacity-50" />
                 <h1 className="text-2xl font-bold">No questions available</h1>
                 <p className="text-muted-foreground">This job doesn't have any practice questions assigned yet.</p>
-                <Button onClick={() => navigate("/government-jobs")}>Back to Jobs</Button>
+                <div className="flex flex-col md:flex-row gap-3 pt-4">
+                    <Button
+                        onClick={handleAIGenerate}
+                        disabled={isSubmitting}
+                        className="bg-accent hover:bg-accent/90 gap-2"
+                    >
+                        {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                        Generate Practice Test with AI
+                    </Button>
+                    <Button variant="outline" onClick={() => navigate("/government-jobs")}>Back to Jobs</Button>
+                </div>
+                <p className="text-[10px] text-muted-foreground max-w-xs mt-4">
+                    AI will source previous year trends to create a relevant mock test for you instantly.
+                </p>
             </div>
         );
     }
