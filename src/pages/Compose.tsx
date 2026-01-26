@@ -102,6 +102,7 @@ const Compose = () => {
   const [isLoadingLimits, setIsLoadingLimits] = useState(true);
   const [attachments, setAttachments] = useState<File[]>([]);
   const [showTemplateDialog, setShowTemplateDialog] = useState(false);
+  const [showConnectDialog, setShowConnectDialog] = useState(false);
   const [cooldowns, setCooldowns] = useState<EmailCooldown[]>([]);
   const [isLoadingCooldowns, setIsLoadingCooldowns] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -633,7 +634,7 @@ Best regards,
 
   const handleSend = async () => {
     if (!isGmailConnected) {
-      toast.error("Please connect your Gmail account first");
+      setShowConnectDialog(true);
       return;
     }
     if (selectedRecruiters.length === 0) {
@@ -770,7 +771,7 @@ Best regards,
               size="sm"
               className="text-[10px] sm:text-sm h-8 sm:h-9 px-2 sm:px-4"
               onClick={handleSend}
-              disabled={!isGmailConnected || isSending || (emailLimit?.remaining || 0) <= 0}
+              disabled={isSending || (emailLimit?.remaining || 0) <= 0}
             >
               {isSending ? (
                 <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2 animate-spin" />
@@ -799,43 +800,29 @@ Best regards,
                 </CardContent>
               </Card>
             ) : !isGmailConnected ? (
-              <Card className="border-warning/30 bg-warning/5 backdrop-blur">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-warning">
-                    <AlertCircle className="h-5 w-5" />
-                    Connect Your Gmail
-                  </CardTitle>
-                  <CardDescription>
-                    To send emails to recruiters, you need to connect your Gmail account.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-                    <div className="flex-1">
-                      <p className="text-sm text-muted-foreground">
-                        Connect your Gmail account to enable email sending through our platform.
-                        Your account is connected securely via Gmail and you can disconnect anytime.
-                      </p>
+              <Card className="border-accent/20 bg-accent/5 backdrop-blur">
+                <CardContent className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="bg-accent/10 p-2 rounded-full">
+                      <Mail className="h-5 w-5 text-accent" />
                     </div>
-                    <Button
-                      variant="accent"
-                      onClick={handleConnectGmail}
-                      disabled={isConnectingGmail}
-                      className="shrink-0"
-                    >
-                      {isConnectingGmail ? (
-                        <>
-                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                          Connecting...
-                        </>
-                      ) : (
-                        <>
-                          <Mail className="h-4 w-4 mr-2" />
-                          Connect Gmail
-                        </>
-                      )}
-                    </Button>
+                    <div>
+                      <h3 className="font-semibold text-foreground">Connect Gmail to Send</h3>
+                      <p className="text-sm text-muted-foreground">Link your account to start your outreach campaign.</p>
+                    </div>
                   </div>
+                  <Button
+                    variant="outline"
+                    onClick={handleConnectGmail}
+                    disabled={isConnectingGmail}
+                    className="shrink-0"
+                  >
+                    {isConnectingGmail ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      "Connect Now"
+                    )}
+                  </Button>
                 </CardContent>
               </Card>
             ) : (
@@ -1177,6 +1164,52 @@ Best regards,
                 ))
               )}
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showConnectDialog} onOpenChange={setShowConnectDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-center text-xl">One Last Step! 🚀</DialogTitle>
+            <DialogDescription className="text-center">
+              Connect your Gmail account to send these {selectedRecruiters.length} emails securely.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col items-center gap-4 py-4">
+            <div className="h-20 w-20 bg-accent/10 rounded-full flex items-center justify-center">
+              <Mail className="h-10 w-10 text-accent" />
+            </div>
+            <ul className="text-sm space-y-2 text-muted-foreground">
+              <li className="flex items-center gap-2">
+                <CheckCircle2 className="h-4 w-4 text-success" />
+                Send directly from your email address
+              </li>
+              <li className="flex items-center gap-2">
+                <CheckCircle2 className="h-4 w-4 text-success" />
+                Track opens and responses automatically
+              </li>
+              <li className="flex items-center gap-2">
+                <CheckCircle2 className="h-4 w-4 text-success" />
+                Safe and secure OAuth connection
+              </li>
+            </ul>
+            <Button
+              variant="hero"
+              size="lg"
+              className="w-full mt-2"
+              onClick={handleConnectGmail}
+              disabled={isConnectingGmail}
+            >
+              {isConnectingGmail ? (
+                <>
+                  <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                  Connecting...
+                </>
+              ) : (
+                "Connect Gmail & Send"
+              )}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

@@ -17,6 +17,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { Skeleton } from "@/components/ui/skeleton";
 import { InAppNotificationPopup } from "@/components/InAppNotificationPopup";
 import DashboardLayout from "@/components/DashboardLayout";
+import { OnboardingProgress } from "@/components/OnboardingProgress";
+import { useTour } from "@/hooks/useTour";
 
 interface DashboardStats {
   emailsSent: number;
@@ -27,7 +29,7 @@ interface DashboardStats {
 
 const Dashboard = () => {
   const navigate = useNavigate();
-  const { user, loading: authLoading } = useAuth();
+  const { user, profile, loading: authLoading } = useAuth();
   const [stats, setStats] = useState<DashboardStats>({
     emailsSent: 0,
     openRate: 0,
@@ -41,6 +43,8 @@ const Dashboard = () => {
       navigate("/auth");
     }
   }, [authLoading, user, navigate]);
+
+  const [hasTemplates, setHasTemplates] = useState(false);
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -62,6 +66,16 @@ const Dashboard = () => {
           .eq("user_id", user.id);
 
         if (appError) throw appError;
+
+        // Check for templates
+        const { count: templatesCount, error: templatesError } = await supabase
+          .from("email_templates")
+          .select("id", { count: "exact", head: true })
+          .eq("user_id", user.id);
+
+        if (!templatesError) {
+          setHasTemplates((templatesCount || 0) > 0);
+        }
 
         const totalEmails = emailData?.length || 0;
         const openedEmails = emailData?.filter(e => e.opened_at !== null).length || 0;
@@ -85,6 +99,14 @@ const Dashboard = () => {
       fetchStats();
     }
   }, [user?.id]);
+
+  const { startTour } = useTour();
+
+  useEffect(() => {
+    if (!authLoading && user) {
+      startTour();
+    }
+  }, [authLoading, user, startTour]);
 
   if (authLoading) {
     return (
@@ -111,6 +133,7 @@ const Dashboard = () => {
       <div className="p-4 sm:p-6 space-y-6 sm:space-y-8">
         {/* Welcome */}
         <motion.div
+          id="dashboard-welcome"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
@@ -126,6 +149,20 @@ const Dashboard = () => {
             <Send className="w-4 h-4 sm:w-5 sm:h-5" />
             Compose Email
           </Button>
+        </motion.div>
+
+        {/* Onboarding Progress */}
+        <motion.div
+          id="onboarding-progress"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.1 }}
+        >
+          <OnboardingProgress
+            isGmailConnected={!!profile?.google_refresh_token}
+            hasTemplates={hasTemplates}
+            hasSentEmail={stats.emailsSent > 0}
+          />
         </motion.div>
 
         {/* Stats Grid */}
@@ -167,13 +204,14 @@ const Dashboard = () => {
           <h3 className="text-lg font-semibold text-foreground mb-4">Quick Actions</h3>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {[
-              { icon: Send, label: "Send Emails", description: "Reach out to recruiters", path: "/compose" },
+              { icon: Send, label: "Send Emails", description: "Reach out to recruiters", path: "/compose", id: "quick-action-compose" },
               { icon: Briefcase, label: "Track Application", description: "Add a new job application", path: "/applications" },
-              { icon: Users, label: "Browse Recruiters", description: "Find recruiters in your field", path: "/recruiters" },
+              { icon: Users, label: "Browse Recruiters", description: "Find recruiters in your field", path: "/recruiters", id: "quick-action-recruiters" },
               { icon: FileSearch, label: "Resume Optimizer", description: "Optimize your resume with AI", path: "/resume-optimizer" },
             ].map((action, index) => (
               <button
                 key={index}
+                id={action.id}
                 onClick={() => navigate(action.path)}
                 className="flex items-center gap-4 p-4 bg-card rounded-xl border border-border hover:border-accent/30 hover:shadow-lg transition-all duration-300 text-left group"
               >
