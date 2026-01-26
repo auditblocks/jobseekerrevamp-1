@@ -83,3 +83,6 @@ verify_jwt = false
 
 [functions.cleanup-expired-cooldowns]
 verify_jwt = false
+
+[functions.generate-exam-questions]
+verify_jwt = false

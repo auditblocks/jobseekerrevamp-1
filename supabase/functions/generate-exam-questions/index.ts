@@ -15,29 +15,7 @@ interface GenerateRequest {
     count?: number;
 }
 
-serve(async (req) => {
-    if (req.method === "OPTIONS") {
-        return new Response(null, { headers: corsHeaders });
-    }
-
-    try {
-        const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-        const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-        const geminiApiKey = Deno.env.get("GEMINI_API_KEY")!;
-
-        const authHeader = req.headers.get("Authorization");
-        if (!authHeader) {
-            throw new Error("No authorization header");
-        }
-
-        const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-        const { jobId, examName, postName, organization, count = 10 }: GenerateRequest = await req.json();
-
-        const genAI = new GoogleGenerativeAI(geminiApiKey);
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-
-        const systemPrompt = `You are an expert government job examination coach in India. 
+const systemPrompt = `You are an expert government job examination coach in India. 
 Generate a set of practice questions for the following job profile.
 The questions should be a mix of Multiple Choice Questions (MCQs) and Fill-in-the-blanks.
 Questions must be relevant to previous year trends for this specific exam/post.
@@ -60,6 +38,25 @@ Return your response as a JSON array of objects with the following structure:
   }
 ]`;
 
+serve(async (req) => {
+    if (req.method === "OPTIONS") {
+        return new Response(null, { headers: corsHeaders });
+    }
+
+    try {
+        const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+        const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+        // Try both common naming conventions for Gemini keys
+        const geminiApiKey = Deno.env.get("GEMINI_API_KEY") || Deno.env.get("GOOGLE_GEMINI_API_KEY");
+        const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
+
+        const authHeader = req.headers.get("Authorization");
+        if (!authHeader) throw new Error("No authorization header");
+
+        const supabase = createClient(supabaseUrl, supabaseServiceKey);
+        const { jobId, examName, postName, organization, count = 10 }: GenerateRequest = await req.json();
+
         const userPrompt = `Generate ${count} practice questions for:
 Exam Name: ${examName || "General Recruitment"}
 Post Name: ${postName}
@@ -67,9 +64,45 @@ Organization: ${organization}
 
 Ensure the level of difficulty matches the standard for this government sector role. Respond ONLY with the JSON array.`;
 
-        const result = await model.generateContent(`${systemPrompt}\n\n${userPrompt}`);
-        const response = await result.response;
-        const content = response.text();
+        let content = "";
+
+        // Detect if we should use direct Google SDK or Lovable Gateway
+        if (geminiApiKey && geminiApiKey.startsWith("AIza")) {
+            console.log("Using direct Google Gemini API...");
+            const genAI = new GoogleGenerativeAI(geminiApiKey);
+            const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+            const result = await model.generateContent(`${systemPrompt}\n\n${userPrompt}`);
+            const response = await result.response;
+            content = response.text();
+        } else {
+            console.log("Using Lovable AI Gateway...");
+            const apiKey = geminiApiKey || lovableApiKey;
+            if (!apiKey) throw new Error("No AI API Key found (GEMINI_API_KEY or LOVABLE_API_KEY)");
+
+            const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+                method: "POST",
+                headers: {
+                    Authorization: `Bearer ${apiKey}`,
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    model: "google/gemini-2.0-flash-exp",
+                    messages: [
+                        { role: "system", content: systemPrompt },
+                        { role: "user", content: userPrompt }
+                    ],
+                    temperature: 0.7,
+                }),
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`AI Gateway Error: ${response.status} ${errorText}`);
+            }
+
+            const aiData = await response.json();
+            content = aiData.choices?.[0]?.message?.content;
+        }
 
         // Parse JSON
         let questions;
@@ -94,18 +127,14 @@ Ensure the level of difficulty matches the standard for this government sector r
 
         return new Response(
             JSON.stringify({ success: true, count: questions.length }),
-            {
-                headers: { ...corsHeaders, "Content-Type": "application/json" },
-            }
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
+
     } catch (error: any) {
         console.error("Error generating questions:", error);
         return new Response(
             JSON.stringify({ error: error.message }),
-            {
-                status: 400,
-                headers: { ...corsHeaders, "Content-Type": "application/json" },
-            }
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
     }
 });
