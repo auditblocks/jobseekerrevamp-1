@@ -42,15 +42,27 @@ export function useActivityTracking() {
 
   // Create or get active session
   const createOrGetSession = async (): Promise<string | null> => {
-    if (!user?.id) return null;
-
     try {
+      // Use persistent guest_id for anonymous users
+      let persistentGuestId = localStorage.getItem("tracking_guest_id");
+      if (!persistentGuestId) {
+        persistentGuestId = generateSessionToken();
+        localStorage.setItem("tracking_guest_id", persistentGuestId);
+      }
+
       // Check for existing active session
-      const { data: existingSession } = await supabase
+      let queryBuilder = supabase
         .from("user_sessions")
         .select("id, session_token")
-        .eq("user_id", user.id)
-        .eq("is_active", true)
+        .eq("is_active", true);
+
+      if (user?.id) {
+        queryBuilder = queryBuilder.eq("user_id", user.id);
+      } else if (persistentGuestId) {
+        queryBuilder = queryBuilder.eq("guest_id", persistentGuestId).is("user_id", null);
+      }
+
+      const { data: existingSession } = await queryBuilder
         .order("started_at", { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -69,7 +81,8 @@ export function useActivityTracking() {
       const { data: newSession, error } = await supabase
         .from("user_sessions")
         .insert({
-          user_id: user.id,
+          user_id: user?.id || null,
+          guest_id: user?.id ? null : persistentGuestId,
           session_token: sessionToken,
           device_type: deviceType,
           browser: browser,
@@ -100,7 +113,7 @@ export function useActivityTracking() {
 
   // Track page view
   const trackPageView = async (pagePath: string, pageTitle: string) => {
-    if (!user?.id || !sessionId) return;
+    if (!sessionId) return;
 
     try {
       // Update session with current page
@@ -115,7 +128,7 @@ export function useActivityTracking() {
 
       // Create page view event
       await supabase.from("user_activity_events").insert({
-        user_id: user.id,
+        user_id: user?.id || null, // Allow null for guests
         session_id: sessionId,
         event_type: "page_view",
         page_path: pagePath,
@@ -133,11 +146,11 @@ export function useActivityTracking() {
     elementText: string | null,
     metadata?: Record<string, any>
   ) => {
-    if (!user?.id || !sessionId) return;
+    if (!sessionId) return;
 
     try {
       await supabase.from("user_activity_events").insert({
-        user_id: user.id,
+        user_id: user?.id || null,
         session_id: sessionId,
         event_type: "button_click",
         page_path: location.pathname,
@@ -158,11 +171,11 @@ export function useActivityTracking() {
     formName: string | null,
     metadata?: Record<string, any>
   ) => {
-    if (!user?.id || !sessionId) return;
+    if (!sessionId) return;
 
     try {
       await supabase.from("user_activity_events").insert({
-        user_id: user.id,
+        user_id: user?.id || null,
         session_id: sessionId,
         event_type: "form_submit",
         page_path: location.pathname,
@@ -177,9 +190,8 @@ export function useActivityTracking() {
     }
   };
 
-  // Update activity heartbeat
   const updateActivity = async () => {
-    if (!user?.id || !sessionId || !isActiveRef.current) return;
+    if (!sessionId || !isActiveRef.current) return;
 
     try {
       await supabase
@@ -236,9 +248,7 @@ export function useActivityTracking() {
 
   // Initialize session on mount
   useEffect(() => {
-    if (user?.id) {
-      createOrGetSession();
-    }
+    createOrGetSession();
 
     return () => {
       if (heartbeatIntervalRef.current) {
@@ -252,16 +262,16 @@ export function useActivityTracking() {
 
   // Track page views on route change
   useEffect(() => {
-    if (sessionId && user?.id) {
+    if (sessionId) {
       const pageTitle = document.title || location.pathname;
       pageTitleRef.current = pageTitle;
       trackPageView(location.pathname, pageTitle);
     }
-  }, [location.pathname, sessionId, user?.id]);
+  }, [location.pathname, sessionId]);
 
   // Set up activity listeners
   useEffect(() => {
-    if (!user?.id || !sessionId) return;
+    if (!sessionId) return;
 
     const handleActivity = () => {
       markActive();
@@ -349,7 +359,7 @@ export function useActivityTracking() {
 
   // Set up heartbeat (update every 30 seconds)
   useEffect(() => {
-    if (!sessionId || !user?.id) return;
+    if (!sessionId) return;
 
     heartbeatIntervalRef.current = setInterval(() => {
       // Only update if user has been active in last 2 minutes

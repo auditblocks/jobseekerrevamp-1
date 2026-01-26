@@ -3,11 +3,11 @@ import { Helmet } from "react-helmet-async";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
-import { 
-  BarChart3, 
-  Mail, 
-  Eye, 
-  MousePointerClick, 
+import {
+  BarChart3,
+  Mail,
+  Eye,
+  MousePointerClick,
   MessageSquare,
   TrendingUp,
   Activity
@@ -31,11 +31,23 @@ interface DomainPerformance {
   clicked: number;
 }
 
+interface PageViewStats {
+  category: string;
+  page_path: string;
+  page_title: string;
+  total_views: number;
+  unique_visitors: number;
+  logged_in_views: number;
+  guest_views: number;
+}
+
 export default function AdminAnalytics() {
   const [emailStats, setEmailStats] = useState<EmailStats | null>(null);
   const [domainPerformance, setDomainPerformance] = useState<DomainPerformance[]>([]);
   const [loading, setLoading] = useState(true);
   const [dailyStats, setDailyStats] = useState<{ date: string; count: number }[]>([]);
+  const [pageViewStats, setPageViewStats] = useState<PageViewStats[]>([]);
+  const [activeUsersCount, setActiveUsersCount] = useState<number>(0);
 
   useEffect(() => {
     fetchAnalytics();
@@ -101,6 +113,18 @@ export default function AdminAnalytics() {
           Array.from(dailyMap.entries()).map(([date, count]) => ({ date, count }))
         );
       }
+
+      // Fetch page view stats
+      const { data: pvData } = await (supabase.rpc as any)("admin_get_page_view_stats");
+      if (pvData) {
+        setPageViewStats(pvData as PageViewStats[]);
+      }
+
+      // Fetch online users
+      const { data: onlineCount } = await (supabase.rpc as any)("get_online_users_count");
+      if (onlineCount !== null) {
+        setActiveUsersCount(onlineCount as number);
+      }
     } catch (error) {
       console.error("Failed to fetch analytics:", error);
     } finally {
@@ -135,6 +159,13 @@ export default function AdminAnalytics() {
       subtitle: `${emailStats?.reply_rate?.toFixed(1) || 0}% reply rate`,
       icon: MessageSquare,
       color: "text-orange-500",
+    },
+    {
+      title: "Online Users",
+      value: activeUsersCount,
+      subtitle: "Active in last 5m",
+      icon: Activity,
+      color: "text-red-500",
     },
   ];
 
@@ -308,6 +339,93 @@ export default function AdminAnalytics() {
             )}
           </CardContent>
         </Card>
+
+        {/* Page Content Analytics */}
+        <div className="grid gap-4 sm:gap-6 lg:grid-cols-2">
+          {/* Top Blogs */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <BarChart3 className="h-5 w-5 text-accent" />
+                Top Viewed Blogs
+              </CardTitle>
+              <CardDescription>Most popular blog posts</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {loading ? (
+                <Skeleton className="h-48 w-full" />
+              ) : pageViewStats.filter(s => s.category === "Blog").length === 0 ? (
+                <p className="text-muted-foreground text-center py-8">No data available</p>
+              ) : (
+                <div className="space-y-4">
+                  {pageViewStats.filter(s => s.category === "Blog").slice(0, 5).map((stat) => (
+                    <div key={stat.page_path} className="space-y-1">
+                      <div className="flex justify-between items-start gap-2">
+                        <span className="font-medium text-sm line-clamp-1">{stat.page_title || stat.page_path}</span>
+                        <span className="text-xs font-bold whitespace-nowrap bg-accent/10 px-2 py-0.5 rounded text-accent">
+                          {stat.total_views} views
+                        </span>
+                      </div>
+                      <div className="flex gap-4 text-[10px] text-muted-foreground">
+                        <span>{stat.unique_visitors} visitors</span>
+                        <span className="text-blue-500">{stat.logged_in_views} logged-in</span>
+                        <span className="text-orange-500">{stat.guest_views} guests</span>
+                      </div>
+                      <div className="h-1 bg-muted rounded-full overflow-hidden mt-1">
+                        <div
+                          className="h-full bg-accent transition-all"
+                          style={{ width: `${Math.min((stat.total_views / Math.max(...pageViewStats.map(s => s.total_views), 1)) * 100, 100)}%` }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Top Govt Jobs */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Activity className="h-5 w-5 text-accent" />
+                Top Govt Job Posts
+              </CardTitle>
+              <CardDescription>Most popular job listings</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {loading ? (
+                <Skeleton className="h-48 w-full" />
+              ) : pageViewStats.filter(s => s.category === "Govt Job").length === 0 ? (
+                <p className="text-muted-foreground text-center py-8">No data available</p>
+              ) : (
+                <div className="space-y-4">
+                  {pageViewStats.filter(s => s.category === "Govt Job").slice(0, 5).map((stat) => (
+                    <div key={stat.page_path} className="space-y-1">
+                      <div className="flex justify-between items-start gap-2">
+                        <span className="font-medium text-sm line-clamp-1">{stat.page_title || stat.page_path}</span>
+                        <span className="text-xs font-bold whitespace-nowrap bg-accent/10 px-2 py-0.5 rounded text-accent">
+                          {stat.total_views} views
+                        </span>
+                      </div>
+                      <div className="flex gap-4 text-[10px] text-muted-foreground">
+                        <span>{stat.unique_visitors} visitors</span>
+                        <span className="text-blue-500">{stat.logged_in_views} logged-in</span>
+                        <span className="text-orange-500">{stat.guest_views} guests</span>
+                      </div>
+                      <div className="h-1 bg-muted rounded-full overflow-hidden mt-1">
+                        <div
+                          className="h-full bg-accent transition-all"
+                          style={{ width: `${Math.min((stat.total_views / Math.max(...pageViewStats.map(s => s.total_views), 1)) * 100, 100)}%` }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </AdminLayout>
   );
