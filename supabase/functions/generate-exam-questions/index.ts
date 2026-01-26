@@ -70,7 +70,8 @@ Ensure the level of difficulty matches the standard for this government sector r
         if (geminiApiKey && geminiApiKey.startsWith("AIza")) {
             console.log("Using direct Google Gemini API...");
             const genAI = new GoogleGenerativeAI(geminiApiKey);
-            const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
+            // Reverting to gemini-2.0-flash-exp as gemini-3-flash-preview has known issues with JSON output stability
+            const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
             const result = await model.generateContent(`${systemPrompt}\n\n${userPrompt}`);
             const response = await result.response;
             content = response.text();
@@ -86,7 +87,7 @@ Ensure the level of difficulty matches the standard for this government sector r
                     "Content-Type": "application/json",
                 },
                 body: JSON.stringify({
-                    model: "google/gemini-3-flash-preview",
+                    model: "google/gemini-2.0-flash-exp",
                     messages: [
                         { role: "system", content: systemPrompt },
                         { role: "user", content: userPrompt }
@@ -104,13 +105,34 @@ Ensure the level of difficulty matches the standard for this government sector r
             content = aiData.choices?.[0]?.message?.content;
         }
 
-        // Parse JSON
+        console.log("AI Response received (first 100 chars):", content.substring(0, 100));
+
+        // Parse JSON - be more robust with regex and fallback
         let questions;
-        const jsonMatch = content.match(/\[[\s\S]*\]/);
-        if (jsonMatch) {
-            questions = JSON.parse(jsonMatch[0]);
-        } else {
-            throw new Error("Failed to parse AI response as JSON array");
+        try {
+            // Clean up markdown code blocks if present
+            let cleanedContent = content.trim();
+            if (cleanedContent.startsWith("```json")) {
+                cleanedContent = cleanedContent.replace(/^```json\n?/, "").replace(/\n?```$/, "");
+            } else if (cleanedContent.startsWith("```")) {
+                cleanedContent = cleanedContent.replace(/^```\n?/, "").replace(/\n?```$/, "");
+            }
+
+            // Attempt direct parse first
+            try {
+                questions = JSON.parse(cleanedContent);
+            } catch (e) {
+                // Fallback to regex if direct parse fails
+                const jsonMatch = cleanedContent.match(/\[\s*\{[\s\S]*\}\s*\]/);
+                if (jsonMatch) {
+                    questions = JSON.parse(jsonMatch[0]);
+                } else {
+                    throw new Error("No valid JSON array found in response");
+                }
+            }
+        } catch (parseError: any) {
+            console.error("Content that failed to parse:", content);
+            throw new Error(`Failed to parse AI response as JSON array: ${parseError.message}`);
         }
 
         // Insert into database
