@@ -121,9 +121,9 @@ serve(async (req) => {
 
     // Helper function to try generating content with different models
     const tryGenerateContent = async (prompt: string) => {
-      // Use gemini-1.5-flash as primary for stability and quota
-      // Fallback to gemini-1.5-pro if gemini-1.5-flash fails
-      const modelNames = ["gemini-1.5-flash"];
+      // Use gemini-2.0-flash as primary (gemini-1.5-flash is retired/404 in 2026)
+      // Fallback to gemini-1.5-pro if needed
+      const modelNames = ["gemini-2.0-flash"];
 
       for (const modelName of modelNames) {
         try {

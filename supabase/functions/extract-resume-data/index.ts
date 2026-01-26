@@ -75,7 +75,7 @@ serve(async (req) => {
 
     // Model names to try (in order of preference)
     const modelNames = [
-      "gemini-1.5-flash",
+      "gemini-2.0-flash",
     ];
 
     const tryGenerateContent = async (prompt: string) => {
