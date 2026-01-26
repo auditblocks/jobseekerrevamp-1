@@ -60,6 +60,9 @@ export function useActivityTracking() {
         queryBuilder = queryBuilder.eq("user_id", user.id);
       } else if (persistentGuestId) {
         queryBuilder = queryBuilder.eq("guest_id", persistentGuestId).is("user_id", null);
+      } else {
+        console.warn("No user ID or guest ID for tracking");
+        return null;
       }
 
       const { data: existingSession } = await queryBuilder
@@ -101,6 +104,7 @@ export function useActivityTracking() {
       }
 
       if (newSession) {
+        console.log("Successfully created new session:", newSession.id, user?.id ? "for user" : "for guest");
         setSessionId(newSession.id);
         return newSession.id;
       }
@@ -248,6 +252,7 @@ export function useActivityTracking() {
 
   // Initialize session on mount
   useEffect(() => {
+    console.log("Initializing activity tracking, user:", user?.id || "guest");
     createOrGetSession();
 
     return () => {

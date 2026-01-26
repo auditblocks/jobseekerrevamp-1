@@ -85,10 +85,6 @@ const GovtJobs = () => {
     );
 
     const handleJobClick = (job: GovtJob) => {
-        if (!user) {
-            navigate("/auth?mode=signup&redirect=" + encodeURIComponent(`/government-jobs/${job.slug || job.id}`));
-            return;
-        }
         navigate(`/government-jobs/${job.slug || job.id}`);
     };
 

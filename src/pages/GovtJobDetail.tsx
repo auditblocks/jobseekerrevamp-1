@@ -161,8 +161,8 @@ const GovtJobDetail = () => {
                                     variant="hero"
                                     onClick={() => navigate("/auth?mode=signup&redirect=" + encodeURIComponent(window.location.pathname))}
                                 >
+                                    <UserCircle2 className="h-5 w-5" />
                                     Sign Up to Apply
-                                    {isPremium && <Info className="h-4 w-4" />}
                                 </Button>
                             </TooltipTrigger>
                             <TooltipContent>
@@ -431,15 +431,28 @@ const GovtJobDetail = () => {
 
                                 {job.official_website && (
                                     <div className="pt-6">
-                                        <Link
-                                            to={job.official_website}
-                                            target="_blank"
-                                            className="flex items-center gap-2 text-xs text-muted-foreground hover:text-accent transition-colors"
-                                        >
-                                            <Globe className="h-3.5 w-3.5" />
-                                            Visit Department Website
-                                            <ExternalLink className="h-3 w-3 ml-auto" />
-                                        </Link>
+                                        {user ? (
+                                            <Link
+                                                to={job.official_website}
+                                                target="_blank"
+                                                className="flex items-center gap-2 text-xs text-muted-foreground hover:text-accent transition-colors"
+                                            >
+                                                <Globe className="h-3.5 w-3.5" />
+                                                Visit Department Website
+                                                <ExternalLink className="h-3 w-3 ml-auto" />
+                                            </Link>
+                                        ) : (
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                className="w-full justify-start gap-2 text-xs text-muted-foreground hover:text-accent p-0 h-auto"
+                                                onClick={() => navigate("/auth?mode=signup&redirect=" + encodeURIComponent(window.location.pathname))}
+                                            >
+                                                <Globe className="h-3.5 w-3.5" />
+                                                Sign up to view website
+                                                <ExternalLink className="h-3 w-3 ml-auto" />
+                                            </Button>
+                                        )}
                                     </div>
                                 )}
                             </CardContent>
