@@ -1,5 +1,10 @@
--- Create enum for question types
-CREATE TYPE question_type AS ENUM ('mcq', 'fill_blank');
+-- Create enum for question types if it doesn't exist
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'question_type') THEN
+        CREATE TYPE question_type AS ENUM ('mcq', 'fill_blank');
+    END IF;
+END $$;
 
 -- Create exam_questions table
 CREATE TABLE IF NOT EXISTS public.exam_questions (
@@ -102,11 +107,38 @@ BEGIN
     END IF;
 END $$;
 
--- Add updated_at trigger
-CREATE TRIGGER update_exam_questions_updated_at BEFORE UPDATE ON public.exam_questions FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
-CREATE TRIGGER update_user_exams_updated_at BEFORE UPDATE ON public.user_exams FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
+-- Add updated_at trigger if doesn't exist
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_exam_questions_updated_at') THEN
+        CREATE TRIGGER update_exam_questions_updated_at BEFORE UPDATE ON public.exam_questions FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_user_exams_updated_at') THEN
+        CREATE TRIGGER update_user_exams_updated_at BEFORE UPDATE ON public.user_exams FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
+    END IF;
+END $$;
 
--- Enable Realtime
-ALTER PUBLICATION supabase_realtime ADD TABLE public.exam_questions;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.user_exams;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.user_exam_responses;
+-- Enable Realtime in a way that doesn't error if already enabled
+DO $$
+BEGIN
+    -- We use a simple way to add tables to publication if they aren't there
+    -- This is slightly complex in SQL, so we'll just ignore errors for this part or skip if exists
+    BEGIN
+        ALTER PUBLICATION supabase_realtime ADD TABLE public.exam_questions;
+    EXCEPTION WHEN others THEN 
+        RAISE NOTICE 'Skipping adding exam_questions to realtime (already added or other issue)';
+    END;
+    
+    BEGIN
+        ALTER PUBLICATION supabase_realtime ADD TABLE public.user_exams;
+    EXCEPTION WHEN others THEN 
+        RAISE NOTICE 'Skipping adding user_exams to realtime';
+    END;
+    
+    BEGIN
+        ALTER PUBLICATION supabase_realtime ADD TABLE public.user_exam_responses;
+    EXCEPTION WHEN others THEN 
+        RAISE NOTICE 'Skipping adding user_exam_responses to realtime';
+    END;
+END $$;
