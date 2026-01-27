@@ -176,6 +176,27 @@ const AdminExamQuestions = () => {
         }
     };
 
+    const handleClearAllQuestions = async () => {
+        if (!confirm("Are you sure you want to delete ALL questions for this job? This action cannot be undone.")) return;
+
+        setSaving(true);
+        try {
+            const { error } = await supabase
+                .from("exam_questions" as any)
+                .delete()
+                .eq("job_id", jobId);
+
+            if (error) throw error;
+            toast.success("All questions deleted successfully");
+            fetchQuestions();
+        } catch (error: any) {
+            console.error("Error clearing questions:", error);
+            toast.error(error.message || "Failed to clear questions");
+        } finally {
+            setSaving(false);
+        }
+    };
+
     if (loading && !job) {
         return (
             <AdminLayout>
@@ -215,6 +236,16 @@ const AdminExamQuestions = () => {
                         <Button onClick={handleAddQuestion} className="gap-2">
                             <Plus className="h-4 w-4" /> Add Question
                         </Button>
+                        {questions.length > 0 && (
+                            <Button
+                                variant="destructive"
+                                onClick={handleClearAllQuestions}
+                                disabled={saving}
+                                className="gap-2"
+                            >
+                                <Trash2 className="h-4 w-4" /> Clear All
+                            </Button>
+                        )}
                     </div>
                 </div>
 
