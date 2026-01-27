@@ -75,7 +75,7 @@ Generate a compelling cold email subject line and body.`;
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.0-flash",
+        model: "google/gemini-pro",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt }
