@@ -63,6 +63,7 @@ const AdminEmailCooldowns = lazy(() => import("./pages/admin/AdminEmailCooldowns
 const AdminGovtJobs = lazy(() => import("./pages/admin/AdminGovtJobs"));
 const AdminGovtJobEditor = lazy(() => import("./pages/admin/AdminGovtJobEditor"));
 const AdminExamQuestions = lazy(() => import("./pages/admin/AdminExamQuestions"));
+const AdminExams = lazy(() => import("./pages/admin/AdminExams"));
 
 
 
@@ -143,6 +144,7 @@ const App = () => (
                   <Route path="/admin/govt-jobs/new" element={<AdminGovtJobEditor />} />
                   <Route path="/admin/govt-jobs/:id" element={<AdminGovtJobEditor />} />
                   <Route path="/admin/govt-jobs/:jobId/questions" element={<AdminExamQuestions />} />
+                  <Route path="/admin/exams" element={<AdminExams />} />
 
                   {/* Public Blog Routes */}
                   <Route path="/blog" element={<BlogListing />} />
