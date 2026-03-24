@@ -3,7 +3,7 @@
  * Add new rows and implement the matching adapter; keep disabled until ready.
  */
 
-export type GovtSourceAdapterId = "upsc_v1" | "ssc_notices_v1";
+export type GovtSourceAdapterId = "upsc_v1" | "ssc_notices_v1" | "freejobalert_v1";
 
 export interface GovtJobSourceConfig {
   key: string;
@@ -36,6 +36,20 @@ export const GOVT_JOB_SOURCES: GovtJobSourceConfig[] = [
     tags: ["upsc", "government-job", "central"],
     masterExamCategoryFallback: "UPSC",
     adapter: "upsc_v1",
+    enabled: true,
+    requestDelayMs: 400,
+  },
+  {
+    key: "freejobalert",
+    displayName: "FreeJobAlert — Government Jobs (All India + State)",
+    listingUrl: "https://www.freejobalert.com/government-jobs/",
+    baseUrl: "https://www.freejobalert.com",
+    organization: "Government Jobs",
+    location: "India",
+    stateCode: null,
+    tags: ["government-job", "all-india", "state-wise"],
+    masterExamCategoryFallback: "Government",
+    adapter: "freejobalert_v1",
     enabled: true,
     requestDelayMs: 400,
   },

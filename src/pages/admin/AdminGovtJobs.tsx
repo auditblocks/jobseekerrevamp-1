@@ -30,6 +30,8 @@ const AdminGovtJobs = () => {
     const [searchTerm, setSearchTerm] = useState("");
     const [scraping, setScraping] = useState(false);
     const [scrapeSource, setScrapeSource] = useState<string>("all");
+    /** full = ingest many listings; quick = small batch + AI exam generation */
+    const [scrapeMode, setScrapeMode] = useState<string>("full");
 
     useEffect(() => {
         fetchJobs();
@@ -76,11 +78,17 @@ const AdminGovtJobs = () => {
     const handleManualScrape = async () => {
         setScraping(true);
         try {
+            const runBody =
+                scrapeMode === "quick"
+                    ? { limit: 10, generateExams: true, ...(scrapeSource !== "all" ? { source: scrapeSource } : {}) }
+                    : {
+                          limit: "all",
+                          generateExams: false,
+                          ...(scrapeSource !== "all" ? { source: scrapeSource } : {}),
+                      };
+
             const { data, error } = await supabase.functions.invoke("scrape-govt-jobs", {
-                body: {
-                    limit: 3,
-                    ...(scrapeSource !== "all" ? { source: scrapeSource } : {}),
-                },
+                body: runBody,
             });
 
             if (error) throw error;
@@ -90,10 +98,11 @@ const AdminGovtJobs = () => {
             }
 
             const counters = data?.data?.counters;
+            const limits = data?.data?.limits as { exam_generation?: boolean } | undefined;
             const sourcesRun = data?.data?.sources_run as { key: string }[] | undefined;
             const srcLabel = sourcesRun?.map((s) => s.key).join(", ") || "";
             toast.success(
-                `Scrape complete${srcLabel ? ` [${srcLabel}]` : ""}: ${counters?.inserted || 0} inserted, ${counters?.updated || 0} updated, ${counters?.exam_generated || 0} exam sets generated.`,
+                `Scrape complete${srcLabel ? ` [${srcLabel}]` : ""}: ${counters?.inserted || 0} inserted, ${counters?.updated || 0} updated, ${counters?.exam_generated || 0} exam sets.${limits?.exam_generation === false ? " (AI exams skipped for bulk run — use Quick mode for sample exams.)" : ""}`,
             );
             await fetchJobs();
         } catch (error: any) {
@@ -122,6 +131,16 @@ const AdminGovtJobs = () => {
                             <SelectContent>
                                 <SelectItem value="all">All enabled sources</SelectItem>
                                 <SelectItem value="upsc">UPSC (active exams)</SelectItem>
+                                <SelectItem value="freejobalert">FreeJobAlert (govt listings)</SelectItem>
+                            </SelectContent>
+                        </Select>
+                        <Select value={scrapeMode} onValueChange={setScrapeMode} disabled={scraping}>
+                            <SelectTrigger className="w-[240px]">
+                                <SelectValue placeholder="Mode" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="full">Full ingest (bulk; skips AI exams)</SelectItem>
+                                <SelectItem value="quick">Quick sample (10 jobs + AI exams)</SelectItem>
                             </SelectContent>
                         </Select>
                         <Button

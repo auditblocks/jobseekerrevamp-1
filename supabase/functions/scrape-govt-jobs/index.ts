@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
 import { extractActiveExamLinks, scrapeUpscDetail, type GovtJobPayload } from "./adapters/upsc_v1.ts";
+import { extractFreejobalertArticleLinks, scrapeFreejobalertDetail } from "./adapters/freejobalert_v1.ts";
 import {
   formatRegisteredSourceKeys,
   getSourceByKey,
@@ -13,6 +14,9 @@ const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
+/** Max detail pages per source per invocation (prevents Edge timeouts). */
+const MAX_JOBS_PER_SOURCE = 300;
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -51,10 +55,19 @@ serve(async (req) => {
     }
 
     const body = await safeJson(req);
-    const requestedLimit = Number(body?.limit ?? 3);
-    const limit = Number.isFinite(requestedLimit) ? Math.max(1, Math.min(requestedLimit, 10)) : 3;
+    const listingLimit = parseListingLimit(body?.limit);
     const forceRegenerate = body?.forceRegenerate === true;
     const sourceParam = typeof body?.source === "string" ? body.source.trim().toLowerCase() : "";
+    const generateExamsExplicit = body?.generateExams;
+    const allowExamGeneration =
+      (generateExamsExplicit === true &&
+        listingLimit !== null &&
+        listingLimit > 0 &&
+        listingLimit <= 25) ||
+      (generateExamsExplicit !== false &&
+        listingLimit !== null &&
+        listingLimit > 0 &&
+        listingLimit <= 10);
 
     let sourcesToRun: GovtJobSourceConfig[];
     try {
@@ -107,7 +120,9 @@ serve(async (req) => {
       try {
         await delay(source.requestDelayMs);
         const listingHtml = await fetchHtml(source.listingUrl);
-        const examLinks = (await extractLinksForSource(source, listingHtml)).slice(0, limit);
+        const allLinks = await extractLinksForSource(source, listingHtml);
+        const cap = listingLimit === null ? MAX_JOBS_PER_SOURCE : listingLimit;
+        const examLinks = allLinks.slice(0, cap);
 
         bySource[source.key].discovered = examLinks.length;
         globalCounters.discovered += examLinks.length;
@@ -152,14 +167,15 @@ serve(async (req) => {
               .eq("job_id", jobData.id);
             if (countError) throw countError;
 
-            const shouldGenerate = forceRegenerate || !questionCount || questionCount === 0;
+            const shouldGenerate =
+              allowExamGeneration && (forceRegenerate || !questionCount || questionCount === 0);
             if (!shouldGenerate) {
               countersBump(globalCounters, bySource, source.key, "exam_skipped");
               processed.push({
                 slug: payload.slug,
                 status: existing?.id ? "updated" : "inserted",
                 source_key: source.key,
-                reason: "questions_exist",
+                reason: allowExamGeneration ? "questions_exist" : "exam_generation_skipped_bulk",
               });
               continue;
             }
@@ -228,6 +244,10 @@ serve(async (req) => {
         processed,
         sources_run: sourcesToRun.map((s) => ({ key: s.key, displayName: s.displayName })),
         available_sources: listSourceKeysForAdmin(),
+        limits: {
+          listing_per_source: listingLimit,
+          exam_generation: allowExamGeneration,
+        },
       },
     });
   } catch (error: unknown) {
@@ -274,6 +294,8 @@ async function extractLinksForSource(source: GovtJobSourceConfig, listingHtml: s
       return extractActiveExamLinks(listingHtml, source.baseUrl);
     case "ssc_notices_v1":
       throw new Error("SSC adapter is registered but not implemented. Keep source disabled in sources.ts.");
+    case "freejobalert_v1":
+      return extractFreejobalertArticleLinks(listingHtml, source.baseUrl);
     default:
       throw new Error(`Unhandled adapter: ${source.adapter}`);
   }
@@ -289,9 +311,24 @@ async function scrapeDetailForSource(
       return scrapeUpscDetail(html, url, source);
     case "ssc_notices_v1":
       throw new Error("SSC adapter not implemented");
+    case "freejobalert_v1":
+      return scrapeFreejobalertDetail(html, url, source);
     default:
       throw new Error(`Unhandled adapter: ${source.adapter}`);
   }
+}
+
+function parseListingLimit(raw: unknown): number | null {
+  if (raw === undefined || raw === null) return 120;
+  if (typeof raw === "string") {
+    const t = raw.trim().toLowerCase();
+    if (t === "all" || t === "unlimited") return null;
+  }
+  if (raw === "all") return null;
+  const n = typeof raw === "number" ? raw : Number(raw);
+  if (!Number.isFinite(n)) return 120;
+  if (n <= 0) return null;
+  return Math.max(1, Math.min(Math.floor(n), MAX_JOBS_PER_SOURCE));
 }
 
 async function resolveMasterExamId(

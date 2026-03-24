@@ -217,16 +217,21 @@ The Edge Function `scrape-govt-jobs` ingests **government-sector** listings (cen
 
 **Description HTML:** The server scraper parses HTML with `node-html-parser` and uses the same main-content selector order as the Playwright CLI (`.region-content`, `.view-content`, …) so “Full Job Description & Eligibility” is populated reliably. If no HTML block is found but a PDF link exists, a short stub with a PDF link is stored.
 
-**`govt_jobs` columns:** `source_key` (e.g. `upsc`, `ssc`) and `state_code` (`IN` for national bodies, or `TN`, `MH`, etc. for state bodies) support filtering and future multi-source slugs.
+**`govt_jobs` columns:** `source_key` (e.g. `upsc`, `ssc`, `freejobalert`) and `state_code` (`IN` for national bodies, or `TN`, `MH`, etc. for state bodies) support filtering and future multi-source slugs.
+
+**Breadth vs official portals:** `freejobalert` is an **aggregator** (faster coverage across India). For maximum accuracy and licensing safety long-term, prefer official sites (UPSC/SSC/State PSC) and add dedicated adapters per portal in `sources.ts`.
 
 **Admin API body (JWT):**
 ```json
-{ "limit": 3, "source": "all" }
+{ "limit": "all", "source": "all", "generateExams": false }
 ```
-| `source` | Behavior |
-|----------|----------|
-| omitted or `"all"` | All **enabled** sources (sequential, with per-source delays) |
+| Field | Behavior |
+|-------|----------|
+| `source` omitted / `"all"` | All **enabled** sources (sequential, per-source delays) |
 | `"upsc"` | UPSC active examinations only |
+| `"freejobalert"` | FreeJobAlert government jobs listing + articles |
+| `limit` | Number (1–300), or `"all"` to process every article link found in the fetched listing HTML |
+| `generateExams` | `true` only for small batches (≤25); bulk runs default to skipping AI exam generation to avoid Edge timeouts |
 
 **Optional secrets:** `DEFAULT_MASTER_EXAM_ID` (non-UPSC category fallback) in addition to `DEFAULT_UPSC_MASTER_EXAM_ID`.
 
