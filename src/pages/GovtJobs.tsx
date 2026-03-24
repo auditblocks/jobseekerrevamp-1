@@ -1,5 +1,5 @@
 import { Helmet } from "react-helmet-async";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,6 +30,13 @@ import {
     TooltipProvider,
     TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
 
 interface GovtJob {
     id: string;
@@ -44,6 +51,8 @@ interface GovtJob {
     location: string;
     summary: string | null;
     tags: string[];
+    source_key?: string | null;
+    state_code?: string | null;
 }
 
 const GovtJobs = () => {
@@ -52,6 +61,7 @@ const GovtJobs = () => {
     const [jobs, setJobs] = useState<GovtJob[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState("");
+    const [stateFilter, setStateFilter] = useState<string>("all");
 
     const isPaidUser = profile?.subscription_tier === "PRO" || profile?.subscription_tier === "PRO_MAX";
 
@@ -64,7 +74,7 @@ const GovtJobs = () => {
             setIsLoading(true);
             const { data, error } = await supabase
                 .from("govt_jobs" as any)
-                .select("id, organization, post_name, exam_name, application_end_date, mode_of_apply, visibility, status, slug, location, summary, tags")
+                .select("id, organization, post_name, exam_name, application_end_date, mode_of_apply, visibility, status, slug, location, summary, tags, source_key, state_code")
                 .eq("status", "active")
                 .order("application_end_date", { ascending: true });
 
@@ -78,11 +88,29 @@ const GovtJobs = () => {
         }
     };
 
-    const filteredJobs = jobs.filter(job =>
-        job.organization.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        job.post_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (job.exam_name && job.exam_name.toLowerCase().includes(searchQuery.toLowerCase()))
-    );
+    const stateFilterOptions = useMemo(() => {
+        const codes = new Set<string>();
+        jobs.forEach((j) => {
+            if (j.state_code) codes.add(j.state_code);
+        });
+        return ["all", ...Array.from(codes).sort()];
+    }, [jobs]);
+
+    const filteredJobs = jobs.filter((job) => {
+        const q = searchQuery.toLowerCase().trim();
+        const matchesSearch =
+            !q ||
+            job.organization.toLowerCase().includes(q) ||
+            job.post_name.toLowerCase().includes(q) ||
+            (job.exam_name && job.exam_name.toLowerCase().includes(q)) ||
+            (job.source_key && job.source_key.toLowerCase().includes(q)) ||
+            job.tags?.some((t) => t.toLowerCase().includes(q));
+
+        const code = job.state_code || "IN";
+        const matchesState = stateFilter === "all" || code === stateFilter;
+
+        return matchesSearch && matchesState;
+    });
 
     const handleJobClick = (job: GovtJob) => {
         navigate(`/government-jobs/${job.slug || job.id}`);
@@ -101,15 +129,34 @@ const GovtJobs = () => {
                     </p>
                 </div>
 
-                {/* Search Bar */}
-                <div className="relative max-w-2xl mx-auto">
-                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                    <Input
-                        placeholder="Search by organization, post, or exam name..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="pl-12 h-14 text-lg rounded-2xl shadow-sm border-border/50 focus:border-accent"
-                    />
+                {/* Search + region */}
+                <div className="flex flex-col md:flex-row gap-4 max-w-4xl mx-auto items-stretch md:items-center justify-center">
+                    <div className="relative flex-1 max-w-2xl">
+                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                        <Input
+                            placeholder="Search by organization, post, exam, tag, or source..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="pl-12 h-14 text-lg rounded-2xl shadow-sm border-border/50 focus:border-accent"
+                        />
+                    </div>
+                    {stateFilterOptions.length > 1 && (
+                        <Select value={stateFilter} onValueChange={setStateFilter}>
+                            <SelectTrigger className="h-14 w-full md:w-[200px] rounded-2xl">
+                                <SelectValue placeholder="Region" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">All regions</SelectItem>
+                                {stateFilterOptions
+                                    .filter((o) => o !== "all")
+                                    .map((code) => (
+                                        <SelectItem key={code} value={code}>
+                                            {code === "IN" ? "National (IN)" : code}
+                                        </SelectItem>
+                                    ))}
+                            </SelectContent>
+                        </Select>
+                    )}
                 </div>
 
                 {isLoading ? (
@@ -137,9 +184,16 @@ const GovtJobs = () => {
                                 >
                                     <CardContent className="p-6 flex flex-col h-full space-y-4">
                                         <div className="flex justify-between items-start">
-                                            <Badge variant="outline" className="text-[10px] font-bold uppercase tracking-widest py-1">
-                                                {job.organization}
-                                            </Badge>
+                                            <div className="flex flex-wrap gap-1 items-center">
+                                                <Badge variant="outline" className="text-[10px] font-bold uppercase tracking-widest py-1">
+                                                    {job.organization}
+                                                </Badge>
+                                                {job.source_key && (
+                                                    <Badge variant="secondary" className="text-[9px] uppercase py-0.5">
+                                                        {job.source_key}
+                                                    </Badge>
+                                                )}
+                                            </div>
                                             <div className="flex items-center gap-2">
                                                 {job.visibility === 'premium' ? (
                                                     <div className="flex items-center gap-1">

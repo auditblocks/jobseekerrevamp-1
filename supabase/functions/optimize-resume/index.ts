@@ -145,7 +145,7 @@ serve(async (req) => {
     };
 
     // Build optimization prompt
-    let optimizePrompt = `You are a professional resume optimizer. Apply the following suggestions to improve this resume while maintaining its authenticity and professional tone.
+    const optimizePrompt = `You are a professional resume optimizer. Apply the following suggestions to improve this resume while maintaining its authenticity and professional tone.
 
 ORIGINAL RESUME:
 ${sanitizedResumeText}

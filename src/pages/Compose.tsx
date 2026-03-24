@@ -259,13 +259,15 @@ const Compose = () => {
 
         // Get the daily limit from subscription plan
         // Use trim to handle potential whitespace issues
-        let cleanTier = tier.trim();
+        const cleanTier = tier.trim();
 
-        let { data: planData, error: planError } = await supabase
+        const tierPlanResult = await supabase
           .from("subscription_plans")
           .select("daily_limit")
           .eq("id", cleanTier)
           .maybeSingle();
+        let planData = tierPlanResult.data;
+        const planError = tierPlanResult.error;
 
         // If strict ID match fails, try to match by name or display_name
         if (!planData) {

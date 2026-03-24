@@ -71,7 +71,7 @@ serve(async (req) => {
         console.log("Email opened:", trackingId);
         break;
 
-      case "email.clicked":
+      case "email.clicked": {
         const { data: currentData } = await supabase
           .from("email_tracking")
           .select("click_links")
@@ -88,6 +88,7 @@ serve(async (req) => {
         };
         console.log("Email clicked:", trackingId, "URL:", linkUrl);
         break;
+      }
 
       case "email.bounced":
       case "email.complained":
@@ -104,10 +105,12 @@ serve(async (req) => {
 
     if (Object.keys(updateData).length > 0) {
       // Try to update by tracking_pixel_id first
-      let { error, count } = await supabase
+      const firstUpdate = await supabase
         .from("email_tracking")
         .update(updateData)
         .eq("tracking_pixel_id", trackingId);
+      let error = firstUpdate.error;
+      const count = firstUpdate.count;
 
       // If no rows updated, try by email_id
       if (!error && count === 0) {

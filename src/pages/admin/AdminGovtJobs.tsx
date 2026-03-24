@@ -12,7 +12,14 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Edit, Trash2, Plus, Search, Building2, Calendar, FileQuestion } from "lucide-react";
+import { Edit, Trash2, Plus, Search, Building2, Calendar, FileQuestion, RefreshCw } from "lucide-react";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { AdminLayout } from "@/components/admin/AdminLayout";
@@ -21,6 +28,8 @@ const AdminGovtJobs = () => {
     const [jobs, setJobs] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState("");
+    const [scraping, setScraping] = useState(false);
+    const [scrapeSource, setScrapeSource] = useState<string>("all");
 
     useEffect(() => {
         fetchJobs();
@@ -64,6 +73,37 @@ const AdminGovtJobs = () => {
         job.organization.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
+    const handleManualScrape = async () => {
+        setScraping(true);
+        try {
+            const { data, error } = await supabase.functions.invoke("scrape-govt-jobs", {
+                body: {
+                    limit: 3,
+                    ...(scrapeSource !== "all" ? { source: scrapeSource } : {}),
+                },
+            });
+
+            if (error) throw error;
+
+            if (!data?.success) {
+                throw new Error(data?.error || "Scraping failed");
+            }
+
+            const counters = data?.data?.counters;
+            const sourcesRun = data?.data?.sources_run as { key: string }[] | undefined;
+            const srcLabel = sourcesRun?.map((s) => s.key).join(", ") || "";
+            toast.success(
+                `Scrape complete${srcLabel ? ` [${srcLabel}]` : ""}: ${counters?.inserted || 0} inserted, ${counters?.updated || 0} updated, ${counters?.exam_generated || 0} exam sets generated.`,
+            );
+            await fetchJobs();
+        } catch (error: any) {
+            console.error("Manual govt job scrape failed:", error);
+            toast.error(error?.message || "Failed to run govt job scraper");
+        } finally {
+            setScraping(false);
+        }
+    };
+
     return (
         <AdminLayout>
             <div className="space-y-6">
@@ -74,12 +114,32 @@ const AdminGovtJobs = () => {
                             Manage government job alerts and portal content
                         </p>
                     </div>
-                    <Link to="/admin/govt-jobs/new">
-                        <Button className="gap-2">
-                            <Plus className="w-4 h-4" />
-                            Add Job
+                    <div className="flex flex-wrap items-center gap-2">
+                        <Select value={scrapeSource} onValueChange={setScrapeSource} disabled={scraping}>
+                            <SelectTrigger className="w-[220px]">
+                                <SelectValue placeholder="Source" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">All enabled sources</SelectItem>
+                                <SelectItem value="upsc">UPSC (active exams)</SelectItem>
+                            </SelectContent>
+                        </Select>
+                        <Button
+                            variant="outline"
+                            className="gap-2"
+                            onClick={handleManualScrape}
+                            disabled={scraping}
+                        >
+                            <RefreshCw className={`w-4 h-4 ${scraping ? "animate-spin" : ""}`} />
+                            {scraping ? "Scraping..." : "Run scraper"}
                         </Button>
-                    </Link>
+                        <Link to="/admin/govt-jobs/new">
+                            <Button className="gap-2">
+                                <Plus className="w-4 h-4" />
+                                Add Job
+                            </Button>
+                        </Link>
+                    </div>
                 </div>
 
                 <div className="bg-white rounded-xl shadow-sm border border-border p-6 overflow-hidden">
@@ -100,6 +160,7 @@ const AdminGovtJobs = () => {
                             <TableHeader>
                                 <TableRow>
                                     <TableHead>Job Title & Organization</TableHead>
+                                    <TableHead>Source / Region</TableHead>
                                     <TableHead>Mode/Visibility</TableHead>
                                     <TableHead>Fee</TableHead>
                                     <TableHead>Deadlines</TableHead>
@@ -109,13 +170,13 @@ const AdminGovtJobs = () => {
                             <TableBody>
                                 {loading ? (
                                     <TableRow>
-                                        <TableCell colSpan={5} className="text-center py-8">
+                                        <TableCell colSpan={6} className="text-center py-8">
                                             Loading...
                                         </TableCell>
                                     </TableRow>
                                 ) : filteredJobs.length === 0 ? (
                                     <TableRow>
-                                        <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                                        <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                                             No job postings found
                                         </TableCell>
                                     </TableRow>
@@ -128,6 +189,10 @@ const AdminGovtJobs = () => {
                                                     <Building2 className="w-3 h-3" />
                                                     {job.organization}
                                                 </div>
+                                            </TableCell>
+                                            <TableCell className="text-xs">
+                                                <div className="font-mono">{job.source_key || "—"}</div>
+                                                <div className="text-muted-foreground">{job.state_code || "—"}</div>
                                             </TableCell>
                                             <TableCell>
                                                 <div className="flex flex-col gap-1">

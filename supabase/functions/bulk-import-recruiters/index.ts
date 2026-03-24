@@ -274,7 +274,7 @@ serve(async (req) => {
     }
 
     // Get existing emails in batch if skip_duplicates is enabled
-    let existingEmails = new Set<string>();
+    const existingEmails = new Set<string>();
     if (skip_duplicates && recruiters.length > 0) {
       console.log(`Checking for duplicates among ${recruiters.length} recruiters...`);
       const emails = recruiters.map(r => r.email);

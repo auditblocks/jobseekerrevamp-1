@@ -404,7 +404,7 @@ Deno.serve(async (req) => {
 
     // Batch insert
     let insertedCount = 0;
-    let skippedCount = alreadyExistingCount;
+    const skippedCount = alreadyExistingCount;
     const BATCH_SIZE = 500;
     const totalBatches = Math.ceil(newRecruiters.length / BATCH_SIZE);
 

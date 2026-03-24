@@ -58,7 +58,7 @@ serve(async (req) => {
         console.log("Processing open event");
         break;
       
-      case "click":
+      case "click": {
         // Get current link tracking data
         const { data: currentData } = await supabase
           .from("email_tracking")
@@ -76,6 +76,7 @@ serve(async (req) => {
         };
         console.log("Processing click event for URL:", linkUrl);
         break;
+      }
       
       case "reply":
         updateData = {

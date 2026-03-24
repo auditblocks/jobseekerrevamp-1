@@ -457,9 +457,9 @@ Please provide a detailed analysis in the following JSON format:
 }`;
 
     // If job description provided, add matching analysis
-    let keywordMatchScore = null;
-    let missingKeywords: string[] = [];
-    let matchedKeywords: string[] = [];
+    const keywordMatchScore = null;
+    const missingKeywords: string[] = [];
+    const matchedKeywords: string[] = [];
 
     if (job_description && job_description.trim().length > 0) {
       analysisPrompt += `

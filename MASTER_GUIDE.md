@@ -209,6 +209,53 @@ Configure in Supabase Dashboard → Settings → Edge Functions → Secrets:
   - **Value**: `re_gRSNr18j_AeJaWoRysvGLLhZxX9x4y5Qc`
   - **Setup**: Add in Supabase Dashboard → Settings → Edge Functions → Secrets
 - `LOVABLE_API_KEY` - AI API key (for email generation)
+- `OPENROUTER_API_KEY` - AI key used by `generate-exam-questions` and UPSC job ingestion summary generation
+
+### Government Job Auto-Scrape + Auto Exam Set
+
+The Edge Function `scrape-govt-jobs` ingests **government-sector** listings (central and, over time, state PSCs) into `govt_jobs` and can trigger automatic question-set generation. Sources are configured in `supabase/functions/scrape-govt-jobs/sources.ts` (adapter per portal). Only **enabled** sources run when you pass `source: "all"` or omit `source`.
+
+**Description HTML:** The server scraper parses HTML with `node-html-parser` and uses the same main-content selector order as the Playwright CLI (`.region-content`, `.view-content`, …) so “Full Job Description & Eligibility” is populated reliably. If no HTML block is found but a PDF link exists, a short stub with a PDF link is stored.
+
+**`govt_jobs` columns:** `source_key` (e.g. `upsc`, `ssc`) and `state_code` (`IN` for national bodies, or `TN`, `MH`, etc. for state bodies) support filtering and future multi-source slugs.
+
+**Admin API body (JWT):**
+```json
+{ "limit": 3, "source": "all" }
+```
+| `source` | Behavior |
+|----------|----------|
+| omitted or `"all"` | All **enabled** sources (sequential, with per-source delays) |
+| `"upsc"` | UPSC active examinations only |
+
+**Optional secrets:** `DEFAULT_MASTER_EXAM_ID` (non-UPSC category fallback) in addition to `DEFAULT_UPSC_MASTER_EXAM_ID`.
+
+**Local Playwright CLI (UPSC only today):**
+```bash
+# Dry run: parse and map without writing to DB
+npm run scrape:upsc:dry -- --limit=3
+
+# Write mode: upsert into govt_jobs and auto-generate exam questions for new jobs
+npm run scrape:upsc -- --limit=3
+```
+
+Runtime behavior:
+- Uses slug-based dedupe (`govt_jobs.slug`) for idempotency.
+- On newly inserted jobs, resolves a `master_exams` template (by exam name, then by `category` from the source config) and invokes `generate-exam-questions`.
+- Skips generation when `exam_questions` already exist for a job (unless `forceRegenerate` is true).
+
+**Adding a new source** (e.g. SSC, a state PSC): add a row in `sources.ts` with `adapter`, `listingUrl`, `state_code`, `masterExamCategoryFallback`; implement `extractLinksForSource` / `scrapeDetailForSource` in `scrape-govt-jobs/index.ts` (or a dedicated adapter file); set `enabled: true` when ready. Respect each site’s `robots.txt` and use conservative rate limits (`requestDelayMs`).
+
+**Tests:** `npm run test` runs Vitest against `tests/govt-scrape-html-extract.test.ts` (HTML extraction fixtures).
+
+Scheduler:
+- GitHub Actions workflow is available at `.github/workflows/scrape-upsc-govt-jobs.yml`.
+- Configure repository secrets:
+  - `SUPABASE_URL`
+  - `SUPABASE_SERVICE_ROLE_KEY`
+  - `OPENROUTER_API_KEY`
+  - `DEFAULT_UPSC_MASTER_EXAM_ID` (optional fallback template)
+  - `DEFAULT_MASTER_EXAM_ID` (optional fallback for non-UPSC sources)
 
 ### Function List
 

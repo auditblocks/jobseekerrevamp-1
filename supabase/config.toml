@@ -86,3 +86,6 @@ verify_jwt = false
 
 [functions.generate-exam-questions]
 verify_jwt = false
+
+[functions.scrape-govt-jobs]
+verify_jwt = false

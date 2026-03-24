@@ -330,8 +330,10 @@ export const ResumeTemplates = ({
             currentExperience.company = originalLine;
           } else if (originalLine.match(/\d{4}|\w+\s+\d{4}|Present|Current/i)) {
             currentExperience.dates = originalLine;
-          } else if (originalLine.match(/^[•\-\*]/) || originalLine.match(/^\d+\./)) {
-            currentExperience.description.push(originalLine.replace(/^[•\-\*\d+\.]\s*/, ""));
+          } else if (/^(?:-|•|\*|\d+\.)/.test(originalLine)) {
+            currentExperience.description.push(
+              originalLine.replace(/^(?:-|•|\*|\d+\.)\s*/, ""),
+            );
           }
         }
       } else if (currentSection === "education") {
@@ -351,7 +353,7 @@ export const ResumeTemplates = ({
         }
       } else if (currentSection === "skills") {
         const skills = originalLine
-          .split(/[,•\-\*|]/)
+          .split(/[|,]|•|\*|-/)
           .map((s) => s.trim())
           .filter((s) => s.length > 0);
         parsed.skills.push(...skills);
@@ -372,10 +374,10 @@ export const ResumeTemplates = ({
           }
         }
       } else if (currentSection === "languages") {
-        const langs = originalLine.split(/[,•\-\*]/).map((s) => s.trim()).filter((s) => s.length > 0);
+        const langs = originalLine.split(/[|,]|•|\*|-/).map((s) => s.trim()).filter((s) => s.length > 0);
         parsed.languages!.push(...langs);
       } else if (currentSection === "certifications") {
-        const certs = originalLine.split(/[,•\-\*]/).map((s) => s.trim()).filter((s) => s.length > 0);
+        const certs = originalLine.split(/[|,]|•|\*|-/).map((s) => s.trim()).filter((s) => s.length > 0);
         parsed.certifications!.push(...certs);
       }
     }
