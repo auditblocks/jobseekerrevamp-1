@@ -19,7 +19,8 @@ import {
     MapPin,
     AlertCircle,
     UserCircle2,
-    ShieldAlert
+    ShieldAlert,
+    Clock,
 } from "lucide-react";
 import {
     Tooltip,
@@ -30,7 +31,7 @@ import {
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { format } from "date-fns";
+import { format, formatDistanceToNow } from "date-fns";
 import Navbar from "@/components/landing/Navbar";
 import FooterSection from "@/components/landing/FooterSection";
 import DashboardLayout from "@/components/DashboardLayout";
@@ -56,6 +57,7 @@ interface GovtJob {
     meta_description: string | null;
     job_posting_json: any;
     tags: string[];
+    created_at?: string | null;
 }
 
 const GovtJobDetail = () => {
@@ -237,7 +239,7 @@ const GovtJobDetail = () => {
             "sameAs": job.official_website
         },
         "employmentType": "FULL_TIME",
-        "datePosted": job.application_start_date || new Date().toISOString(),
+        "datePosted": job.created_at || job.application_start_date || new Date().toISOString(),
         "validThrough": job.application_end_date,
         "jobLocation": {
             "@type": "Place",
@@ -316,7 +318,7 @@ const GovtJobDetail = () => {
                         )}
 
                         {/* Key Dates Inline */}
-                        <div className="grid sm:grid-cols-2 gap-4">
+                        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
                             <div className="flex items-start gap-3 p-4 rounded-xl bg-card border">
                                 <Calendar className="h-5 w-5 text-accent mt-1" />
                                 <div>
@@ -333,6 +335,20 @@ const GovtJobDetail = () => {
                                     <p className="font-bold">{job.mode_of_apply || 'Online'}</p>
                                 </div>
                             </div>
+                            {job.created_at && (
+                                <div className="flex items-start gap-3 p-4 rounded-xl bg-card border sm:col-span-2 lg:col-span-1">
+                                    <Clock className="h-5 w-5 text-accent mt-1" />
+                                    <div>
+                                        <p className="text-xs text-muted-foreground uppercase font-bold tracking-tight mb-1">Listed on portal</p>
+                                        <p className="font-bold">
+                                            {format(new Date(job.created_at), "MMMM d, yyyy 'at' h:mm a")}
+                                        </p>
+                                        <p className="text-xs text-muted-foreground mt-1">
+                                            {formatDistanceToNow(new Date(job.created_at), { addSuffix: true })}
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
                         </div>
 
                         {/* Content Sections */}

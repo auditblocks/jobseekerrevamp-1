@@ -15,7 +15,14 @@ export default defineConfig(({ mode }) => ({
     mode === "development" && componentTagger(),
     VitePWA({
       registerType: "autoUpdate",
-      includeAssets: ["favicon.ico", "icon-192.png", "icon-512.png"],
+      includeAssets: [
+        "favicon.svg",
+        "favicon.png",
+        "favicon-32.png",
+        "apple-touch-icon.png",
+        "icon-192.png",
+        "icon-512.png",
+      ],
       manifest: {
         name: "JobSeeker - AI-Powered Job Outreach",
         short_name: "JobSeeker",

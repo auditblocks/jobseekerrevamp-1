@@ -7,13 +7,14 @@ import {
     ChevronRight,
     Calendar,
     MapPin,
+    Clock,
     Briefcase,
     Loader2,
     Info
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { format } from "date-fns";
+import { format, formatDistanceToNow } from "date-fns";
 import { useAuth } from "@/hooks/useAuth";
 import {
     Tooltip,
@@ -31,6 +32,7 @@ interface GovtJob {
     slug: string;
     location: string;
     tags: string[];
+    created_at?: string | null;
 }
 
 const GovtJobsSection = () => {
@@ -45,7 +47,7 @@ const GovtJobsSection = () => {
                 setIsLoading(true);
                 const { data, error } = await supabase
                     .from("govt_jobs" as any)
-                    .select("id, organization, post_name, application_end_date, visibility, slug, location, tags")
+                    .select("id, organization, post_name, application_end_date, visibility, slug, location, tags, created_at")
                     .eq("status", "active")
                     .order("created_at", { ascending: false })
                     .limit(3);
@@ -190,6 +192,15 @@ const GovtJobsSection = () => {
                                             <Calendar className="h-4 w-4 text-accent/70" />
                                             <span className="font-medium">Due: {job.application_end_date ? format(new Date(job.application_end_date), 'MMM dd, yyyy') : 'N/A'}</span>
                                         </div>
+                                        {job.created_at && (
+                                            <div className="flex items-center gap-2.5 text-xs text-muted-foreground">
+                                                <Clock className="h-3.5 w-3.5 text-accent/60 shrink-0" />
+                                                <span>
+                                                    Posted {format(new Date(job.created_at), "MMM d, yyyy")} ·{" "}
+                                                    {formatDistanceToNow(new Date(job.created_at), { addSuffix: true })}
+                                                </span>
+                                            </div>
+                                        )}
                                     </div>
 
                                     <Button

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -12,7 +12,7 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Edit, Trash2, Plus, Search, Building2, Calendar, FileQuestion, RefreshCw } from "lucide-react";
+import { Edit, Trash2, Plus, Search, Building2, Calendar, FileQuestion, RefreshCw, Clock } from "lucide-react";
 import {
     Select,
     SelectContent,
@@ -24,36 +24,73 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 
+const PAGE_SIZE_OPTIONS = [10, 15, 25, 50] as const;
+
 const AdminGovtJobs = () => {
     const [jobs, setJobs] = useState<any[]>([]);
+    const [totalCount, setTotalCount] = useState(0);
+    const [page, setPage] = useState(1);
+    const [pageSize, setPageSize] = useState<number>(15);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState("");
+    const [debouncedSearch, setDebouncedSearch] = useState("");
     const [scraping, setScraping] = useState(false);
     const [scrapeSource, setScrapeSource] = useState<string>("all");
     /** full = ingest many listings; quick = small batch + AI exam generation */
     const [scrapeMode, setScrapeMode] = useState<string>("full");
 
     useEffect(() => {
-        fetchJobs();
-    }, []);
+        const id = setTimeout(() => setDebouncedSearch(searchTerm.trim()), 400);
+        return () => clearTimeout(id);
+    }, [searchTerm]);
 
-    const fetchJobs = async () => {
+    useEffect(() => {
+        setPage(1);
+    }, [debouncedSearch, pageSize]);
+
+    const fetchJobs = useCallback(async () => {
         try {
             setLoading(true);
-            const { data, error } = await supabase
+            const from = (page - 1) * pageSize;
+            const to = from + pageSize - 1;
+
+            let query = supabase
                 .from("govt_jobs" as any)
-                .select("*")
-                .order("created_at", { ascending: false });
+                .select("*", { count: "exact" })
+                .order("created_at", { ascending: false })
+                .range(from, to);
+
+            if (debouncedSearch) {
+                const raw = debouncedSearch.replace(/,/g, " ").trim();
+                const escaped = raw.replace(/%/g, "\\%").replace(/_/g, "\\_");
+                const pattern = `%${escaped}%`;
+                query = query.or(`post_name.ilike.${pattern},organization.ilike.${pattern}`);
+            }
+
+            const { data, error, count } = await query;
 
             if (error) throw error;
             setJobs(data || []);
+            setTotalCount(count ?? 0);
         } catch (error) {
             console.error("Error fetching jobs:", error);
             toast.error("Failed to fetch govt. jobs");
         } finally {
             setLoading(false);
         }
-    };
+    }, [page, pageSize, debouncedSearch]);
+
+    useEffect(() => {
+        fetchJobs();
+    }, [fetchJobs]);
+
+    useEffect(() => {
+        if (loading) return;
+        if (jobs.length === 0 && totalCount > 0) {
+            const lastPage = Math.max(1, Math.ceil(totalCount / pageSize));
+            if (page > lastPage) setPage(lastPage);
+        }
+    }, [loading, jobs.length, totalCount, page, pageSize]);
 
     const handleDelete = async (id: string) => {
         if (!window.confirm("Are you sure you want to delete this job posting?")) return;
@@ -62,7 +99,7 @@ const AdminGovtJobs = () => {
             const { error } = await supabase.from("govt_jobs" as any).delete().eq("id", id);
             if (error) throw error;
 
-            setJobs(jobs.filter((job) => job.id !== id));
+            await fetchJobs();
             toast.success("Job deleted successfully");
         } catch (error) {
             console.error("Error deleting job:", error);
@@ -70,10 +107,9 @@ const AdminGovtJobs = () => {
         }
     };
 
-    const filteredJobs = jobs.filter((job) =>
-        job.post_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        job.organization.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+    const showingFrom = totalCount === 0 ? 0 : (page - 1) * pageSize + 1;
+    const showingTo = Math.min(page * pageSize, totalCount);
 
     const handleManualScrape = async () => {
         setScraping(true);
@@ -121,6 +157,11 @@ const AdminGovtJobs = () => {
                         <h1 className="text-3xl font-bold tracking-tight">Govt. Job Postings</h1>
                         <p className="text-muted-foreground mt-2">
                             Manage government job alerts and portal content
+                            {!loading && (
+                                <span className="block sm:inline sm:ml-2 mt-1 sm:mt-0 text-foreground font-medium">
+                                    · {totalCount} job{totalCount !== 1 ? "s" : ""} total
+                                </span>
+                            )}
                         </p>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
@@ -162,7 +203,7 @@ const AdminGovtJobs = () => {
                 </div>
 
                 <div className="bg-white rounded-xl shadow-sm border border-border p-6 overflow-hidden">
-                    <div className="flex items-center gap-4 mb-6">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-6">
                         <div className="relative flex-1 max-w-sm">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                             <Input
@@ -171,6 +212,25 @@ const AdminGovtJobs = () => {
                                 onChange={(e) => setSearchTerm(e.target.value)}
                                 className="pl-9"
                             />
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <span className="text-sm text-muted-foreground whitespace-nowrap">Rows per page</span>
+                            <Select
+                                value={String(pageSize)}
+                                onValueChange={(v) => setPageSize(Number(v))}
+                                disabled={loading}
+                            >
+                                <SelectTrigger className="w-[88px]">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {PAGE_SIZE_OPTIONS.map((n) => (
+                                        <SelectItem key={n} value={String(n)}>
+                                            {n}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
                         </div>
                     </div>
 
@@ -183,24 +243,25 @@ const AdminGovtJobs = () => {
                                     <TableHead>Mode/Visibility</TableHead>
                                     <TableHead>Fee</TableHead>
                                     <TableHead>Deadlines</TableHead>
+                                    <TableHead>Posted</TableHead>
                                     <TableHead className="text-right">Actions</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 {loading ? (
                                     <TableRow>
-                                        <TableCell colSpan={6} className="text-center py-8">
+                                        <TableCell colSpan={7} className="text-center py-8">
                                             Loading...
                                         </TableCell>
                                     </TableRow>
-                                ) : filteredJobs.length === 0 ? (
+                                ) : jobs.length === 0 ? (
                                     <TableRow>
-                                        <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                                        <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                                             No job postings found
                                         </TableCell>
                                     </TableRow>
                                 ) : (
-                                    filteredJobs.map((job) => (
+                                    jobs.map((job) => (
                                         <TableRow key={job.id}>
                                             <TableCell className="max-w-[300px]">
                                                 <div className="font-medium truncate">{job.post_name}</div>
@@ -241,6 +302,22 @@ const AdminGovtJobs = () => {
                                                     </p>
                                                 </div>
                                             </TableCell>
+                                            <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                                                {job.created_at ? (
+                                                    <div className="flex items-start gap-1.5">
+                                                        <Clock className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                                                        <span>
+                                                            {format(new Date(job.created_at), "MMM d, yyyy")}
+                                                            <br />
+                                                            <span className="text-[10px] opacity-80">
+                                                                {format(new Date(job.created_at), "h:mm a")}
+                                                            </span>
+                                                        </span>
+                                                    </div>
+                                                ) : (
+                                                    "—"
+                                                )}
+                                            </TableCell>
                                             <TableCell className="text-right">
                                                 <div className="flex justify-end gap-2">
                                                     <Link to={`/admin/govt-jobs/${job.id}/questions`}>
@@ -268,6 +345,40 @@ const AdminGovtJobs = () => {
                             </TableBody>
                         </Table>
                     </div>
+
+                    {!loading && totalCount > 0 && (
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mt-4 pt-4 border-t border-border">
+                            <p className="text-sm text-muted-foreground">
+                                Showing <span className="font-medium text-foreground">{showingFrom}</span>–
+                                <span className="font-medium text-foreground">{showingTo}</span> of{" "}
+                                <span className="font-medium text-foreground">{totalCount}</span>
+                                {debouncedSearch ? ` (filtered)` : ""}
+                            </p>
+                            <div className="flex items-center gap-2">
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    disabled={page <= 1}
+                                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                                >
+                                    Previous
+                                </Button>
+                                <span className="text-sm text-muted-foreground px-2">
+                                    Page {page} of {totalPages}
+                                </span>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    disabled={page >= totalPages}
+                                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                                >
+                                    Next
+                                </Button>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
         </AdminLayout>

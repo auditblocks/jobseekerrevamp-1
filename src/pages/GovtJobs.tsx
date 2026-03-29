@@ -14,13 +14,14 @@ import {
     ChevronRight,
     MapPin,
     AlertCircle,
-    Info
+    Info,
+    Clock,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { format } from "date-fns";
+import { format, formatDistanceToNow } from "date-fns";
 import Navbar from "@/components/landing/Navbar";
 import FooterSection from "@/components/landing/FooterSection";
 import DashboardLayout from "@/components/DashboardLayout";
@@ -53,6 +54,7 @@ interface GovtJob {
     tags: string[];
     source_key?: string | null;
     state_code?: string | null;
+    created_at?: string | null;
 }
 
 const GovtJobs = () => {
@@ -74,7 +76,7 @@ const GovtJobs = () => {
             setIsLoading(true);
             const { data, error } = await supabase
                 .from("govt_jobs" as any)
-                .select("id, organization, post_name, exam_name, application_end_date, mode_of_apply, visibility, status, slug, location, summary, tags, source_key, state_code")
+                .select("id, organization, post_name, exam_name, application_end_date, mode_of_apply, visibility, status, slug, location, summary, tags, source_key, state_code, created_at")
                 .eq("status", "active")
                 .order("application_end_date", { ascending: true });
 
@@ -251,6 +253,15 @@ const GovtJobs = () => {
                                                 <Calendar className="h-4 w-4 text-accent/70" />
                                                 <span>Due: {job.application_end_date ? format(new Date(job.application_end_date), 'MMM dd, yyyy') : 'N/A'}</span>
                                             </div>
+                                            {job.created_at && (
+                                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                                    <Clock className="h-3.5 w-3.5 text-accent/60 shrink-0" />
+                                                    <span>
+                                                        Listed {format(new Date(job.created_at), "MMM d, yyyy")} ·{" "}
+                                                        {formatDistanceToNow(new Date(job.created_at), { addSuffix: true })}
+                                                    </span>
+                                                </div>
+                                            )}
                                         </div>
 
                                         <div className="grid grid-cols-2 gap-3 mt-4">
