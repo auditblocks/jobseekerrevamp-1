@@ -46,6 +46,85 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
 import DashboardLayout from "@/components/DashboardLayout";
+import { storagePathFromResumeFileUrl } from "@/lib/resumeStoragePath";
+
+const MAX_RESUME_INLINE_BYTES = 5 * 1024 * 1024;
+
+function arrayBufferToBase64(buf: ArrayBuffer): string {
+  const bytes = new Uint8Array(buf);
+  const chunk = 0x8000;
+  let binary = "";
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode.apply(
+      null,
+      Array.from(bytes.subarray(i, Math.min(i + chunk, bytes.length))) as unknown as number[],
+    );
+  }
+  return btoa(binary);
+}
+
+/** Load primary resume bytes with the user session (RLS). Edge function uses this first to avoid storage/env mismatches. */
+async function loadResumeInlineForCompose(userId: string): Promise<
+  | { filename: string; content_base64: string; mime_type?: string }
+  | undefined
+> {
+  const { data: urList, error: urErr } = await supabase
+    .from("user_resumes")
+    .select("file_url, file_name, file_type")
+    .eq("user_id", userId)
+    .order("is_primary", { ascending: false })
+    .order("created_at", { ascending: false })
+    .limit(1);
+
+  if (urErr) {
+    console.warn("user_resumes fetch for attach:", urErr.message);
+  }
+
+  let fileUrl: string | null = urList?.[0]?.file_url?.trim() ?? null;
+  let fileName = urList?.[0]?.file_name?.trim() || "resume.pdf";
+  let fileType: string | undefined = urList?.[0]?.file_type || undefined;
+
+  if (!fileUrl) {
+    const { data: rlist, error: rErr } = await supabase
+      .from("resumes")
+      .select("file_url, name, file_type")
+      .eq("user_id", userId)
+      .eq("is_active", true)
+      .limit(1);
+
+    if (rErr) {
+      console.warn("resumes fetch for attach:", rErr.message);
+    }
+
+    const r = rlist?.[0];
+    if (r?.file_url?.trim()) {
+      fileUrl = r.file_url.trim();
+      fileName = `${(r.name || "resume").replace(/[^\w.-]+/g, "_")}.${r.file_type || "pdf"}`;
+      fileType = r.file_type || undefined;
+    }
+  }
+
+  if (!fileUrl) return undefined;
+
+  const path = storagePathFromResumeFileUrl(fileUrl);
+  if (!path) {
+    console.warn("Could not parse resume storage path from URL");
+    return undefined;
+  }
+
+  const { data: blob, error: dlErr } = await supabase.storage.from("resumes").download(path);
+  if (dlErr || !blob) {
+    console.warn("Resume storage download failed:", dlErr?.message);
+    return undefined;
+  }
+  if (blob.size > MAX_RESUME_INLINE_BYTES) {
+    console.warn("Resume too large for inline payload; relying on server fetch");
+    return undefined;
+  }
+
+  const content_base64 = arrayBufferToBase64(await blob.arrayBuffer());
+  return { filename: fileName, content_base64, mime_type: fileType };
+}
 
 interface Recruiter {
   id: string;
@@ -634,6 +713,18 @@ Best regards,
     }, 1500);
   };
 
+  const readFileAsBase64 = (file: File): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const r = reader.result as string;
+        const i = r.indexOf(",");
+        resolve(i >= 0 ? r.slice(i + 1) : r);
+      };
+      reader.onerror = () => reject(reader.error);
+      reader.readAsDataURL(file);
+    });
+
   const handleSend = async () => {
     if (!isGmailConnected) {
       setShowConnectDialog(true);
@@ -660,6 +751,37 @@ Best regards,
       }
     }
 
+    const MAX_BYTES = 6 * 1024 * 1024;
+    let serializedAttachments: { filename: string; content_base64: string; mime_type?: string }[] = [];
+    try {
+      for (const f of attachments) {
+        if (f.size > MAX_BYTES) {
+          toast.error(`"${f.name}" is too large (max 6MB per file).`);
+          return;
+        }
+        serializedAttachments.push({
+          filename: f.name,
+          content_base64: await readFileAsBase64(f),
+          mime_type: f.type || undefined,
+        });
+      }
+    } catch (e) {
+      console.error(e);
+      toast.error("Could not read attachment files.");
+      return;
+    }
+
+    let resumeInline:
+      | { filename: string; content_base64: string; mime_type?: string }
+      | undefined;
+    if (attachResume && user?.id) {
+      try {
+        resumeInline = await loadResumeInlineForCompose(user.id);
+      } catch (e) {
+        console.error("Resume inline load failed; server will attach if possible:", e);
+      }
+    }
+
     setIsSending(true);
 
     try {
@@ -667,50 +789,59 @@ Best regards,
       let successCount = 0;
 
       for (const recruiter of selectedRecruiterData) {
-        const { error } = await supabase.functions.invoke("send-email-gmail", {
+        const { data, error } = await supabase.functions.invoke("send-email-gmail", {
           body: {
             to: recruiter.email,
             subject: subject,
             body: body,
+            attachResume: attachResume,
+            resumeInline,
+            attachments: serializedAttachments,
+            recruiterName: recruiter.name,
           },
         });
 
         if (error) {
           console.error(`Failed to send to ${recruiter.email}:`, error);
+          const ctx = (error as { context?: { body?: string } })?.context?.body;
+          let msg = error.message || "Send failed";
+          if (typeof ctx === "string") {
+            try {
+              const j = JSON.parse(ctx) as { error?: string };
+              if (j?.error) msg = j.error;
+            } catch {
+              /* ignore */
+            }
+          }
+          toast.error(`${recruiter.email}: ${msg}`);
+        } else if (data && typeof data === "object" && "error" in data && (data as { error?: string }).error) {
+          toast.error(`${recruiter.email}: ${(data as { error: string }).error}`);
         } else {
           successCount++;
         }
       }
 
-      // Update daily email count in profile
+      // Edge function updates profile counts per send; sync local limit from server
       if (user?.id && successCount > 0) {
-        const today = new Date().toISOString().split("T")[0];
-        const newCount = (emailLimit?.dailySent || 0) + successCount;
-
-        // Get current total and update both counts
-        const { data: currentProfile } = await supabase
+        const { data: prof } = await supabase
           .from("profiles")
-          .select("total_emails_sent")
+          .select("daily_emails_sent, last_sent_date")
           .eq("id", user.id)
           .single();
 
-        const currentTotal = currentProfile?.total_emails_sent || 0;
+        const today = new Date().toISOString().split("T")[0];
+        const dailySent =
+          prof?.last_sent_date === today ? prof?.daily_emails_sent ?? 0 : 0;
 
-        await supabase
-          .from("profiles")
-          .update({
-            daily_emails_sent: newCount,
-            last_sent_date: today,
-            total_emails_sent: currentTotal + successCount,
-          })
-          .eq("id", user.id);
-
-        // Update local state
-        setEmailLimit(prev => prev ? {
-          ...prev,
-          dailySent: newCount,
-          remaining: Math.max(0, prev.dailyLimit - newCount),
-        } : null);
+        setEmailLimit((prev) =>
+          prev
+            ? {
+                ...prev,
+                dailySent,
+                remaining: Math.max(0, prev.dailyLimit - dailySent),
+              }
+            : null,
+        );
       }
 
       toast.success(`Sent email to ${successCount} recipients!`);
@@ -917,35 +1048,40 @@ Best regards,
                     className="min-h-[300px] bg-background/50 resize-none"
                   />
                 </div>
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-4 border-t border-border/50">
-                  <div className="flex flex-wrap items-center gap-3 sm:gap-4">
-                    <div className="flex items-center gap-2">
-                      <Checkbox
-                        id="resume"
-                        checked={attachResume}
-                        onCheckedChange={(checked) => setAttachResume(checked as boolean)}
+                <div className="space-y-2 pt-4 border-t border-border/50">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="flex flex-wrap items-center gap-3 sm:gap-4">
+                      <div className="flex items-center gap-2">
+                        <Checkbox
+                          id="resume"
+                          checked={attachResume}
+                          onCheckedChange={(checked) => setAttachResume(checked === true)}
+                        />
+                        <label htmlFor="resume" className="text-xs sm:text-sm text-muted-foreground cursor-pointer">
+                          Attach Resume
+                        </label>
+                      </div>
+                      <Button variant="ghost" size="sm" onClick={handleAddAttachment} type="button" className="h-8 text-xs px-2">
+                        <Paperclip className="h-3.5 w-3.5 mr-1.5" />
+                        Add Attachment
+                      </Button>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        multiple
+                        className="hidden"
+                        onChange={handleFileChange}
+                        accept=".pdf,.doc,.docx,.txt"
                       />
-                      <label htmlFor="resume" className="text-xs sm:text-sm text-muted-foreground cursor-pointer">
-                        Attach Resume
-                      </label>
                     </div>
-                    <Button variant="ghost" size="sm" onClick={handleAddAttachment} type="button" className="h-8 text-xs px-2">
-                      <Paperclip className="h-3.5 w-3.5 mr-1.5" />
-                      Add Attachment
+                    <Button variant="outline" size="sm" onClick={handleUseTemplate} type="button" className="w-full sm:w-auto h-8 text-xs">
+                      <FileText className="h-3.5 w-3.5 mr-1.5" />
+                      Use Template
                     </Button>
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      multiple
-                      className="hidden"
-                      onChange={handleFileChange}
-                      accept=".pdf,.doc,.docx,.txt"
-                    />
                   </div>
-                  <Button variant="outline" size="sm" onClick={handleUseTemplate} type="button" className="w-full sm:w-auto h-8 text-xs">
-                    <FileText className="h-3.5 w-3.5 mr-1.5" />
-                    Use Template
-                  </Button>
+                  <p className="text-[10px] sm:text-xs text-muted-foreground">
+                    Primary resume comes from Settings (marked primary, else most recent). Your line breaks and links are kept in the message. “Add Attachment” files are included too.
+                  </p>
                 </div>
                 {attachments.length > 0 && (
                   <div className="pt-4 space-y-2">

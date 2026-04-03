@@ -209,7 +209,18 @@ Configure in Supabase Dashboard → Settings → Edge Functions → Secrets:
   - **Value**: `re_gRSNr18j_AeJaWoRysvGLLhZxX9x4y5Qc`
   - **Setup**: Add in Supabase Dashboard → Settings → Edge Functions → Secrets
 - `LOVABLE_API_KEY` - AI API key (for email generation)
-- `OPENROUTER_API_KEY` - AI key used by `generate-exam-questions` and UPSC job ingestion summary generation
+- `OPENROUTER_API_KEY` - AI key used by `generate-exam-questions`, `generate-blog-post`, and UPSC job ingestion summary generation
+- `PEXELS_API_KEY` (optional) - Stock photos for `generate-blog-post` hero images (searches by focus keyword / title)
+- `UNSPLASH_ACCESS_KEY` (optional) - Alternative stock API if Pexels is not configured
+- `BLOG_DEFAULT_AUTHOR` (optional) - Default byline string for AI-generated blog drafts (overrides model `author` when set)
+
+### Automated blog drafts (`generate-blog-post`)
+
+Superadmins can open **Admin → Blog Posts → Generate draft** to create a `blogs` row via OpenRouter (structured JSON + HTML body). The function validates `profiles.role === 'superadmin'`, uses the **service role** for insert and for uploads to the `blog-images` bucket (`auto/{slug}-{timestamp}.jpg`). Configure `verify_jwt = false` for this function in `supabase/config.toml`; JWT validation runs inside the handler.
+
+**Request body (JSON):** `topic` (required); optional `focus_keyword`, `tone`, `target_audience`, `language`; `publish_mode`: `"draft"` | `"published"` (default draft); `image_mode`: `"stock"` | `"none"` (default stock).
+
+**Deploy:** `supabase functions deploy generate-blog-post`
 
 ### Government Job Auto-Scrape + Auto Exam Set
 
@@ -262,6 +273,42 @@ Scheduler:
   - `DEFAULT_UPSC_MASTER_EXAM_ID` (optional fallback template)
   - `DEFAULT_MASTER_EXAM_ID` (optional fallback for non-UPSC sources)
 
+### Private jobs — Naukri via Apify (separate from government scraper)
+
+This pipeline is **not** tied to `govt_jobs` or `scrape-govt-jobs`. It syncs listings from an **Apify actor** (e.g. Naukri) into `naukri_jobs` and exposes them at **`/apply-latest-jobs`**.
+
+**Tables**
+
+- `naukri_jobs` — job rows (`external_key` SHA-256 of `apply_url` for upserts). Public read of **active** rows only (RLS).
+- `admin_integration_secrets` — **superadmin-only** key/value store. Keys: `apify_api_token`, `apify_actor_id`, `apify_dataset_id` (optional; if set, skips “latest successful run” resolution).
+- `naukri_sync_log` — run history (superadmin can read in Admin → Naukri).
+
+**Do not** store the Apify token in `system_settings` — any authenticated user can read that table.
+
+**Edge Function: `sync-naukri-apify`**
+
+- `verify_jwt = false` in `supabase/config.toml`; authorization is:
+  - `Authorization: Bearer <SUPABASE_SERVICE_ROLE_KEY>` (used by `pg_cron`), or
+  - `x-cron-secret` matching optional env `NAUKRI_SYNC_CRON_SECRET`, or
+  - User JWT with **admin** (`user_roles`) or **superadmin** (`profiles.role`).
+- Reads secrets with the **service role**, resolves latest **SUCCEEDED** run for the actor (or uses `apify_dataset_id`), fetches dataset items from Apify API, maps items with [`map-item.ts`](supabase/functions/sync-naukri-apify/map-item.ts), upserts into `naukri_jobs`.
+
+**Cron (Supabase)**
+
+- Migration [`20260404120100_naukri_apify_cron.sql`](supabase/migrations/20260404120100_naukri_apify_cron.sql) schedules three runs daily (UTC `03:00`, `09:00`, `15:00` — roughly morning/afternoon/evening IST). Requires `pg_cron`, `pg_net`, and database settings `app.settings.supabase_url` + `app.settings.service_role_key` (same pattern as recruiter auto-scrape). If scheduling fails, check Supabase logs / enable extensions.
+
+**Admin UI**
+
+- **Admin → Naukri (Apify)** (`/admin/naukri-jobs`): set token, actor ID, optional dataset ID, **Save**, **Run sync now**.
+
+**Secrets / env**
+
+- Optional Edge secret: `NAUKRI_SYNC_CRON_SECRET` — if set, external callers can pass `x-cron-secret` instead of exposing the service role (cron from DB still uses service role by default).
+
+**Compliance**
+
+- Ensure your Apify actor and use of Naukri data comply with Naukri’s terms and applicable law.
+
 ### Function List
 
 - `send-email-gmail` - Send emails via Gmail API
@@ -274,6 +321,8 @@ Scheduler:
 - `check-subscription-expiry` - Auto-expire subscriptions
 - `bulk-import-recruiters` - Bulk import from Google Sheets
 - `generate-email-ai` - AI email generation
+- `generate-blog-post` - Superadmin-only AI blog draft generation (OpenRouter + optional stock image)
+- `sync-naukri-apify` - Sync Naukri listings from Apify dataset into `naukri_jobs` (service role, admin/superadmin, or cron secret)
 - `create-razorpay-order` - Create payment orders
 - `verify-razorpay-payment` - Verify payments
 - `track-email-open` - Email tracking pixel

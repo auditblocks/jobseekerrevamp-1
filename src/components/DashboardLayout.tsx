@@ -20,7 +20,9 @@ import {
     Menu,
     X,
     Sparkles,
-    PanelLeft
+    PanelLeft,
+    GraduationCap,
+    Rocket,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -29,6 +31,30 @@ import { toast } from "sonner";
 
 interface DashboardLayoutProps {
     children: ReactNode;
+}
+
+type NavItem = {
+    icon: typeof Home;
+    label: string;
+    path: string;
+    badge?: string;
+    /** Match child routes (e.g. /government-jobs/:slug) */
+    matchPrefix?: boolean;
+};
+
+interface NavSection {
+    title: string;
+    items: NavItem[];
+}
+
+function isNavItemActive(item: NavItem, pathname: string): boolean {
+    if (item.matchPrefix) {
+        if (item.path === "/government-jobs") {
+            return pathname === "/government-jobs" || pathname.startsWith("/government-jobs/");
+        }
+        return pathname === item.path || pathname.startsWith(`${item.path}/`);
+    }
+    return pathname === item.path;
 }
 
 const DashboardLayout = ({ children }: DashboardLayoutProps) => {
@@ -59,22 +85,60 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
         localStorage.setItem("sidebarCollapsed", String(newState));
     };
 
-    const navItems = [
-        { icon: Home, label: "Dashboard", path: "/dashboard" },
-        { icon: Send, label: "Compose", path: "/compose" },
-        { icon: Mail, label: "Email History", path: "/email-history" },
-        { icon: MessageSquare, label: "Conversations", path: "/conversations" },
-        { icon: Briefcase, label: "Applications", path: "/applications" },
-        { icon: Globe, label: "Apply Govt. Jobs", path: "/government-jobs" },
-        { icon: Clock, label: "Govt. Job Tracker", path: "/govt-jobs/tracker" },
-        { icon: FileText, label: "Templates", path: "/templates" },
-        { icon: Users, label: "Recruiters", path: "/recruiters" },
-        { icon: FileSearch, label: "Resume Optimizer", path: "/resume-optimizer", badge: isProUser ? "PRO" : "NEW" },
-        { icon: BarChart3, label: "Analytics", path: "/analytics" },
-        { icon: CreditCard, label: "Subscription", path: "/dashboard/subscription" },
-        { icon: Settings, label: "Settings", path: "/settings" },
-        ...(isSuperadmin ? [{ icon: Shield, label: "Admin Portal", path: "/admin" }] : []),
+    const navSections: NavSection[] = [
+        {
+            title: "Overview",
+            items: [{ icon: Home, label: "Dashboard", path: "/dashboard" }],
+        },
+        {
+            title: "Private jobs",
+            items: [
+                { icon: Send, label: "Compose", path: "/compose" },
+                { icon: Mail, label: "Email History", path: "/email-history" },
+                { icon: MessageSquare, label: "Conversations", path: "/conversations" },
+                { icon: Briefcase, label: "Applications", path: "/applications" },
+                { icon: Rocket, label: "Apply latest jobs", path: "/apply-latest-jobs" },
+                { icon: FileText, label: "Templates", path: "/templates" },
+                { icon: Users, label: "Recruiters", path: "/recruiters" },
+                {
+                    icon: FileSearch,
+                    label: "Resume Optimizer",
+                    path: "/resume-optimizer",
+                    badge: isProUser ? "PRO" : "NEW",
+                },
+                { icon: BarChart3, label: "Analytics", path: "/analytics" },
+            ],
+        },
+        {
+            title: "Government jobs",
+            items: [
+                {
+                    icon: Globe,
+                    label: "Browse & apply",
+                    path: "/government-jobs",
+                    matchPrefix: true,
+                },
+                { icon: Clock, label: "Job tracker", path: "/govt-jobs/tracker" },
+                {
+                    icon: GraduationCap,
+                    label: "Exam analytics",
+                    path: "/govt-jobs/analytics",
+                },
+            ],
+        },
+        {
+            title: "Account",
+            items: [
+                { icon: CreditCard, label: "Subscription", path: "/dashboard/subscription" },
+                { icon: Settings, label: "Settings", path: "/settings" },
+                ...(isSuperadmin
+                    ? [{ icon: Shield, label: "Admin Portal", path: "/admin", matchPrefix: true } as NavItem]
+                    : []),
+            ],
+        },
     ];
+
+    const flatNavItems = navSections.flatMap((s) => s.items);
 
     // Close mobile sidebar on navigation
     useEffect(() => {
@@ -105,33 +169,47 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                     </div>
 
                     {/* Navigation */}
-                    <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
-                        {navItems.map((item, index) => {
-                            const isActive = location.pathname === item.path;
-                            return (
-                                <button
-                                    key={index}
-                                    onClick={() => navigate(item.path)}
-                                    className={`w-full flex items-center justify-between gap-3 px-4 py-3 rounded-lg text-left transition-colors ${isActive
-                                        ? 'bg-sidebar-primary text-sidebar-primary-foreground'
-                                        : 'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
-                                        }`}
-                                >
-                                    <div className="flex items-center gap-3">
-                                        <item.icon className="w-5 h-5" />
-                                        <span className="font-medium">{item.label}</span>
-                                    </div>
-                                    {(item as any).badge && (
-                                        <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${(item as any).badge === "PRO"
-                                            ? 'bg-accent/20 text-accent'
-                                            : 'bg-green-500/20 text-green-500'
-                                            }`}>
-                                            {(item as any).badge}
-                                        </span>
-                                    )}
-                                </button>
-                            );
-                        })}
+                    <nav className="flex-1 px-4 py-4 overflow-y-auto">
+                        {navSections.map((section) => (
+                            <div key={section.title} className="mb-6 last:mb-2">
+                                <p className="px-4 mb-2 text-[10px] font-bold uppercase tracking-widest text-sidebar-foreground/45">
+                                    {section.title}
+                                </p>
+                                <div className="space-y-0.5">
+                                    {section.items.map((item) => {
+                                        const isActive = isNavItemActive(item, location.pathname);
+                                        return (
+                                            <button
+                                                key={item.path + item.label}
+                                                type="button"
+                                                onClick={() => navigate(item.path)}
+                                                className={`w-full flex items-center justify-between gap-3 px-4 py-2.5 rounded-lg text-left transition-colors ${
+                                                    isActive
+                                                        ? "bg-sidebar-primary text-sidebar-primary-foreground"
+                                                        : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                                                }`}
+                                            >
+                                                <div className="flex items-center gap-3 min-w-0">
+                                                    <item.icon className="w-5 h-5 shrink-0" />
+                                                    <span className="font-medium text-sm truncate">{item.label}</span>
+                                                </div>
+                                                {item.badge && (
+                                                    <span
+                                                        className={`text-xs px-2 py-0.5 rounded-full font-semibold shrink-0 ${
+                                                            item.badge === "PRO"
+                                                                ? "bg-accent/20 text-accent"
+                                                                : "bg-green-500/20 text-green-500"
+                                                        }`}
+                                                    >
+                                                        {item.badge}
+                                                    </span>
+                                                )}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        ))}
                     </nav>
 
                     {/* User Section */}
@@ -196,7 +274,8 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                         </button>
 
                         <h1 className="text-lg sm:text-xl font-bold text-foreground">
-                            {navItems.find(item => item.path === location.pathname)?.label || "Dashboard"}
+                            {flatNavItems.find((item) => isNavItemActive(item, location.pathname))?.label ||
+                                "Dashboard"}
                         </h1>
                     </div>
 

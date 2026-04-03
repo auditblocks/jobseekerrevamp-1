@@ -93,6 +93,20 @@ Notes:
 - If questions already exist for a job, generation is skipped unless `--force-regenerate` (CLI) or `forceRegenerate: true` (Edge) is passed.
 - **Unit tests:** `npm run test` (HTML extraction for notification content).
 
+**Blog AI draft (`generate-blog-post`):** Set Edge Function secrets in the dashboard (or `supabase secrets set` for linked projects):
+
+```env
+OPENROUTER_API_KEY=<openrouter-key>
+# Optional — at least one enables stock hero images:
+PEXELS_API_KEY=<pexels-api-key>
+# or
+UNSPLASH_ACCESS_KEY=<unsplash-access-key>
+# Optional default byline for generated posts:
+BLOG_DEFAULT_AUTHOR=Startworking Editorial
+```
+
+Serve locally with `supabase functions serve generate-blog-post --env-file supabase/.env.local` (or your secrets file). From the app: **Admin → Blog Posts → Generate draft** (superadmin only).
+
 ### View Supabase Status
 ```bash
 supabase status

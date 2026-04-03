@@ -74,6 +74,8 @@ export function scrapeUpscDetail(
   const slug = buildLegacyUpscSlug(postName, year);
   const summary = `${postName} recruitment update from UPSC.`;
 
+  const examLineTags = inferUpscExamLineTags(postName);
+
   const jobPosting: Record<string, unknown> = {};
   if (noticePdf) jobPosting.notice_pdf = toAbsoluteUrl(noticePdf, source.baseUrl);
 
@@ -97,10 +99,37 @@ export function scrapeUpscDetail(
     meta_title: `${postName} Notification ${year}`,
     meta_description: `Apply for ${postName}. Last date: ${lastDate ?? "Refer notification"}.`,
     job_posting_json: Object.keys(jobPosting).length ? jobPosting : null,
-    tags: source.tags,
+    tags: dedupeTagList([...examLineTags, ...source.tags]),
     source_key: source.key,
     state_code: source.stateCode,
   };
+}
+
+function inferUpscExamLineTags(postName: string): string[] {
+  const p = postName;
+  const out: string[] = [];
+  if (/Indian Forest Service|\bIFS\b/i.test(p)) out.push("indian-forest-service");
+  if (/Central Armed Police|\bCAPF\b/i.test(p)) out.push("capf");
+  if (/Civil Services|\(Preliminary\).*Examination|CS\(P\)/i.test(p)) out.push("civil-services");
+  if (/Engineering Services|\bESE\b/i.test(p)) out.push("engineering-services");
+  if (/Combined Geo-Scientist/i.test(p)) out.push("combined-geo-scientist");
+  if (/Combined Medical Services/i.test(p)) out.push("combined-medical-services");
+  if (/\bNDA\b|National Defence Academy/i.test(p)) out.push("nda");
+  if (/\bCDS\b|Combined Defence Services/i.test(p)) out.push("cds");
+  if (/SO\/Steno|Section Officers/i.test(p)) out.push("so-steno");
+  return out;
+}
+
+function dedupeTagList(tags: string[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const raw of tags) {
+    const t = raw.trim().toLowerCase();
+    if (!t || seen.has(t)) continue;
+    seen.add(t);
+    out.push(t);
+  }
+  return out.slice(0, 16);
 }
 
 /** Preserves existing production slugs for UPSC (postName-UPSC-year style). */

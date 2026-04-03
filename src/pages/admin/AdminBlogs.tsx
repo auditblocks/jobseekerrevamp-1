@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
     Table,
     TableBody,
@@ -12,7 +13,22 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Edit, Trash2, Plus, Search, Eye } from "lucide-react";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
+import { Edit, Trash2, Plus, Search, Eye, Sparkles, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { AdminLayout } from "@/components/admin/AdminLayout";
@@ -22,6 +38,13 @@ const AdminBlogs = () => {
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState("");
     const navigate = useNavigate();
+
+    const [generateOpen, setGenerateOpen] = useState(false);
+    const [generating, setGenerating] = useState(false);
+    const [genTopic, setGenTopic] = useState("");
+    const [genFocusKeyword, setGenFocusKeyword] = useState("");
+    const [genImageMode, setGenImageMode] = useState<"stock" | "none">("stock");
+    const [genPublishMode, setGenPublishMode] = useState<"draft" | "published">("draft");
 
     useEffect(() => {
         fetchBlogs();
@@ -63,6 +86,64 @@ const AdminBlogs = () => {
         blog.title.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
+    const handleGenerateDraft = async () => {
+        const topic = genTopic.trim();
+        if (!topic) {
+            toast.error("Enter a topic");
+            return;
+        }
+        setGenerating(true);
+        try {
+            const body: Record<string, string> = {
+                topic,
+                image_mode: genImageMode,
+                publish_mode: genPublishMode,
+            };
+            const fk = genFocusKeyword.trim();
+            if (fk) body.focus_keyword = fk;
+
+            const { data, error } = await supabase.functions.invoke("generate-blog-post", { body });
+
+            if (error) {
+                let msg = error.message || "Generation failed";
+                const ctx = (error as { context?: { body?: unknown } }).context;
+                if (ctx?.body) {
+                    try {
+                        const b =
+                            typeof ctx.body === "string" ? JSON.parse(ctx.body) : (ctx.body as Record<string, unknown>);
+                        if (typeof b?.message === "string") msg = b.message;
+                        else if (typeof b?.error === "string") msg = b.error;
+                    } catch {
+                        /* keep msg */
+                    }
+                }
+                throw new Error(msg);
+            }
+
+            if (!data?.success) {
+                throw new Error(data?.message || "Generation failed");
+            }
+
+            const id = data?.data?.id as string | undefined;
+            if (!id) throw new Error("No post id returned");
+
+            toast.success("Draft created — opening editor");
+            setGenerateOpen(false);
+            setGenTopic("");
+            setGenFocusKeyword("");
+            setGenImageMode("stock");
+            setGenPublishMode("draft");
+            await fetchBlogs();
+            navigate(`/admin/blogs/${id}`);
+        } catch (e: unknown) {
+            console.error("generate-blog-post:", e);
+            const msg = e instanceof Error ? e.message : "Failed to generate draft";
+            toast.error(msg);
+        } finally {
+            setGenerating(false);
+        }
+    };
+
     return (
         <AdminLayout>
             <div className="space-y-6">
@@ -73,13 +154,108 @@ const AdminBlogs = () => {
                             Manage your blog content and publications
                         </p>
                     </div>
-                    <Link to="/admin/blogs/new">
-                        <Button className="gap-2">
-                            <Plus className="w-4 h-4" />
-                            New Post
+                    <div className="flex flex-wrap gap-2">
+                        <Button variant="outline" className="gap-2" onClick={() => setGenerateOpen(true)}>
+                            <Sparkles className="w-4 h-4" />
+                            Generate draft
                         </Button>
-                    </Link>
+                        <Link to="/admin/blogs/new">
+                            <Button className="gap-2">
+                                <Plus className="w-4 h-4" />
+                                New Post
+                            </Button>
+                        </Link>
+                    </div>
                 </div>
+
+                <Dialog open={generateOpen} onOpenChange={setGenerateOpen}>
+                    <DialogContent className="sm:max-w-md">
+                        <DialogHeader>
+                            <DialogTitle>Generate blog draft</DialogTitle>
+                            <DialogDescription>
+                                Uses AI to create a draft (with optional stock hero image). Review and edit before
+                                publishing.
+                            </DialogDescription>
+                        </DialogHeader>
+                        <div className="grid gap-4 py-2">
+                            <div className="grid gap-2">
+                                <Label htmlFor="gen-topic">Topic</Label>
+                                <Input
+                                    id="gen-topic"
+                                    placeholder="e.g. How to prepare for SSC CGL in 6 months"
+                                    value={genTopic}
+                                    onChange={(e) => setGenTopic(e.target.value)}
+                                    disabled={generating}
+                                />
+                            </div>
+                            <div className="grid gap-2">
+                                <Label htmlFor="gen-focus">Focus keyword (optional)</Label>
+                                <Input
+                                    id="gen-focus"
+                                    placeholder="SEO focus phrase"
+                                    value={genFocusKeyword}
+                                    onChange={(e) => setGenFocusKeyword(e.target.value)}
+                                    disabled={generating}
+                                />
+                            </div>
+                            <div className="grid gap-2">
+                                <Label>Hero image</Label>
+                                <Select
+                                    value={genImageMode}
+                                    onValueChange={(v) => setGenImageMode(v as "stock" | "none")}
+                                    disabled={generating}
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="stock">Stock photo (Pexels / Unsplash)</SelectItem>
+                                        <SelectItem value="none">No image</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="grid gap-2">
+                                <Label>Status</Label>
+                                <Select
+                                    value={genPublishMode}
+                                    onValueChange={(v) => setGenPublishMode(v as "draft" | "published")}
+                                    disabled={generating}
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="draft">Draft (recommended)</SelectItem>
+                                        <SelectItem value="published">Publish immediately</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                {genPublishMode === "published" && (
+                                    <p className="text-xs text-amber-700">
+                                        Published posts are public. Confirm content is accurate before choosing this.
+                                    </p>
+                                )}
+                            </div>
+                        </div>
+                        <DialogFooter>
+                            <Button variant="outline" onClick={() => setGenerateOpen(false)} disabled={generating}>
+                                Cancel
+                            </Button>
+                            <Button onClick={handleGenerateDraft} disabled={generating}>
+                                {generating ? (
+                                    <>
+                                        <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                                        Generating…
+                                    </>
+                                ) : (
+                                    <>
+                                        <Sparkles className="w-4 h-4 mr-2" />
+                                        Generate
+                                    </>
+                                )}
+                            </Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
 
                 <div className="bg-white rounded-xl shadow-sm border border-border p-6">
                     <div className="flex items-center gap-4 mb-6">

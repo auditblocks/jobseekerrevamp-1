@@ -41,6 +41,7 @@ const GovtJobDetail = lazy(() => import("./pages/GovtJobDetail"));
 const GovtJobTracker = lazy(() => import("./pages/GovtJobTracker"));
 const GovtJobExam = lazy(() => import("./pages/GovtJobExam"));
 const GovtJobAnalytics = lazy(() => import("./pages/GovtJobAnalytics"));
+const ApplyLatestJobs = lazy(() => import("./pages/ApplyLatestJobs"));
 
 // Admin pages - lazy loaded
 const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));
@@ -64,6 +65,7 @@ const AdminGovtJobs = lazy(() => import("./pages/admin/AdminGovtJobs"));
 const AdminGovtJobEditor = lazy(() => import("./pages/admin/AdminGovtJobEditor"));
 const AdminExamQuestions = lazy(() => import("./pages/admin/AdminExamQuestions"));
 const AdminExams = lazy(() => import("./pages/admin/AdminExams"));
+const AdminNaukriJobs = lazy(() => import("./pages/admin/AdminNaukriJobs"));
 
 
 
@@ -94,6 +96,7 @@ const App = () => (
                   <Route path="/templates" element={<Templates />} />
                   <Route path="/recruiters" element={<Recruiters />} />
                   <Route path="/analytics" element={<Analytics />} />
+                  <Route path="/apply-latest-jobs" element={<ApplyLatestJobs />} />
                   <Route path="/resume-optimizer" element={<ResumeOptimizer />} />
                   <Route path="/settings" element={<Settings />} />
                   <Route path="/dashboard/subscription" element={<Subscription />} />
@@ -145,6 +148,7 @@ const App = () => (
                   <Route path="/admin/govt-jobs/:id" element={<AdminGovtJobEditor />} />
                   <Route path="/admin/govt-jobs/:jobId/questions" element={<AdminExamQuestions />} />
                   <Route path="/admin/exams" element={<AdminExams />} />
+                  <Route path="/admin/naukri-jobs" element={<AdminNaukriJobs />} />
 
                   {/* Public Blog Routes */}
                   <Route path="/blog" element={<BlogListing />} />

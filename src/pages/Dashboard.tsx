@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import {
   Send,
   Eye,
-  MessageSquare,
   Briefcase,
   Users,
   Clock,
@@ -23,7 +22,6 @@ import { useTour } from "@/hooks/useTour";
 interface DashboardStats {
   emailsSent: number;
   openRate: number;
-  responses: number;
   applications: number;
 }
 
@@ -33,7 +31,6 @@ const Dashboard = () => {
   const [stats, setStats] = useState<DashboardStats>({
     emailsSent: 0,
     openRate: 0,
-    responses: 0,
     applications: 0,
   });
   const [statsLoading, setStatsLoading] = useState(true);
@@ -55,7 +52,7 @@ const Dashboard = () => {
 
         const { data: emailData, error: emailError } = await supabase
           .from("email_tracking")
-          .select("id, opened_at, replied_at")
+          .select("id, opened_at")
           .eq("user_id", user.id);
 
         if (emailError) throw emailError;
@@ -79,13 +76,11 @@ const Dashboard = () => {
 
         const totalEmails = emailData?.length || 0;
         const openedEmails = emailData?.filter(e => e.opened_at !== null).length || 0;
-        const repliedEmails = emailData?.filter(e => e.replied_at !== null).length || 0;
         const openRate = totalEmails > 0 ? Math.round((openedEmails / totalEmails) * 100) : 0;
 
         setStats({
           emailsSent: totalEmails,
           openRate,
-          responses: repliedEmails,
           applications: applicationsCount || 0,
         });
       } catch (error) {
@@ -119,7 +114,6 @@ const Dashboard = () => {
   const statCards = [
     { label: "Emails Sent", value: stats.emailsSent.toString(), icon: Send, color: "text-accent", bg: "bg-accent/10" },
     { label: "Open Rate", value: `${stats.openRate}%`, icon: Eye, color: "text-success", bg: "bg-success/10" },
-    { label: "Responses", value: stats.responses.toString(), icon: MessageSquare, color: "text-primary", bg: "bg-primary/10" },
     { label: "Applications", value: stats.applications.toString(), icon: Briefcase, color: "text-warning", bg: "bg-warning/10" },
   ];
 
@@ -166,7 +160,7 @@ const Dashboard = () => {
         </motion.div>
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
+        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
           {statCards.map((stat, index) => (
             <motion.div
               key={index}

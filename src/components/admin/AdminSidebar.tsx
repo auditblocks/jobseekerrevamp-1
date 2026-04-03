@@ -17,7 +17,8 @@ import {
   Bell,
   Sliders,
   ArrowLeft,
-  BookOpen
+  BookOpen,
+  Rocket,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
@@ -48,6 +49,7 @@ const mainItems = [
 const contentItems = [
   { title: "Blog Posts", url: "/admin/blogs", icon: FileText },
   { title: "Government Jobs", url: "/admin/govt-jobs", icon: Briefcase },
+  { title: "Naukri (Apify)", url: "/admin/naukri-jobs", icon: Rocket },
   { title: "Exam Library", url: "/admin/exams", icon: BookOpen },
 ];
 

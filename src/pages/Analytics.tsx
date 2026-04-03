@@ -6,19 +6,13 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  ArrowLeft,
   TrendingUp,
   Mail,
   Eye,
-  MousePointer,
-  Reply,
-  AlertCircle,
   Calendar,
   BarChart3,
   PieChart,
-  CheckCircle2
 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import {
@@ -40,46 +34,29 @@ import DashboardLayout from "@/components/DashboardLayout";
 
 interface EmailStats {
   totalSent: number;
-  delivered: number;
   opened: number;
-  clicked: number;
-  replied: number;
-  bounced: number;
   openRate: number;
-  clickRate: number;
-  replyRate: number;
 }
 
 interface DailyStats {
   date: string;
   sent: number;
   opened: number;
-  clicked: number;
-  replied: number;
 }
 
 interface DomainPerformance {
   domain: string;
   total: number;
   opened: number;
-  clicked: number;
   openRate: number;
-  clickRate: number;
 }
 
 const Analytics = () => {
-  const navigate = useNavigate();
   const { user } = useAuth();
   const [stats, setStats] = useState<EmailStats>({
     totalSent: 0,
-    delivered: 0,
     opened: 0,
-    clicked: 0,
-    replied: 0,
-    bounced: 0,
     openRate: 0,
-    clickRate: 0,
-    replyRate: 0,
   });
   const [dailyStats, setDailyStats] = useState<DailyStats[]>([]);
   const [domainPerformance, setDomainPerformance] = useState<DomainPerformance[]>([]);
@@ -103,24 +80,13 @@ const Analytics = () => {
           return;
         }
 
-        // Calculate overall stats
         const sent = emails.length;
-        const delivered = emails.filter(e => e.status === "delivered" || e.opened_at || e.clicked_at || e.replied_at).length;
-        const opened = emails.filter(e => e.opened_at).length;
-        const clicked = emails.filter(e => e.clicked_at).length;
-        const replied = emails.filter(e => e.replied_at).length;
-        const bounced = emails.filter(e => e.bounced_at).length;
+        const opened = emails.filter((e) => e.opened_at).length;
 
         setStats({
           totalSent: sent,
-          delivered,
           opened,
-          clicked,
-          replied,
-          bounced,
           openRate: sent > 0 ? Math.round((opened / sent) * 1000) / 10 : 0,
-          clickRate: opened > 0 ? Math.round((clicked / opened) * 1000) / 10 : 0,
-          replyRate: sent > 0 ? Math.round((replied / sent) * 1000) / 10 : 0,
         });
 
         // Calculate daily stats for last 7 days
@@ -139,22 +105,19 @@ const Analytics = () => {
           dailyData.push({
             date: format(date, "MMM d"),
             sent: dayEmails.length,
-            opened: dayEmails.filter(e => e.opened_at).length,
-            clicked: dayEmails.filter(e => e.clicked_at).length,
-            replied: dayEmails.filter(e => e.replied_at).length,
+            opened: dayEmails.filter((e) => e.opened_at).length,
           });
         }
         setDailyStats(dailyData);
 
         // Calculate domain performance
-        const domainMap = new Map<string, { total: number; opened: number; clicked: number }>();
-        emails.forEach(email => {
+        const domainMap = new Map<string, { total: number; opened: number }>();
+        emails.forEach((email) => {
           const domain = email.domain || "unknown";
-          const current = domainMap.get(domain) || { total: 0, opened: 0, clicked: 0 };
+          const current = domainMap.get(domain) || { total: 0, opened: 0 };
           domainMap.set(domain, {
             total: current.total + 1,
             opened: current.opened + (email.opened_at ? 1 : 0),
-            clicked: current.clicked + (email.clicked_at ? 1 : 0),
           });
         });
 
@@ -163,9 +126,7 @@ const Analytics = () => {
             domain,
             total: data.total,
             opened: data.opened,
-            clicked: data.clicked,
             openRate: data.total > 0 ? Math.round((data.opened / data.total) * 100) : 0,
-            clickRate: data.opened > 0 ? Math.round((data.clicked / data.opened) * 100) : 0,
           }))
           .sort((a, b) => b.total - a.total)
           .slice(0, 5);
@@ -203,19 +164,15 @@ const Analytics = () => {
     };
   }, [user?.id]);
 
+  const notOpened = Math.max(0, stats.totalSent - stats.opened);
   const statusDistribution = [
-    { name: "Delivered", value: stats.delivered, color: "hsl(var(--accent))" },
     { name: "Opened", value: stats.opened, color: "hsl(200, 80%, 50%)" },
-    { name: "Clicked", value: stats.clicked, color: "hsl(270, 80%, 60%)" },
-    { name: "Replied", value: stats.replied, color: "hsl(var(--success))" },
-    { name: "Bounced", value: stats.bounced, color: "hsl(var(--destructive))" },
-  ].filter(item => item.value > 0);
+    { name: "Not opened", value: notOpened, color: "hsl(220, 9%, 46%)" },
+  ].filter((item) => item.value > 0);
 
   const statCards = [
     { label: "Emails Sent", value: stats.totalSent, icon: Mail, color: "text-accent", change: "+12%" },
     { label: "Opened", value: stats.opened, icon: Eye, color: "text-blue-500", rate: stats.openRate },
-    { label: "Clicked", value: stats.clicked, icon: MousePointer, color: "text-purple-500", rate: stats.clickRate },
-    { label: "Replied", value: stats.replied, icon: Reply, color: "text-success", rate: stats.replyRate },
   ];
 
   return (
@@ -244,7 +201,7 @@ const Analytics = () => {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8"
+          className="grid grid-cols-2 md:grid-cols-2 gap-4 mb-8 max-w-3xl"
         >
           {statCards.map((stat, index) => {
             const Icon = stat.icon;
@@ -281,51 +238,6 @@ const Analytics = () => {
               </Card>
             );
           })}
-        </motion.div>
-
-        {/* Additional Stats Row */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.05 }}
-          className="grid grid-cols-2 md:grid-cols-2 gap-4 mb-8"
-        >
-          <Card className="border-border/50 bg-card/50">
-            <CardContent className="p-4">
-              {isLoading ? (
-                <Skeleton className="h-16 w-full" />
-              ) : (
-                <>
-                  <div className="flex items-center justify-between mb-2">
-                    <CheckCircle2 className="h-5 w-5 text-blue-500" />
-                    <Badge variant="secondary" className="text-xs">
-                      {stats.totalSent > 0 ? Math.round((stats.delivered / stats.totalSent) * 100) : 0}%
-                    </Badge>
-                  </div>
-                  <p className="text-3xl font-bold">{stats.delivered}</p>
-                  <p className="text-sm text-muted-foreground">Delivered</p>
-                </>
-              )}
-            </CardContent>
-          </Card>
-          <Card className="border-border/50 bg-card/50">
-            <CardContent className="p-4">
-              {isLoading ? (
-                <Skeleton className="h-16 w-full" />
-              ) : (
-                <>
-                  <div className="flex items-center justify-between mb-2">
-                    <AlertCircle className="h-5 w-5 text-destructive" />
-                    <Badge variant="secondary" className="text-xs text-destructive">
-                      {stats.totalSent > 0 ? Math.round((stats.bounced / stats.totalSent) * 100) : 0}%
-                    </Badge>
-                  </div>
-                  <p className="text-3xl font-bold">{stats.bounced}</p>
-                  <p className="text-sm text-muted-foreground">Bounced</p>
-                </>
-              )}
-            </CardContent>
-          </Card>
         </motion.div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
@@ -388,22 +300,6 @@ const Analytics = () => {
                           strokeWidth={2}
                           dot={{ fill: "hsl(200, 80%, 50%)" }}
                         />
-                        <Line
-                          type="monotone"
-                          dataKey="clicked"
-                          name="Clicked"
-                          stroke="hsl(270, 80%, 60%)"
-                          strokeWidth={2}
-                          dot={{ fill: "hsl(270, 80%, 60%)" }}
-                        />
-                        <Line
-                          type="monotone"
-                          dataKey="replied"
-                          name="Replied"
-                          stroke="hsl(var(--success))"
-                          strokeWidth={2}
-                          dot={{ fill: "hsl(var(--success))" }}
-                        />
                       </LineChart>
                     </ResponsiveContainer>
                   </div>
@@ -416,14 +312,6 @@ const Analytics = () => {
                   <div className="flex items-center gap-2">
                     <div className="w-3 h-3 rounded-full" style={{ background: "hsl(200, 80%, 50%)" }} />
                     <span className="text-sm text-muted-foreground">Opened</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full" style={{ background: "hsl(270, 80%, 60%)" }} />
-                    <span className="text-sm text-muted-foreground">Clicked</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full" style={{ background: "hsl(var(--success))" }} />
-                    <span className="text-sm text-muted-foreground">Replied</span>
                   </div>
                 </div>
               </CardContent>
@@ -440,7 +328,7 @@ const Analytics = () => {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <PieChart className="h-5 w-5 text-accent" />
-                  Status Distribution
+                  Open vs not opened
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -544,18 +432,13 @@ const Analytics = () => {
                           }}
                         />
                         <Bar dataKey="openRate" name="Open Rate %" fill="hsl(var(--accent))" radius={[0, 4, 4, 0]} />
-                        <Bar dataKey="clickRate" name="Click Rate %" fill="hsl(270, 80%, 60%)" radius={[0, 4, 4, 0]} />
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
                   <div className="flex items-center justify-center gap-6 mt-4">
                     <div className="flex items-center gap-2">
                       <div className="w-3 h-3 rounded-full bg-accent" />
-                      <span className="text-sm text-muted-foreground">Open Rate %</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 rounded-full" style={{ background: "hsl(270, 80%, 60%)" }} />
-                      <span className="text-sm text-muted-foreground">Click Rate %</span>
+                      <span className="text-sm text-muted-foreground">Open rate %</span>
                     </div>
                   </div>
                 </>

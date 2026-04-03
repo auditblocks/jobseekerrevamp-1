@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -29,7 +29,7 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
-import { Search, RefreshCw, UserSearch, Plus, Building2, Mail, Star, Upload, ChevronLeft, ChevronRight, Trash2, Download } from "lucide-react";
+import { Search, RefreshCw, UserSearch, Plus, Building2, Mail, Star, Upload, ChevronLeft, ChevronRight, Trash2, Download, Layers } from "lucide-react";
 import { toast } from "sonner";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -42,6 +42,10 @@ import {
   PaginationEllipsis,
 } from "@/components/ui/pagination";
 
+function normalizeRecruiterEmail(email: string): string {
+  return email.trim().toLowerCase();
+}
+
 interface Recruiter {
   id: string;
   name: string;
@@ -51,6 +55,7 @@ interface Recruiter {
   tier: string | null;
   quality_score: number | null;
   response_rate: number | null;
+  created_at?: string | null;
 }
 
 interface Domain {
@@ -66,6 +71,8 @@ export default function AdminRecruiters() {
   const [searchQuery, setSearchQuery] = useState("");
   const [domainFilter, setDomainFilter] = useState("all");
   const [tierFilter, setTierFilter] = useState("all");
+  const [duplicateFilter, setDuplicateFilter] = useState<"all" | "duplicates">("all");
+  const [deletingDuplicates, setDeletingDuplicates] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isBulkImportDialogOpen, setIsBulkImportDialogOpen] = useState(false);
@@ -184,6 +191,90 @@ export default function AdminRecruiters() {
       fetchRecruiters();
     } catch (error: any) {
       toast.error("Failed to delete recruiter");
+    }
+  };
+
+  const duplicateEmailKeys = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const r of recruiters) {
+      const k = normalizeRecruiterEmail(r.email);
+      if (!k) continue;
+      counts.set(k, (counts.get(k) || 0) + 1);
+    }
+    const keys = new Set<string>();
+    counts.forEach((n, email) => {
+      if (n > 1) keys.add(email);
+    });
+    return keys;
+  }, [recruiters]);
+
+  const duplicateStats = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const r of recruiters) {
+      const k = normalizeRecruiterEmail(r.email);
+      if (!k) continue;
+      counts.set(k, (counts.get(k) || 0) + 1);
+    }
+    let emailsWithDuplicates = 0;
+    let rowsToRemove = 0;
+    counts.forEach((n) => {
+      if (n > 1) {
+        emailsWithDuplicates += 1;
+        rowsToRemove += n - 1;
+      }
+    });
+    return { emailsWithDuplicates, rowsToRemove };
+  }, [recruiters]);
+
+  const isDuplicateEmailRow = (email: string) => duplicateEmailKeys.has(normalizeRecruiterEmail(email));
+
+  const deleteDuplicateRecruiters = async () => {
+    const byEmail = new Map<string, Recruiter[]>();
+    for (const r of recruiters) {
+      const k = normalizeRecruiterEmail(r.email);
+      if (!k) continue;
+      if (!byEmail.has(k)) byEmail.set(k, []);
+      byEmail.get(k)!.push(r);
+    }
+
+    const toDelete: string[] = [];
+    for (const [, rows] of byEmail) {
+      if (rows.length < 2) continue;
+      const sorted = [...rows].sort((a, b) => {
+        const ta = a.created_at ? new Date(a.created_at).getTime() : 0;
+        const tb = b.created_at ? new Date(b.created_at).getTime() : 0;
+        if (tb !== ta) return tb - ta;
+        return b.id.localeCompare(a.id);
+      });
+      for (let i = 1; i < sorted.length; i++) {
+        toDelete.push(sorted[i].id);
+      }
+    }
+
+    if (toDelete.length === 0) {
+      toast.info("No duplicate emails found.");
+      return;
+    }
+
+    const msg =
+      `Delete ${toDelete.length} duplicate row(s), keeping the newest entry per email (by created date)? This cannot be undone.`;
+    if (!confirm(msg)) return;
+
+    setDeletingDuplicates(true);
+    try {
+      const batchSize = 100;
+      for (let i = 0; i < toDelete.length; i += batchSize) {
+        const batch = toDelete.slice(i, i + batchSize);
+        const { error } = await supabase.from("recruiters").delete().in("id", batch);
+        if (error) throw error;
+      }
+      toast.success(`Removed ${toDelete.length} duplicate recruiter row(s).`);
+      await fetchRecruiters();
+    } catch (error: unknown) {
+      console.error(error);
+      toast.error(error instanceof Error ? error.message : "Failed to remove duplicates");
+    } finally {
+      setDeletingDuplicates(false);
     }
   };
 
@@ -387,7 +478,9 @@ export default function AdminRecruiters() {
       (recruiter.company || "").toLowerCase().includes(searchQuery.toLowerCase());
     const matchesDomain = domainFilter === "all" || recruiter.domain === domainFilter;
     const matchesTier = tierFilter === "all" || recruiter.tier === tierFilter;
-    return matchesSearch && matchesDomain && matchesTier;
+    const matchesDuplicateFilter =
+      duplicateFilter === "all" || isDuplicateEmailRow(recruiter.email);
+    return matchesSearch && matchesDomain && matchesTier && matchesDuplicateFilter;
   });
 
   const exportToCSV = () => {
@@ -472,7 +565,7 @@ export default function AdminRecruiters() {
   // Reset to page 1 when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, domainFilter, tierFilter]);
+  }, [searchQuery, domainFilter, tierFilter, duplicateFilter]);
 
   const getTierColor = (tier: string | null) => {
     switch (tier) {
@@ -510,6 +603,16 @@ export default function AdminRecruiters() {
             >
               <Download className="h-4 w-4 mr-2" />
               Export CSV
+            </Button>
+            <Button
+              onClick={deleteDuplicateRecruiters}
+              variant="outline"
+              size="sm"
+              disabled={loading || deletingDuplicates || duplicateStats.rowsToRemove === 0}
+              title="Keeps the newest row per email (by created_at); deletes the rest"
+            >
+              <Layers className={`h-4 w-4 mr-2 ${deletingDuplicates ? "animate-pulse" : ""}`} />
+              {deletingDuplicates ? "Removing…" : "Remove duplicate emails"}
             </Button>
             <Button 
               onClick={deleteAllRecruiters} 
@@ -710,7 +813,30 @@ export default function AdminRecruiters() {
                   <SelectItem value="PRO_MAX">Pro Max</SelectItem>
                 </SelectContent>
               </Select>
+              <Select
+                value={duplicateFilter}
+                onValueChange={(v) => setDuplicateFilter(v as "all" | "duplicates")}
+              >
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Duplicates" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All rows</SelectItem>
+                  <SelectItem value="duplicates">Duplicate emails only</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
+            {duplicateStats.emailsWithDuplicates > 0 && (
+              <p className="text-sm text-muted-foreground mt-3">
+                <span className="text-amber-600 dark:text-amber-500 font-medium">
+                  {duplicateStats.emailsWithDuplicates}
+                </span>{" "}
+                email(s) appear more than once ({duplicateStats.rowsToRemove} extra row
+                {duplicateStats.rowsToRemove !== 1 ? "s" : ""}). Use{" "}
+                <strong>Duplicate emails only</strong> to review, then{" "}
+                <strong>Remove duplicate emails</strong> to keep the newest row per address.
+              </p>
+            )}
           </CardContent>
         </Card>
 
@@ -753,7 +879,14 @@ export default function AdminRecruiters() {
                       <TableRow key={recruiter.id}>
                         <TableCell>
                           <div>
-                            <div className="font-medium">{recruiter.name}</div>
+                            <div className="font-medium flex flex-wrap items-center gap-2">
+                              {recruiter.name}
+                              {isDuplicateEmailRow(recruiter.email) && (
+                                <Badge variant="outline" className="text-[10px] border-amber-500/50 text-amber-700 dark:text-amber-400">
+                                  Duplicate email
+                                </Badge>
+                              )}
+                            </div>
                             <div className="text-sm text-muted-foreground flex items-center gap-1">
                               <Mail className="h-3 w-3" />
                               {recruiter.email}

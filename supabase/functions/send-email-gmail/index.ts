@@ -1,12 +1,32 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
+import {
+  buildGmailRawMessage,
+  encodeRawForGmailApi,
+  formatPlainTextToHtml,
+  wrapHtmlWithTrackingPixel,
+} from "./email-format.ts";
+import { fetchPrimaryResumeForUser, guessMimeFromResumeFileName } from "./resume-attachment.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const COOLDOWN_DAYS = 7;
+const MAX_COMPOSITION_ATTACHMENTS = 5;
+const MAX_ATTACHMENT_BYTES = 6 * 1024 * 1024;
+
+interface IncomingAttachment {
+  filename: string;
+  content_base64: string;
+  mime_type?: string;
+}
+
+interface ResumeInlinePayload {
+  filename: string;
+  content_base64: string;
+  mime_type?: string;
+}
 
 interface EmailRequest {
   to: string;
@@ -14,6 +34,19 @@ interface EmailRequest {
   body: string;
   recruiterName?: string;
   attachResume?: boolean;
+  attachments?: IncomingAttachment[];
+  resumeInline?: ResumeInlinePayload;
+}
+
+function wrapBase64ForMime(b64: string): string {
+  return b64.replace(/\s/g, "").replace(/.{76}(?=.)/g, "$&\r\n");
+}
+
+function decodedBase64ByteLength(b64: string): number {
+  const clean = b64.replace(/\s/g, "");
+  if (clean.length === 0) return 0;
+  const pad = clean.endsWith("==") ? 2 : clean.endsWith("=") ? 1 : 0;
+  return Math.floor((clean.length * 3) / 4) - pad;
 }
 
 serve(async (req) => {
@@ -62,7 +95,12 @@ serve(async (req) => {
       throw new Error(`Daily email limit (${dailyLimit}) reached. Upgrade to send more emails.`);
     }
 
-    const { to, subject, body, recruiterName }: EmailRequest = await req.json();
+    const bodyJson = (await req.json()) as EmailRequest & { attachResume?: unknown };
+    const { to, subject, body, recruiterName, attachments: rawAttachments, resumeInline } = bodyJson;
+    const attachResume =
+      bodyJson.attachResume === true ||
+      bodyJson.attachResume === "true" ||
+      bodyJson.attachResume === 1;
 
     // CHECK COOLDOWN - Prevent spamming same recruiter
     const recruiterEmailLower = to.toLowerCase();
@@ -97,8 +135,76 @@ serve(async (req) => {
     const trackingPixelId = crypto.randomUUID();
     const trackingPixelUrl = `${supabaseUrl}/functions/v1/track-email-open?id=${trackingPixelId}`;
 
-    const emailBodyWithTracking = `${body}
-<img src="${trackingPixelUrl}" width="1" height="1" style="display:none;" alt="" />`;
+    const htmlInner = formatPlainTextToHtml(typeof body === "string" ? body : "");
+    const emailHtmlWithTracking = wrapHtmlWithTrackingPixel(htmlInner, trackingPixelUrl);
+
+    const mimeAttachments: Array<{ filename: string; mime: string; base64Body: string }> = [];
+
+    if (attachResume) {
+      let resumeAtt: { filename: string; mime: string; base64Body: string } | null = null;
+
+      const inline = resumeInline;
+      if (
+        inline &&
+        typeof inline.content_base64 === "string" &&
+        inline.content_base64.replace(/\s/g, "").length > 0
+      ) {
+        const fn =
+          typeof inline.filename === "string" && inline.filename.trim()
+            ? inline.filename.trim()
+            : "resume.pdf";
+        const sz = decodedBase64ByteLength(inline.content_base64);
+        if (sz > 0 && sz <= MAX_ATTACHMENT_BYTES) {
+          const mimeHint = typeof inline.mime_type === "string" ? inline.mime_type.trim() : "";
+          resumeAtt = {
+            filename: fn.replace(/[\r\n"\\;]/g, "_").slice(0, 200),
+            mime: mimeHint || guessMimeFromResumeFileName(fn),
+            base64Body: wrapBase64ForMime(inline.content_base64),
+          };
+        }
+      }
+
+      if (!resumeAtt) {
+        resumeAtt = await fetchPrimaryResumeForUser(supabase, user.id);
+      }
+
+      if (!resumeAtt) {
+        throw new Error(
+          "No resume found to attach. Upload a resume in Settings, or uncheck “Attach Resume”.",
+        );
+      }
+      mimeAttachments.push(resumeAtt);
+    }
+
+    const extra = Array.isArray(rawAttachments) ? rawAttachments : [];
+    if (extra.length > MAX_COMPOSITION_ATTACHMENTS) {
+      throw new Error(`Too many attachments (max ${MAX_COMPOSITION_ATTACHMENTS}).`);
+    }
+    for (const a of extra) {
+      const fn = typeof a.filename === "string" ? a.filename.trim() : "";
+      const b64 = typeof a.content_base64 === "string" ? a.content_base64 : "";
+      if (!fn || !b64) continue;
+      const size = decodedBase64ByteLength(b64);
+      if (size > MAX_ATTACHMENT_BYTES) {
+        throw new Error(`Attachment "${fn}" is too large (max ${MAX_ATTACHMENT_BYTES / 1024 / 1024}MB).`);
+      }
+      if (size === 0) continue;
+      const mime = typeof a.mime_type === "string" && a.mime_type.trim()
+        ? a.mime_type.trim()
+        : "application/octet-stream";
+      mimeAttachments.push({
+        filename: fn.replace(/[\r\n"\\;]/g, "_").slice(0, 200),
+        mime,
+        base64Body: wrapBase64ForMime(b64),
+      });
+    }
+
+    const messageRaw = buildGmailRawMessage({
+      to,
+      subject,
+      htmlBody: emailHtmlWithTracking,
+      attachments: mimeAttachments,
+    });
 
     // 1. Refresh Access Token
     const refreshTokenResponse = await fetch("https://oauth2.googleapis.com/token", {
@@ -119,28 +225,9 @@ serve(async (req) => {
 
     const accessToken = tokenData.access_token;
 
-    // 2. Construct Email (Base64url encoded)
-    const utf8Subject = `=?utf-8?B?${btoa(unescape(encodeURIComponent(subject)))}?=`;
-    // Simple MIME structure
-    const messageParts = [
-      `From: me`,
-      `To: ${to}`,
-      `Subject: ${utf8Subject}`,
-      `MIME-Version: 1.0`,
-      `Content-Type: text/html; charset=utf-8`,
-      ``,
-      emailBodyWithTracking
-    ];
+    const encodedMessage = encodeRawForGmailApi(messageRaw);
 
-    // Join with CRLF
-    const messageRaw = messageParts.join("\r\n");
-    // Base64url encoding for Gmail API
-    const encodedMessage = btoa(unescape(encodeURIComponent(messageRaw)))
-      .replace(/\+/g, '-')
-      .replace(/\//g, '_')
-      .replace(/=+$/, '');
-
-    // 3. Send via Gmail API
+    // 2. Send via Gmail API
     const gmailResponse = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/messages/send", {
       method: "POST",
       headers: {
@@ -160,7 +247,7 @@ serve(async (req) => {
     const gmailResult = await gmailResponse.json();
     console.log("Email sent via Gmail:", gmailResult);
 
-    // 4. Store tracking info
+    // 3. Store tracking info
     const domain = to.split("@")[1]?.split(".")[0] || "unknown";
 
     await supabase

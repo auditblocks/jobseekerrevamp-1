@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -22,6 +22,9 @@ const Auth = () => {
     password: "",
     name: "",
   });
+
+  /** When sign-up returns an immediate session, SIGNED_IN also fires — skip duplicate welcome toast. */
+  const skipNextSignedInWelcomeRef = useRef(false);
 
   useEffect(() => {
     // Handle OAuth callback - check for tokens in URL hash
@@ -49,9 +52,8 @@ const Auth = () => {
           }
           
           if (session) {
-            // Clear the hash from URL
+            // Clear the hash from URL (welcome toast comes from onAuthStateChange)
             window.history.replaceState({}, document.title, window.location.pathname);
-            toast.success("Welcome back");
             navigate("/dashboard");
           }
         } catch (error: any) {
@@ -78,9 +80,12 @@ const Auth = () => {
     // Listen for auth changes (handles OAuth callbacks automatically)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_IN' && session) {
-        // Only show toast if not already navigating from OAuth callback
-        if (!window.location.hash.includes('access_token')) {
-          toast.success("Welcome back");
+        const skipWelcome = skipNextSignedInWelcomeRef.current;
+        if (skipWelcome) {
+          skipNextSignedInWelcomeRef.current = false;
+        }
+        if (!skipWelcome) {
+          toast.success("Welcome back!");
         }
         navigate("/dashboard");
       }
@@ -129,11 +134,11 @@ const Auth = () => {
         });
         
         if (error) throw error;
-        toast.success("Welcome back!");
+        // Welcome toast is shown once from onAuthStateChange(SIGNED_IN)
       } else {
         const redirectUrl = `${window.location.origin}/`;
         
-        const { error } = await supabase.auth.signUp({
+        const { data: signUpData, error } = await supabase.auth.signUp({
           email: formData.email,
           password: formData.password,
           options: {
@@ -145,6 +150,9 @@ const Auth = () => {
         });
         
         if (error) throw error;
+        if (signUpData.session) {
+          skipNextSignedInWelcomeRef.current = true;
+        }
         toast.success("Account created! You can now sign in.");
         setIsLogin(true);
       }

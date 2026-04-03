@@ -22,6 +22,7 @@ import {
     TooltipProvider,
     TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { buildSmartTagsForDisplay, getGovtJobCategoryBadges } from "@/lib/govtJobCategory";
 
 interface GovtJob {
     id: string;
@@ -32,6 +33,7 @@ interface GovtJob {
     slug: string;
     location: string;
     tags: string[];
+    source_key?: string | null;
     created_at?: string | null;
 }
 
@@ -47,7 +49,7 @@ const GovtJobsSection = () => {
                 setIsLoading(true);
                 const { data, error } = await supabase
                     .from("govt_jobs" as any)
-                    .select("id, organization, post_name, application_end_date, visibility, slug, location, tags, created_at")
+                    .select("id, organization, post_name, application_end_date, visibility, slug, location, tags, source_key, created_at")
                     .eq("status", "active")
                     .order("created_at", { ascending: false })
                     .limit(3);
@@ -138,10 +140,24 @@ const GovtJobsSection = () => {
                                 onClick={() => handleJobClick(job)}
                             >
                                 <CardContent className="p-8 flex flex-col h-full space-y-5">
-                                    <div className="flex justify-between items-start">
-                                        <Badge variant="outline" className="bg-accent/5 text-accent border-accent/20 px-3 py-1 text-[10px] font-bold uppercase tracking-widest">
-                                            {job.organization}
-                                        </Badge>
+                                    <div className="flex justify-between items-start gap-2 flex-wrap">
+                                        <div className="flex flex-wrap gap-1 items-center">
+                                            {(() => {
+                                                const { primary, secondary } = getGovtJobCategoryBadges(job);
+                                                return (
+                                                    <>
+                                                        <Badge variant="outline" className="bg-accent/5 text-accent border-accent/20 px-3 py-1 text-[10px] font-bold uppercase tracking-widest">
+                                                            {primary}
+                                                        </Badge>
+                                                        {secondary && (
+                                                            <Badge variant="secondary" className="text-[9px] uppercase py-0.5">
+                                                                {secondary}
+                                                            </Badge>
+                                                        )}
+                                                    </>
+                                                );
+                                            })()}
+                                        </div>
                                         <div className="flex items-center gap-2">
                                             {job.visibility === 'premium' ? (
                                                 <div className="flex items-center gap-1.5">
@@ -172,15 +188,19 @@ const GovtJobsSection = () => {
                                             {job.post_name}
                                         </h3>
 
-                                        {job.tags && job.tags.length > 0 && (
-                                            <div className="flex flex-wrap gap-2">
-                                                {job.tags.slice(0, 2).map((tag, i) => (
-                                                    <span key={i} className="text-[10px] bg-muted text-muted-foreground px-2 py-0.5 rounded-full font-medium">
-                                                        #{tag}
-                                                    </span>
-                                                ))}
-                                            </div>
-                                        )}
+                                        {(() => {
+                                            const displayTags = buildSmartTagsForDisplay(job);
+                                            if (displayTags.length === 0) return null;
+                                            return (
+                                                <div className="flex flex-wrap gap-2">
+                                                    {displayTags.slice(0, 3).map((tag, i) => (
+                                                        <span key={i} className="text-[10px] bg-muted text-muted-foreground px-2 py-0.5 rounded-full font-medium">
+                                                            #{tag}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            );
+                                        })()}
                                     </div>
 
                                     <div className="space-y-3 pt-4 border-t border-border/50">

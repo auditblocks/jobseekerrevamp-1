@@ -35,6 +35,7 @@ import { format, formatDistanceToNow } from "date-fns";
 import Navbar from "@/components/landing/Navbar";
 import FooterSection from "@/components/landing/FooterSection";
 import DashboardLayout from "@/components/DashboardLayout";
+import { buildSmartTagsForDisplay, getGovtJobCategoryBadges, trackerOrganizationLabel } from "@/lib/govtJobCategory";
 
 interface GovtJob {
     id: string;
@@ -57,6 +58,7 @@ interface GovtJob {
     meta_description: string | null;
     job_posting_json: any;
     tags: string[];
+    source_key?: string | null;
     created_at?: string | null;
 }
 
@@ -124,7 +126,11 @@ const GovtJobDetail = () => {
             const { error } = await supabase.from("job_tracker" as any).insert({
                 user_id: user.id,
                 job_id: job.id,
-                organization: job.organization,
+                organization: trackerOrganizationLabel({
+                    post_name: job.post_name,
+                    organization: job.organization,
+                    source_key: job.source_key,
+                }),
                 post_name: job.post_name,
                 exam_name: job.exam_name,
                 advertisement_no: job.advertisement_no,
@@ -270,9 +276,21 @@ const GovtJobDetail = () => {
                         {/* Header */}
                         <div className="space-y-6">
                             <div className="flex items-center gap-3 flex-wrap">
-                                <Badge variant="outline" className="bg-accent/5 text-accent border-accent/20 px-3 py-1 text-[11px] font-bold uppercase tracking-widest">
-                                    {job.organization}
-                                </Badge>
+                                {(() => {
+                                    const { primary, secondary } = getGovtJobCategoryBadges(job);
+                                    return (
+                                        <>
+                                            <Badge variant="outline" className="bg-accent/5 text-accent border-accent/20 px-3 py-1 text-[11px] font-bold uppercase tracking-widest">
+                                                {primary}
+                                            </Badge>
+                                            {secondary && (
+                                                <Badge variant="secondary" className="text-[10px] font-bold uppercase py-1">
+                                                    {secondary}
+                                                </Badge>
+                                            )}
+                                        </>
+                                    );
+                                })()}
                                 {job.visibility === 'premium' && (
                                     <div className="flex items-center gap-1">
                                         <TooltipProvider>
@@ -288,7 +306,7 @@ const GovtJobDetail = () => {
                                         <Badge variant="accent" className="font-bold py-1">Premium Job</Badge>
                                     </div>
                                 )}
-                                {job.tags && job.tags.map((tag, i) => (
+                                {buildSmartTagsForDisplay(job).map((tag, i) => (
                                     <Badge key={i} variant="secondary" className="bg-accent/5 text-accent border-accent/20 px-2 py-0.5 text-[10px] font-medium">
                                         #{tag}
                                     </Badge>

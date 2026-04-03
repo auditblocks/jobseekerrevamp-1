@@ -19,19 +19,13 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import {
-  ArrowLeft,
   Search,
   Mail,
   Eye,
-  MousePointer,
-  Reply,
-  AlertCircle,
-  CheckCircle2,
   Clock,
   Calendar as CalendarIcon,
   Loader2
 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { format, isWithinInterval, parseISO, startOfDay, endOfDay } from "date-fns";
@@ -45,23 +39,15 @@ interface EmailRecord {
   status: string;
   sent_at: string | null;
   opened_at: string | null;
-  clicked_at: string | null;
-  replied_at: string | null;
-  bounced_at: string | null;
   domain: string | null;
 }
 
 const statusConfig = {
   sent: { icon: Mail, color: "text-muted-foreground", bg: "bg-muted/50", label: "Sent" },
-  delivered: { icon: CheckCircle2, color: "text-blue-500", bg: "bg-blue-500/10", label: "Delivered" },
   opened: { icon: Eye, color: "text-accent", bg: "bg-accent/10", label: "Opened" },
-  clicked: { icon: MousePointer, color: "text-purple-500", bg: "bg-purple-500/10", label: "Clicked" },
-  replied: { icon: Reply, color: "text-success", bg: "bg-success/10", label: "Replied" },
-  bounced: { icon: AlertCircle, color: "text-destructive", bg: "bg-destructive/10", label: "Bounced" },
 };
 
 const EmailHistory = () => {
-  const navigate = useNavigate();
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
@@ -79,7 +65,7 @@ const EmailHistory = () => {
       try {
         const { data, error } = await supabase
           .from("email_tracking")
-          .select("id, recipient, subject, status, sent_at, opened_at, clicked_at, replied_at, bounced_at, domain")
+          .select("id, recipient, subject, status, sent_at, opened_at, domain")
           .eq("user_id", user.id)
           .order("sent_at", { ascending: false });
 
@@ -127,12 +113,8 @@ const EmailHistory = () => {
     };
   }, [user?.id]);
 
-  const getEmailStatus = (email: EmailRecord): string => {
-    if (email.bounced_at) return "bounced";
-    if (email.replied_at) return "replied";
-    if (email.clicked_at) return "clicked";
+  const getEmailStatus = (email: EmailRecord): keyof typeof statusConfig => {
     if (email.opened_at) return "opened";
-    if (email.status === "delivered") return "delivered";
     return "sent";
   };
 
@@ -142,7 +124,8 @@ const EmailHistory = () => {
       email.subject.toLowerCase().includes(searchQuery.toLowerCase());
 
     const emailStatus = getEmailStatus(email);
-    const matchesStatus = !statusFilter || emailStatus === statusFilter;
+    const matchesStatus =
+      !statusFilter || emailStatus === (statusFilter as keyof typeof statusConfig);
 
     const matchesDomain = domainFilter === "all" || email.domain === domainFilter;
 
@@ -192,7 +175,7 @@ const EmailHistory = () => {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="grid grid-cols-2 md:grid-cols-6 gap-4 mb-8"
+          className="grid grid-cols-2 md:grid-cols-2 gap-4 mb-8 max-w-2xl"
         >
           {Object.entries(statusConfig).map(([key, config]) => {
             const count = statusCounts[key] || 0;
@@ -312,7 +295,7 @@ const EmailHistory = () => {
                 <div className="divide-y divide-border/50">
                   {filteredEmails.map((email, index) => {
                     const emailStatus = getEmailStatus(email);
-                    const status = statusConfig[emailStatus as keyof typeof statusConfig];
+                    const status = statusConfig[emailStatus];
                     const StatusIcon = status.icon;
                     return (
                       <motion.div

@@ -38,6 +38,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import { buildSmartTagsForDisplay, getGovtJobCategoryBadges } from "@/lib/govtJobCategory";
 
 interface GovtJob {
     id: string;
@@ -187,14 +188,21 @@ const GovtJobs = () => {
                                     <CardContent className="p-6 flex flex-col h-full space-y-4">
                                         <div className="flex justify-between items-start">
                                             <div className="flex flex-wrap gap-1 items-center">
-                                                <Badge variant="outline" className="text-[10px] font-bold uppercase tracking-widest py-1">
-                                                    {job.organization}
-                                                </Badge>
-                                                {job.source_key && (
-                                                    <Badge variant="secondary" className="text-[9px] uppercase py-0.5">
-                                                        {job.source_key}
-                                                    </Badge>
-                                                )}
+                                                {(() => {
+                                                    const { primary, secondary } = getGovtJobCategoryBadges(job);
+                                                    return (
+                                                        <>
+                                                            <Badge variant="outline" className="text-[10px] font-bold uppercase tracking-widest py-1">
+                                                                {primary}
+                                                            </Badge>
+                                                            {secondary && (
+                                                                <Badge variant="secondary" className="text-[9px] uppercase py-0.5">
+                                                                    {secondary}
+                                                                </Badge>
+                                                            )}
+                                                        </>
+                                                    );
+                                                })()}
                                             </div>
                                             <div className="flex items-center gap-2">
                                                 {job.visibility === 'premium' ? (
@@ -230,18 +238,22 @@ const GovtJobs = () => {
                                                     {job.summary}
                                                 </p>
                                             )}
-                                            {job.tags && job.tags.length > 0 && (
-                                                <div className="flex flex-wrap gap-1.5 pt-1">
-                                                    {job.tags.slice(0, 3).map((tag, i) => (
-                                                        <span key={i} className="text-[10px] bg-accent/5 text-accent/80 px-2 py-0.5 rounded-full border border-accent/10">
-                                                            #{tag}
-                                                        </span>
-                                                    ))}
-                                                    {job.tags.length > 3 && (
-                                                        <span className="text-[10px] text-muted-foreground pt-0.5">+{job.tags.length - 3}</span>
-                                                    )}
-                                                </div>
-                                            )}
+                                            {(() => {
+                                                const displayTags = buildSmartTagsForDisplay(job);
+                                                if (displayTags.length === 0) return null;
+                                                return (
+                                                    <div className="flex flex-wrap gap-1.5 pt-1">
+                                                        {displayTags.slice(0, 4).map((tag, i) => (
+                                                            <span key={i} className="text-[10px] bg-accent/5 text-accent/80 px-2 py-0.5 rounded-full border border-accent/10">
+                                                                #{tag}
+                                                            </span>
+                                                        ))}
+                                                        {displayTags.length > 4 && (
+                                                            <span className="text-[10px] text-muted-foreground pt-0.5">+{displayTags.length - 4}</span>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })()}
                                         </div>
 
                                         <div className="space-y-3 pt-4 border-t border-border/50">
