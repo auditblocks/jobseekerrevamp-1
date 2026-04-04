@@ -23,6 +23,9 @@ const Navbar = () => {
                     <Link to="/government-jobs" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
                         Govt. Jobs
                     </Link>
+                    <Link to="/apply-latest-jobs" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+                        Private jobs
+                    </Link>
                     <Link to="/blog" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
                         Blog
                     </Link>

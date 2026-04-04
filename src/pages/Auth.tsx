@@ -10,6 +10,20 @@ import { Mail, Lock, User, ArrowRight, Loader2, Eye, EyeOff, ArrowLeft } from "l
 import { Chrome } from "lucide-react";
 import { Helmet } from "react-helmet-async";
 
+/** Same-origin path only; prevents open redirects. */
+export function getSafeInternalRedirect(raw: string | null | undefined): string | null {
+  if (raw == null || typeof raw !== "string") return null;
+  const t = raw.trim();
+  if (!t.startsWith("/") || t.startsWith("//")) return null;
+  if (t.includes("://")) return null;
+  const pathOnly = t.split(/[?#]/)[0];
+  return pathOnly && pathOnly.startsWith("/") ? pathOnly : null;
+}
+
+function readRedirectFromSearch(): string | null {
+  return getSafeInternalRedirect(new URLSearchParams(window.location.search).get("redirect"));
+}
+
 const Auth = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -52,9 +66,9 @@ const Auth = () => {
           }
           
           if (session) {
-            // Clear the hash from URL (welcome toast comes from onAuthStateChange)
-            window.history.replaceState({}, document.title, window.location.pathname);
-            navigate("/dashboard");
+            const q = window.location.search || "";
+            window.history.replaceState(null, "", `${window.location.pathname}${q}`);
+            navigate(readRedirectFromSearch() || "/dashboard");
           }
         } catch (error: any) {
           console.error("OAuth callback processing error:", error);
@@ -70,7 +84,7 @@ const Auth = () => {
       // Check for existing session (normal flow)
       supabase.auth.getSession().then(({ data: { session } }) => {
         if (session) {
-          navigate("/dashboard");
+          navigate(readRedirectFromSearch() || "/dashboard");
         }
       });
     };
@@ -87,7 +101,7 @@ const Auth = () => {
         if (!skipWelcome) {
           toast.success("Welcome back!");
         }
-        navigate("/dashboard");
+        navigate(readRedirectFromSearch() || "/dashboard");
       }
     });
 
@@ -99,8 +113,11 @@ const Auth = () => {
     try {
       // Use production URL from env, or fall back to current origin
       const siteUrl = import.meta.env.VITE_SITE_URL || window.location.origin;
-      const redirectUrl = `${siteUrl}/dashboard`;
-      
+      const next = readRedirectFromSearch();
+      const redirectUrl = next
+        ? `${siteUrl}/auth?redirect=${encodeURIComponent(next)}`
+        : `${siteUrl}/dashboard`;
+
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {

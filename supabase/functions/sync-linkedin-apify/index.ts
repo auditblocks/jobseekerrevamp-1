@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
-import { externalKeyFromUrl, mapApifyItemToRow } from "./map-item.ts";
+import { externalKeyFromUrl, mapLinkedInItemToRow } from "./map-linkedin-item.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -53,6 +53,14 @@ async function getSecret(
   return String(data.secret_value).trim();
 }
 
+function parseLinkedInSearchUrlsFromSecret(raw: string): string[] {
+  if (!raw.trim()) return [];
+  return raw
+    .split(/\r?\n/)
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0 && /^https?:\/\//i.test(s));
+}
+
 const TERMINAL_RUN_STATUSES = new Set([
   "SUCCEEDED",
   "FAILED",
@@ -73,7 +81,10 @@ async function resolveDatasetFromLastSuccess(
     return { datasetId: overrideDatasetId, runId: null };
   }
   if (!actorId) {
-    return { error: "Configure apify_actor_id or apify_dataset_id in Admin → Naukri jobs." };
+    return {
+      error:
+        "Configure apify_linkedin_actor_id or apify_linkedin_dataset_id in Admin → Apify jobs (LinkedIn tab).",
+    };
   }
   const url =
     `https://api.apify.com/v2/acts/${encodeURIComponent(actorId)}/runs?token=${
@@ -93,7 +104,7 @@ async function resolveDatasetFromLastSuccess(
   if (!ds) {
     return {
       error:
-        "No successful Apify run with a dataset found for this actor. Run sync without import_only to start a scrape, or run the actor once in Apify Console.",
+        "No successful LinkedIn Apify run with a dataset found. Run sync without import_only after saving search URLs, or run the actor in Apify Console.",
     };
   }
   return { datasetId: String(ds), runId: runId ? String(runId) : null };
@@ -117,14 +128,13 @@ async function fetchActorRun(
   return j.data;
 }
 
-/** Start actor (POST input), wait up to 60s on Apify side, then poll until terminal or wall limit. */
 async function runActorAndResolveDataset(
   token: string,
   actorId: string,
   actorInput: Record<string, unknown>,
 ): Promise<{ datasetId: string; runId: string } | { error: string }> {
   if (!actorId) {
-    return { error: "Configure apify_actor_id in Admin → Naukri jobs." };
+    return { error: "Configure apify_linkedin_actor_id in Admin → Apify jobs (LinkedIn tab)." };
   }
   const startUrl =
     `https://api.apify.com/v2/acts/${encodeURIComponent(actorId)}/runs?token=${
@@ -152,7 +162,7 @@ async function runActorAndResolveDataset(
       return {
         error:
           `Actor run ${runId} is still ${run.status ?? "RUNNING"} after the wait limit (~2.5 min). ` +
-          "Wait for it to finish in Apify Console, then use Run sync with body { \"import_only\": true } or clear dataset override to pull the latest successful run.",
+          "Wait in Apify Console, then run sync with import_only: true.",
       };
     }
     await new Promise((r) => setTimeout(r, 5000));
@@ -174,26 +184,28 @@ async function runActorAndResolveDataset(
   return { datasetId: String(ds), runId };
 }
 
-interface SyncBodyOptions {
+interface LinkedInSyncBodyOptions {
   importOnly: boolean;
   actorInput: Record<string, unknown>;
 }
 
-function parseSyncBody(raw: string | null): SyncBodyOptions {
-  const defaults: SyncBodyOptions = {
+function parseLinkedInSyncBody(raw: string | null, urlsFromSecret: string[]): LinkedInSyncBodyOptions {
+  const baseUrls = [...urlsFromSecret];
+  const defaults: LinkedInSyncBodyOptions = {
     importOnly: false,
-    actorInput: { desired_results: 100 },
+    actorInput: { urls: baseUrls },
   };
   if (!raw?.trim()) return defaults;
   try {
     const b = JSON.parse(raw) as Record<string, unknown>;
     const importOnly = b.import_only === true || b.importOnly === true;
-    const actorInput: Record<string, unknown> = { ...defaults.actorInput };
+    const actorInput: Record<string, unknown> = { urls: [...baseUrls] };
     if (b.actor_input && typeof b.actor_input === "object" && !Array.isArray(b.actor_input)) {
-      Object.assign(actorInput, b.actor_input as Record<string, unknown>);
-    }
-    if (typeof b.desired_results === "number" && Number.isFinite(b.desired_results)) {
-      actorInput.desired_results = b.desired_results;
+      const ai = b.actor_input as Record<string, unknown>;
+      Object.assign(actorInput, ai);
+      if (Array.isArray(ai.urls)) {
+        actorInput.urls = ai.urls;
+      }
     }
     return { importOnly, actorInput };
   } catch {
@@ -233,9 +245,6 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  const bodyText = req.method === "POST" ? await req.text() : "";
-  const syncOptions = parseSyncBody(bodyText || null);
-
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
@@ -244,18 +253,24 @@ serve(async (req) => {
     return json({ success: false, error: "Unauthorized" }, 401);
   }
 
+  const urlsSecretRaw = await getSecret(supabase, "apify_linkedin_search_urls");
+  const urlsFromSecret = parseLinkedInSearchUrlsFromSecret(urlsSecretRaw);
+
+  const bodyText = req.method === "POST" ? await req.text() : "";
+  const syncOptions = parseLinkedInSyncBody(bodyText || null, urlsFromSecret);
+
   const logInsert = await supabase
     .from("naukri_sync_log")
     .insert({
       status: "running",
       started_at: new Date().toISOString(),
-      pipeline: "naukri",
+      pipeline: "linkedin",
     })
     .select("id")
     .single();
 
   if (logInsert.error) {
-    console.error("naukri_sync_log insert failed", logInsert.error);
+    console.error("naukri_sync_log insert failed (linkedin)", logInsert.error);
   }
   const logId = logInsert.data?.id as string | undefined;
   const finishLog = async (
@@ -274,14 +289,37 @@ serve(async (req) => {
   };
 
   try {
-    const apifyToken = await getSecret(supabase, "apify_api_token");
+    const linkedinOverrideToken = await getSecret(supabase, "apify_linkedin_api_token");
+    const sharedToken = await getSecret(supabase, "apify_api_token");
+    const apifyToken = linkedinOverrideToken || sharedToken;
     if (!apifyToken) {
-      await finishLog("error", { error_message: "Missing apify_api_token in admin_integration_secrets" });
-      return json({ success: false, error: "Apify API token not configured." }, 400);
+      await finishLog("error", {
+        error_message: "Missing Apify token: set apify_linkedin_api_token or apify_api_token.",
+      });
+      return json(
+        { success: false, error: "Apify API token not configured (shared or LinkedIn-specific)." },
+        400,
+      );
     }
 
-    const actorId = await getSecret(supabase, "apify_actor_id");
-    const datasetOverride = await getSecret(supabase, "apify_dataset_id");
+    const actorRaw = await getSecret(supabase, "apify_linkedin_actor_id");
+    const actorId = actorRaw || "curious_coder~linkedin-jobs-scraper";
+    const datasetOverride = await getSecret(supabase, "apify_linkedin_dataset_id");
+
+    const urls = syncOptions.actorInput.urls;
+    const hasUrls = Array.isArray(urls) && urls.length > 0;
+
+    if (!datasetOverride && !syncOptions.importOnly && !hasUrls) {
+      await finishLog("error", {
+        error_message:
+          "LinkedIn scraper needs at least one https search URL (Admin LinkedIn tab) or apify_linkedin_dataset_id / import_only.",
+      });
+      return json({
+        success: false,
+        error:
+          "Save one or more LinkedIn job search URLs (https://…) in Admin → Apify jobs → LinkedIn, or set a dataset ID / use import_only.",
+      }, 400);
+    }
 
     let resolved: { datasetId: string; runId: string | null } | { error: string };
 
@@ -328,14 +366,14 @@ serve(async (req) => {
     const scrapedAt = new Date().toISOString();
 
     for (const raw of items) {
-      const mapped = mapApifyItemToRow(raw);
+      const mapped = mapLinkedInItemToRow(raw);
       if (!mapped) {
         skipped++;
         if (unmappedLogged < 5 && raw && typeof raw === "object") {
           unmappedLogged++;
           const keys = Object.keys(raw as Record<string, unknown>);
           console.warn(
-            `sync-naukri-apify: skipped row (needs Job Title + http URL). Keys: ${keys.slice(0, 20).join(", ")}`,
+            `sync-linkedin-apify: skipped row (needs title + http job URL). Keys: ${keys.slice(0, 20).join(", ")}`,
           );
         }
         continue;
@@ -357,7 +395,7 @@ serve(async (req) => {
           salary_text: mapped.salary_text,
           experience_text: mapped.experience_text,
           skills: mapped.skills,
-          source: "naukri",
+          source: "linkedin",
           raw_item: mapped.raw_item,
           is_active: true,
           scraped_at: scrapedAt,
@@ -365,7 +403,7 @@ serve(async (req) => {
         { onConflict: "external_key" },
       );
       if (upErr) {
-        console.error("naukri_jobs upsert error", upErr);
+        console.error("naukri_jobs upsert error (linkedin)", upErr);
         skipped++;
       } else {
         upserted++;
@@ -383,19 +421,17 @@ serve(async (req) => {
       success: true,
       items_upserted: upserted,
       items_skipped: skipped,
-      /** Rows returned by Apify for this dataset pull */
       dataset_item_count: items.length,
-      /** Distinct job URLs that were mapped (one DB row per URL via external_key upsert) */
       unique_apply_urls: seenApplyUrls.size,
-      /** Extra dataset rows sharing a Job URL already seen in this batch */
       duplicate_apply_urls_in_dataset: duplicateApplyUrlsInDataset,
       dataset_id: resolved.datasetId,
       apify_run_id: resolved.runId,
       log_id: logId,
+      pipeline: "linkedin",
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    console.error("sync-naukri-apify", e);
+    console.error("sync-linkedin-apify", e);
     await finishLog("error", { error_message: msg });
     return json({ success: false, error: msg }, 500);
   }

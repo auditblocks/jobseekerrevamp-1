@@ -49,7 +49,7 @@ const mainItems = [
 const contentItems = [
   { title: "Blog Posts", url: "/admin/blogs", icon: FileText },
   { title: "Government Jobs", url: "/admin/govt-jobs", icon: Briefcase },
-  { title: "Naukri (Apify)", url: "/admin/naukri-jobs", icon: Rocket },
+  { title: "Apify jobs", url: "/admin/naukri-jobs", icon: Rocket },
   { title: "Exam Library", url: "/admin/exams", icon: BookOpen },
 ];
 

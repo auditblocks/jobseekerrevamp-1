@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import {
   Send,
   Eye,
-  Briefcase,
   Users,
   Clock,
   FileSearch,
@@ -22,7 +21,6 @@ import { useTour } from "@/hooks/useTour";
 interface DashboardStats {
   emailsSent: number;
   openRate: number;
-  applications: number;
 }
 
 const Dashboard = () => {
@@ -31,7 +29,6 @@ const Dashboard = () => {
   const [stats, setStats] = useState<DashboardStats>({
     emailsSent: 0,
     openRate: 0,
-    applications: 0,
   });
   const [statsLoading, setStatsLoading] = useState(true);
 
@@ -57,13 +54,6 @@ const Dashboard = () => {
 
         if (emailError) throw emailError;
 
-        const { count: applicationsCount, error: appError } = await supabase
-          .from("job_applications")
-          .select("id", { count: "exact", head: true })
-          .eq("user_id", user.id);
-
-        if (appError) throw appError;
-
         // Check for templates
         const { count: templatesCount, error: templatesError } = await supabase
           .from("email_templates")
@@ -81,7 +71,6 @@ const Dashboard = () => {
         setStats({
           emailsSent: totalEmails,
           openRate,
-          applications: applicationsCount || 0,
         });
       } catch (error) {
         console.error("Error fetching stats:", error);
@@ -114,7 +103,6 @@ const Dashboard = () => {
   const statCards = [
     { label: "Emails Sent", value: stats.emailsSent.toString(), icon: Send, color: "text-accent", bg: "bg-accent/10" },
     { label: "Open Rate", value: `${stats.openRate}%`, icon: Eye, color: "text-success", bg: "bg-success/10" },
-    { label: "Applications", value: stats.applications.toString(), icon: Briefcase, color: "text-warning", bg: "bg-warning/10" },
   ];
 
   return (
@@ -160,7 +148,7 @@ const Dashboard = () => {
         </motion.div>
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
+        <div className="grid grid-cols-2 sm:grid-cols-2 gap-3 sm:gap-6 max-w-2xl">
           {statCards.map((stat, index) => (
             <motion.div
               key={index}
@@ -199,7 +187,6 @@ const Dashboard = () => {
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {[
               { icon: Send, label: "Send Emails", description: "Reach out to recruiters", path: "/compose", id: "quick-action-compose" },
-              { icon: Briefcase, label: "Track Application", description: "Add a new job application", path: "/applications" },
               { icon: Users, label: "Browse Recruiters", description: "Find recruiters in your field", path: "/recruiters", id: "quick-action-recruiters" },
               { icon: FileSearch, label: "Resume Optimizer", description: "Optimize your resume with AI", path: "/resume-optimizer" },
             ].map((action, index) => (

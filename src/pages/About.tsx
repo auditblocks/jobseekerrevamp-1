@@ -50,8 +50,8 @@ const About = () => {
       description: "Keep all your recruiter conversations organized in one place, making it easy to follow up and maintain relationships.",
     },
     {
-      title: "Application Tracking",
-      description: "Never lose track of a job application. Our system helps you manage your entire job search pipeline efficiently.",
+      title: "Templates & email history",
+      description: "Save time with reusable templates and a clear history of what you sent, so follow-ups stay consistent.",
     },
     {
       title: "Smart Follow-up Reminders",

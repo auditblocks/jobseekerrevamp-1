@@ -143,6 +143,12 @@ const HeroSection = () => {
             Govt. Jobs
           </Link>
           <Link
+            to="/apply-latest-jobs"
+            className="text-sm font-medium text-primary-foreground/80 hover:text-primary-foreground transition-colors hidden sm:block"
+          >
+            Private jobs
+          </Link>
+          <Link
             to="/blog"
             className="text-sm font-medium text-primary-foreground/80 hover:text-primary-foreground transition-colors hidden sm:block"
           >

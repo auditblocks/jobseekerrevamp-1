@@ -27,15 +27,15 @@ const FAQ = () => {
     },
     {
       question: "Is JobSeeker the best recruiter outreach tool?",
-      answer: "JobSeeker is one of the leading job search automation platforms, offering AI-powered email generation, comprehensive recruiter database, real-time analytics, and application tracking. Our platform helps thousands of job seekers automate their job search and land interviews faster."
+      answer: "JobSeeker is one of the leading job search automation platforms, offering AI-powered email generation, comprehensive recruiter database, real-time analytics, and email engagement tracking. Our platform helps thousands of job seekers automate their job search and land interviews faster."
     },
     {
       question: "How do I automate my job search?",
       answer: "To automate your job search with JobSeeker: 1) Sign up for a free account, 2) Connect your Gmail account securely, 3) Browse our verified recruiter database, 4) Select recruiters and use AI to generate personalized emails, 5) Send automated job applications and track responses. Our platform handles the rest, including follow-up reminders."
     },
     {
-      question: "Can I track my job applications?",
-      answer: "Yes! JobSeeker includes a comprehensive job application tracker that helps you manage all your applications in one organized dashboard. Track which recruiters you've contacted, monitor email opens and responses, and never miss a follow-up with intelligent reminder suggestions."
+      question: "Can I track my outreach and responses?",
+      answer: "Yes. JobSeeker tracks emails you send through the platform—opens, clicks, and conversation threads—so you can see which recruiters you've contacted and follow up at the right time."
     },
     {
       question: "How does the AI email generator work?",
@@ -55,7 +55,7 @@ const FAQ = () => {
     },
     {
       question: "Can I use JobSeeker for automated job applications?",
-      answer: "Yes! JobSeeker is designed specifically for automated job applications. Our platform helps you send personalized emails to multiple recruiters efficiently, track all your applications, manage conversations, and follow up automatically. It's the complete solution for automating your job search process."
+      answer: "Yes! JobSeeker is designed specifically for automated recruiter outreach. Our platform helps you send personalized emails to multiple recruiters efficiently, monitor engagement, manage conversations, and follow up automatically. It's a complete solution for automating your job search process."
     }
   ];
 

@@ -22,8 +22,8 @@ const DataUsageSection = () => {
     },
     {
       icon: <Shield className="w-6 h-6 text-purple-500" />,
-      title: "Managing Applications",
-      description: "We organize your conversations into a clear dashboard, so you can track progress without the inbox clutter.",
+      title: "Organizing conversations",
+      description: "We organize your recruiter threads into a clear dashboard, so you can track progress without the inbox clutter.",
       color: "bg-purple-500/10",
       borderColor: "border-purple-500/20"
     }

@@ -28,8 +28,8 @@ const features = [
   },
   {
     icon: Target,
-    title: "Job Application Tracker",
-    description: "Keep track of all your job applications in one organized dashboard with automated application management.",
+    title: "Outreach history",
+    description: "Review sent emails, templates, and conversation threads in one place so you always know who you've contacted.",
     color: "bg-destructive/10 text-destructive",
   },
   {

@@ -1,5 +1,5 @@
 import { Helmet } from "react-helmet-async";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,6 +39,10 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { buildSmartTagsForDisplay, getGovtJobCategoryBadges } from "@/lib/govtJobCategory";
+import { JobListPagination } from "@/components/JobListPagination";
+
+const PAGE_SIZE_OPTIONS = [12, 24, 48] as const;
+const DEFAULT_PAGE_SIZE = 12;
 
 interface GovtJob {
     id: string;
@@ -65,6 +69,8 @@ const GovtJobs = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState("");
     const [stateFilter, setStateFilter] = useState<string>("all");
+    const [currentPage, setCurrentPage] = useState(1);
+    const [pageSize, setPageSize] = useState<number>(DEFAULT_PAGE_SIZE);
 
     const isPaidUser = profile?.subscription_tier === "PRO" || profile?.subscription_tier === "PRO_MAX";
 
@@ -99,21 +105,58 @@ const GovtJobs = () => {
         return ["all", ...Array.from(codes).sort()];
     }, [jobs]);
 
-    const filteredJobs = jobs.filter((job) => {
+    const filteredJobs = useMemo(() => {
         const q = searchQuery.toLowerCase().trim();
-        const matchesSearch =
-            !q ||
-            job.organization.toLowerCase().includes(q) ||
-            job.post_name.toLowerCase().includes(q) ||
-            (job.exam_name && job.exam_name.toLowerCase().includes(q)) ||
-            (job.source_key && job.source_key.toLowerCase().includes(q)) ||
-            job.tags?.some((t) => t.toLowerCase().includes(q));
+        return jobs.filter((job) => {
+            const matchesSearch =
+                !q ||
+                job.organization.toLowerCase().includes(q) ||
+                job.post_name.toLowerCase().includes(q) ||
+                (job.exam_name && job.exam_name.toLowerCase().includes(q)) ||
+                (job.source_key && job.source_key.toLowerCase().includes(q)) ||
+                job.tags?.some((t) => t.toLowerCase().includes(q));
 
-        const code = job.state_code || "IN";
-        const matchesState = stateFilter === "all" || code === stateFilter;
+            const code = job.state_code || "IN";
+            const matchesState = stateFilter === "all" || code === stateFilter;
 
-        return matchesSearch && matchesState;
-    });
+            return matchesSearch && matchesState;
+        });
+    }, [jobs, searchQuery, stateFilter]);
+
+    const totalFiltered = filteredJobs.length;
+    const totalPages = Math.max(1, Math.ceil(totalFiltered / pageSize));
+    const safePage = Math.min(Math.max(1, currentPage), totalPages);
+
+    const paginatedJobs = useMemo(() => {
+        const start = (safePage - 1) * pageSize;
+        return filteredJobs.slice(start, start + pageSize);
+    }, [filteredJobs, safePage, pageSize]);
+
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchQuery, stateFilter, pageSize]);
+
+    useEffect(() => {
+        if (currentPage > totalPages) {
+            setCurrentPage(totalPages);
+        }
+    }, [currentPage, totalPages]);
+
+    const skipPaginationScrollRef = useRef(true);
+    useEffect(() => {
+        if (skipPaginationScrollRef.current) {
+            skipPaginationScrollRef.current = false;
+            return;
+        }
+        if (typeof window === "undefined") return;
+        const id = window.requestAnimationFrame(() => {
+            window.scrollTo({ top: 0, behavior: "smooth" });
+        });
+        return () => window.cancelAnimationFrame(id);
+    }, [currentPage]);
+
+    const rangeStart = totalFiltered === 0 ? 0 : (safePage - 1) * pageSize + 1;
+    const rangeEnd = Math.min(safePage * pageSize, totalFiltered);
 
     const handleJobClick = (job: GovtJob) => {
         navigate(`/government-jobs/${job.slug || job.id}`);
@@ -162,6 +205,44 @@ const GovtJobs = () => {
                     )}
                 </div>
 
+                {!isLoading && totalFiltered > 0 && (
+                    <div className="max-w-4xl mx-auto flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between px-1">
+                        <p className="text-sm text-muted-foreground text-center sm:text-left">
+                            <span className="font-semibold text-foreground">{totalFiltered}</span>
+                            {jobs.length !== totalFiltered ? (
+                                <>
+                                    {" "}
+                                    of {jobs.length} listing{jobs.length === 1 ? "" : "s"} match
+                                </>
+                            ) : (
+                                <> listing{totalFiltered === 1 ? "" : "s"}</>
+                            )}
+                            <span className="mx-1.5 text-border hidden sm:inline">·</span>
+                            <span className="block sm:inline text-xs sm:text-sm mt-1 sm:mt-0">
+                                Page {safePage} of {totalPages} · Showing {rangeStart}–{rangeEnd}
+                            </span>
+                        </p>
+                        <div className="flex items-center justify-center gap-2">
+                            <span className="text-xs text-muted-foreground whitespace-nowrap">Per page</span>
+                            <Select
+                                value={String(pageSize)}
+                                onValueChange={(v) => setPageSize(Number(v))}
+                            >
+                                <SelectTrigger className="h-9 w-[5.5rem] rounded-xl bg-background border-border/60">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {PAGE_SIZE_OPTIONS.map((n) => (
+                                        <SelectItem key={n} value={String(n)}>
+                                            {n}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </div>
+                )}
+
                 {isLoading ? (
                     <div className="flex justify-center py-20">
                         <Loader2 className="h-10 w-10 animate-spin text-accent" />
@@ -173,13 +254,14 @@ const GovtJobs = () => {
                         <p className="text-muted-foreground">Try adjusting your search criteria or browse different categories.</p>
                     </div>
                 ) : (
+                    <>
                     <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {filteredJobs.map((job, index) => (
+                        {paginatedJobs.map((job, index) => (
                             <motion.div
                                 key={job.id}
                                 initial={{ opacity: 0, y: 20 }}
                                 animate={{ opacity: 1, y: 0 }}
-                                transition={{ delay: index * 0.05 }}
+                                transition={{ delay: Math.min(index * 0.04, 0.3) }}
                             >
                                 <Card
                                     className="h-full hover:shadow-xl hover:shadow-accent/5 transition-all duration-300 border-border/50 hover:border-accent/30 flex flex-col group cursor-pointer"
@@ -304,6 +386,15 @@ const GovtJobs = () => {
                             </motion.div>
                         ))}
                     </div>
+
+                    <JobListPagination
+                        safePage={safePage}
+                        totalPages={totalPages}
+                        onPageChange={setCurrentPage}
+                        className="border-border/50 pt-8 max-w-4xl mx-auto"
+                        ariaLabel="Government jobs list pagination"
+                    />
+                    </>
                 )}
 
                 {/* SEO Content Block */}

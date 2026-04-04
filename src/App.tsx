@@ -3,7 +3,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { HelmetProvider } from "react-helmet-async";
 import { AuthProvider } from "@/hooks/useAuth";
 import { ActivityTracker } from "@/components/ActivityTracker";
@@ -15,8 +15,8 @@ const Auth = lazy(() => import("./pages/Auth"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Compose = lazy(() => import("./pages/Compose"));
 const EmailHistory = lazy(() => import("./pages/EmailHistory"));
-const Conversations = lazy(() => import("./pages/Conversations"));
-const Applications = lazy(() => import("./pages/Applications"));
+// Conversations UI hidden — restore lazy + dedicated Route to re-enable
+// const Conversations = lazy(() => import("./pages/Conversations"));
 const Templates = lazy(() => import("./pages/Templates"));
 const Recruiters = lazy(() => import("./pages/Recruiters"));
 const Analytics = lazy(() => import("./pages/Analytics"));
@@ -91,8 +91,9 @@ const App = () => (
                   <Route path="/dashboard" element={<Dashboard />} />
                   <Route path="/compose" element={<Compose />} />
                   <Route path="/email-history" element={<EmailHistory />} />
-                  <Route path="/conversations" element={<Conversations />} />
-                  <Route path="/applications" element={<Applications />} />
+                  {/* <Route path="/conversations" element={<Conversations />} /> */}
+                  <Route path="/conversations" element={<Navigate to="/dashboard" replace />} />
+                  <Route path="/applications" element={<Navigate to="/dashboard" replace />} />
                   <Route path="/templates" element={<Templates />} />
                   <Route path="/recruiters" element={<Recruiters />} />
                   <Route path="/analytics" element={<Analytics />} />

@@ -8,6 +8,26 @@ function pickString(obj: Record<string, unknown>, keys: string[]): string | null
   return null;
 }
 
+/** Title sometimes arrives as a number from Apify JSON. */
+function pickScalarString(obj: Record<string, unknown>, keys: string[]): string | null {
+  for (const k of keys) {
+    const v = obj[k];
+    if (typeof v === "string" && v.trim()) return v.trim();
+    if (typeof v === "number" && Number.isFinite(v)) return String(v);
+  }
+  return null;
+}
+
+function pickHttpUrl(obj: Record<string, unknown>, keys: string[]): string | null {
+  for (const k of keys) {
+    const v = obj[k];
+    if (typeof v !== "string") continue;
+    const u = v.trim();
+    if (/^https?:\/\//i.test(u)) return u;
+  }
+  return null;
+}
+
 function pickNestedString(obj: Record<string, unknown>, path: string[]): string | null {
   let cur: unknown = obj;
   for (const p of path) {
@@ -53,7 +73,7 @@ export function mapApifyItemToRow(item: unknown): MappedJob | null {
   const o = item as Record<string, unknown>;
 
   const title =
-    pickString(o, [
+    pickScalarString(o, [
       "Job Title",
       "title",
       "jobTitle",
@@ -65,7 +85,7 @@ export function mapApifyItemToRow(item: unknown): MappedJob | null {
   if (!title) return null;
 
   const apply_url =
-    pickString(o, [
+    pickHttpUrl(o, [
       "Job URL",
       "apply_url",
       "applyUrl",
@@ -110,13 +130,22 @@ export function mapApifyItemToRow(item: unknown): MappedJob | null {
   const desc =
     pickString(o, [
       "Description",
+      "Job Description",
+      "job description",
+      "Full Description",
+      "Role Description",
       "description",
       "snippet",
       "summary",
       "jobDescription",
+      "jobDescriptionText",
       "about",
-    ]) ?? "";
-  const summary = desc ? truncate(desc, 4000) : null;
+      "job_details",
+    ]) ??
+    pickNestedString(o, ["job", "description"]) ??
+    pickNestedString(o, ["listing", "description"]) ??
+    "";
+  const summary = desc ? truncate(desc, 12000) : null;
 
   const salary_text = pickString(o, ["Salary", "salary", "salaryText", "compensation"]);
   const experience_text = pickString(o, [

@@ -5,8 +5,7 @@ import {
     Mail,
     Home,
     Send,
-    MessageSquare,
-    Briefcase,
+    // MessageSquare, // Conversations (nav hidden)
     Globe,
     Clock,
     FileText,
@@ -95,8 +94,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
             items: [
                 { icon: Send, label: "Compose", path: "/compose" },
                 { icon: Mail, label: "Email History", path: "/email-history" },
-                { icon: MessageSquare, label: "Conversations", path: "/conversations" },
-                { icon: Briefcase, label: "Applications", path: "/applications" },
+                // { icon: MessageSquare, label: "Conversations", path: "/conversations" },
                 { icon: Rocket, label: "Apply latest jobs", path: "/apply-latest-jobs" },
                 { icon: FileText, label: "Templates", path: "/templates" },
                 { icon: Users, label: "Recruiters", path: "/recruiters" },
