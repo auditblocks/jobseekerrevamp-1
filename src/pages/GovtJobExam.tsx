@@ -40,6 +40,9 @@ interface Question {
     explanation: string | null;
 }
 
+/** Full mock: 90 questions with UI timer of 1 minute per question → 90-minute practice session. */
+const PRACTICE_MOCK_QUESTION_COUNT = 90;
+
 const GovtJobExam = () => {
     const { jobId } = useParams();
     const navigate = useNavigate();
@@ -48,7 +51,7 @@ const GovtJobExam = () => {
     const [questions, setQuestions] = useState<Question[]>([]);
     const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
     const [answers, setAnswers] = useState<Record<string, string>>({});
-    const [timeLeft, setTimeLeft] = useState(1800); // 30 minutes default
+    const [timeLeft, setTimeLeft] = useState(PRACTICE_MOCK_QUESTION_COUNT * 60);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isCompleted, setIsCompleted] = useState(false);
     const [result, setResult] = useState<any>(null);
@@ -114,18 +117,21 @@ const GovtJobExam = () => {
     const handleAIGenerate = async () => {
         setIsSubmitting(true);
         try {
-            toast.info("AI is generating a fresh set of questions for you. This might take a few seconds...");
-            const { data, error } = await supabase.functions.invoke("generate-exam-questions", {
+            toast.info(
+                `AI is generating a full ${PRACTICE_MOCK_QUESTION_COUNT}-question mock (~90 minutes). This may take a minute…`
+            );
+            const { error } = await supabase.functions.invoke("generate-exam-questions", {
                 body: {
                     jobId: jobId,
                     examName: job?.exam_name || "",
                     postName: job?.post_name || "",
-                    organization: job?.organization || ""
-                }
+                    organization: job?.organization || "",
+                    count: PRACTICE_MOCK_QUESTION_COUNT,
+                },
             });
 
             if (error) throw error;
-            toast.success("Exam questions generated! Starting your test...");
+            toast.success("90-minute practice set ready. Your timer starts when the test loads.");
             fetchJobAndQuestions();
         } catch (error: any) {
             console.error("Error generating with AI:", error);
@@ -234,8 +240,9 @@ const GovtJobExam = () => {
                     </Button>
                     <Button variant="outline" onClick={() => navigate("/government-jobs")}>Back to Jobs</Button>
                 </div>
-                <p className="text-[10px] text-muted-foreground max-w-xs mt-4">
-                    AI will source previous year trends to create a relevant mock test for you instantly.
+                <p className="text-[10px] text-muted-foreground max-w-sm mt-4">
+                    Generates a full {PRACTICE_MOCK_QUESTION_COUNT}-question mock aligned to this exam (~90 minutes at about one
+                    minute per question).
                 </p>
             </div>
         );

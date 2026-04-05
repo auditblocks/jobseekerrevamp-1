@@ -152,21 +152,22 @@ const AdminExamQuestions = () => {
     };
 
     const handleAIGenerate = async () => {
-        if (!confirm("This will use AI to generate 10 questions based on the job details. Continue?")) return;
+        if (!confirm("This will use AI to generate a full 90-question mock set (~90 min practice). Continue?")) return;
 
         setSaving(true);
         try {
-            const { data, error } = await supabase.functions.invoke("generate-exam-questions", {
+            const { error } = await supabase.functions.invoke("generate-exam-questions", {
                 body: {
                     jobId: jobId,
                     examName: job?.exam_name || "",
                     postName: job?.post_name || "",
-                    organization: job?.organization || ""
-                }
+                    organization: job?.organization || "",
+                    count: 90,
+                },
             });
 
             if (error) throw error;
-            toast.success("AI generated 10 questions successfully!");
+            toast.success("AI generated 90-question practice set.");
             fetchQuestions();
         } catch (error: any) {
             console.error("Error generating with AI:", error);

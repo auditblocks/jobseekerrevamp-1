@@ -87,7 +87,8 @@ serve(async (req) => {
             }
         }
 
-        const totalCount = count || config?.total_questions || 10;
+        const rawCount = count ?? config?.total_questions ?? 10;
+        const totalCount = Math.min(120, Math.max(1, Math.floor(Number(rawCount)) || 10));
         const sectionInfo = config?.section_distribution
             ? `Section Distribution: ${JSON.stringify(config.section_distribution)}`
             : "Section Distribution: General mix of relevant sections.";
@@ -101,7 +102,7 @@ serve(async (req) => {
             : "No specific PYQ data available in DB. Use your internal knowledge of the last 5 years of this exam to identify high-frequency topics, topic weightage, difficulty trends, and repeated question patterns.";
 
         // --- BATCH GENERATION LOGIC ---
-        const BATCH_SIZE = 5;
+        const BATCH_SIZE = 15;
         const allQuestions: any[] = [];
         const iterations = Math.ceil(totalCount / BATCH_SIZE);
 
@@ -122,6 +123,7 @@ ${sectionInfo}
 ${difficultyInfo}
 ${pyqInfo}
 
+Full timed mock target: ${totalCount} questions total (all batches), roughly ${totalCount} minutes if candidates spend about one minute per question.
 This is batch ${i + 1} of ${iterations}. Avoid repeating questions from previous batches.
 The practice set must provide an exam-like difficulty and a real-exam experience.
 Respond ONLY with the JSON array.`;
@@ -216,10 +218,11 @@ Respond ONLY with the JSON array.`;
             throw new Error("Failed to generate any valid questions. AI response might be invalid.");
         }
 
-        console.log(`Successfully generated ${allQuestions.length} questions in total.`);
+        const trimmed = allQuestions.slice(0, totalCount);
+        console.log(`Successfully generated ${trimmed.length} questions (trimmed from ${allQuestions.length}).`);
 
         // 3. Insert into database
-        const payload = allQuestions.map((q: any) => ({
+        const payload = trimmed.map((q: any) => ({
             job_id: jobId,
             master_exam_id: config?.id,
             ...q
@@ -232,7 +235,7 @@ Respond ONLY with the JSON array.`;
         if (insertError) throw insertError;
 
         return new Response(
-            JSON.stringify({ success: true, count: allQuestions.length }),
+            JSON.stringify({ success: true, count: trimmed.length }),
             { headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
 
