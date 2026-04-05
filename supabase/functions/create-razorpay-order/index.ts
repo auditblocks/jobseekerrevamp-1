@@ -8,7 +8,7 @@ const corsHeaders = {
 
 interface OrderRequest {
   plan_id: string;
-  amount: number;
+  billing_cycle?: string; // 'monthly' | 'yearly'
 }
 
 serve(async (req) => {
@@ -54,26 +54,52 @@ serve(async (req) => {
       throw new Error("Unauthorized");
     }
 
-    const { plan_id }: { plan_id: string } = await req.json();
+    const payload = await req.json();
+    const plan_id = payload.plan_id;
+    const billing_cycle = payload.billing_cycle || 'monthly';
 
     if (!plan_id) {
       throw new Error("Missing plan_id");
     }
 
-    // SECURITY FIX: Fetch plan details from database instead of trusting client amount
-    const { data: plan, error: planError } = await supabase
-      .from("subscription_plans")
-      .select("*")
-      .eq("id", plan_id)
-      .single();
+    let amount: number;
+    let planNameForHistory: string;
 
-    if (planError || !plan) {
-      console.error("Plan not found or error:", planError);
-      throw new Error("Invalid plan selected");
+    // --- FLASH SALE: Special case ---
+    if (plan_id === 'flash_sale') {
+      const { data: saleConfig, error: saleError } = await supabase
+        .from("flash_sale_config")
+        .select("price, is_active")
+        .single();
+
+      if (saleError || !saleConfig) {
+        throw new Error("Flash sale configuration not found");
+      }
+      if (!saleConfig.is_active) {
+        throw new Error("Flash sale is no longer active");
+      }
+
+      amount = saleConfig.price ?? 1999;
+      planNameForHistory = 'flash_sale';
+    } else {
+      // --- REGULAR PLAN: Fetch from subscription_plans ---
+      const { data: plan, error: planError } = await supabase
+        .from("subscription_plans")
+        .select("*")
+        .eq("id", plan_id)
+        .single();
+
+      if (planError || !plan) {
+        throw new Error("Invalid plan selected");
+      }
+
+      // SECURITY FIX: price is determined server-side from DB
+      amount = plan.price; // default monthly
+      if (billing_cycle === 'yearly') {
+        amount = plan.yearly_price ?? Math.round(plan.price * 12 * 0.8);
+      }
+      planNameForHistory = plan_id;
     }
-
-    // Use the reliable database amount
-    const amount = plan.price;
 
     // Create Razorpay order
     const credentials = btoa(`${razorpayKeyId}:${razorpayKeySecret}`);
@@ -88,8 +114,9 @@ serve(async (req) => {
         currency: "INR",
         receipt: `order_${Date.now()}`,
         notes: {
-          plan_id,
+          plan_id: planNameForHistory,
           user_id: user.id,
+          billing_cycle: plan_id === 'flash_sale' ? 'five_years_flash_sale' : billing_cycle,
         },
       }),
     });
@@ -104,11 +131,12 @@ serve(async (req) => {
     console.log("Razorpay order created:", order.id);
 
     // Store pending subscription
+    // Also inject billing_cycle if the column existed, but since we don't have a column we rely on notes / metadata
     const { error: insertError } = await supabase
       .from("subscription_history")
       .insert({
         user_id: user.id,
-        plan_id,
+        plan_id: planNameForHistory,
         amount,
         status: "pending",
         razorpay_order_id: order.id,

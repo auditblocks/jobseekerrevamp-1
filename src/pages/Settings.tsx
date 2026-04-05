@@ -80,7 +80,7 @@ interface Resume {
 
 const Settings = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, isElite } = useAuth();
   const photoInputRef = useRef<HTMLInputElement>(null);
   const resumeInputRef = useRef<HTMLInputElement>(null);
 
@@ -156,7 +156,7 @@ const Settings = () => {
     try {
       const { data, error } = await supabase
         .from("profiles")
-        .select("*")
+        .select("*, is_elite_member")
         .eq("id", user!.id)
         .single();
 
@@ -979,6 +979,34 @@ const Settings = () => {
                 </div>
               ) : (
                 <div className="space-y-6">
+                  {/* Current Plan Info */}
+                  <div className="p-4 rounded-xl bg-accent/5 border border-accent/20">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        {isElite ? <Crown className="h-5 w-5 text-[#C5A059]" /> : <Zap className="h-5 w-5 text-accent" />}
+                        <span className="font-bold text-lg">
+                          {isElite ? "Elite Membership" : profile.subscriptionTier.replace("_", " ")}
+                        </span>
+                      </div>
+                      <Badge variant="outline" className={isElite ? "border-[#C5A059] text-[#C5A059]" : "border-accent text-accent"}>
+                        ACTIVE
+                      </Badge>
+                    </div>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      {isElite 
+                        ? "You have full 5-year PRO MAX access with Elite status." 
+                        : `Your current ${profile.subscriptionTier} plan is active.`}
+                    </p>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="w-full"
+                      onClick={() => navigate("/dashboard/subscription")}
+                    >
+                      View Plan Details
+                    </Button>
+                  </div>
+
                   <div className="bg-background rounded-lg p-4">
                     <PricingContainer
                       title="Subscription Plans"

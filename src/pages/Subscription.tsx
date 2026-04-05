@@ -10,6 +10,7 @@ import { PricingContainer, PricingPlan } from "@/components/ui/pricing-container
 import SEOHead from "@/components/SEO/SEOHead";
 import StructuredData from "@/components/SEO/StructuredData";
 import DashboardLayout from "@/components/DashboardLayout";
+import { Crown, ShieldCheck, Check as LucideCheck } from "lucide-react";
 
 declare global {
   interface Window {
@@ -58,7 +59,7 @@ const getPlanLevel = (planName: string): number => {
 
 const Subscription = () => {
   const navigate = useNavigate();
-  const { user, refreshProfile: refreshGlobalProfile } = useAuth();
+  const { user, isElite, refreshProfile: refreshGlobalProfile } = useAuth();
   const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
   const [loadingPlans, setLoadingPlans] = useState(true);
   const [processingPayment, setProcessingPayment] = useState<string | null>(null);
@@ -126,7 +127,7 @@ const Subscription = () => {
     try {
       const { data, error } = await supabase
         .from("profiles")
-        .select("subscription_tier, subscription_expires_at")
+        .select("subscription_tier, subscription_expires_at, is_elite_member")
         .eq("id", user.id)
         .single();
 
@@ -365,7 +366,7 @@ const Subscription = () => {
           </motion.div>
         </div>
 
-        {/* Pricing Plans */}
+        {/* Pricing Content */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -375,7 +376,54 @@ const Subscription = () => {
             <div className="flex justify-center py-12">
               <Loader2 className="h-8 w-8 animate-spin text-accent" />
             </div>
+          ) : isElite ? (
+            /* Elite Member View */
+            <div className="max-w-3xl mx-auto">
+              <div className="relative overflow-hidden rounded-3xl border border-[#C5A059]/30 shadow-[0_0_50px_rgba(197,160,89,0.15)] bg-gradient-to-br from-[#111] to-[#1a1a1a] p-8 sm:p-12">
+                <div className="absolute top-0 right-0 p-8 opacity-10 pointer-events-none">
+                  <Crown size={120} className="text-[#C5A059]" />
+                </div>
+                
+                <div className="relative z-10 text-center sm:text-left">
+                  <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#C5A059]/10 border border-[#C5A059]/30 text-[#C5A059] text-xs font-bold tracking-widest uppercase mb-8">
+                    <ShieldCheck size={14} /> Active Elite Membership
+                  </div>
+                  
+                  <h2 className="text-4xl sm:text-5xl font-black text-white mb-6">
+                    Elite <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#C5A059] via-[#F2D091] to-[#C5A059]">Status Confirmed</span>
+                  </h2>
+                  
+                  <p className="text-gray-300 text-lg mb-10 max-w-xl">
+                    Welcome to the highest tier of JobSeeker. You have secured full PRO MAX access for 5 years. Your legacy account is active and protected.
+                  </p>
+                  
+                  <div className="grid sm:grid-cols-2 gap-4 mb-10">
+                    <div className="p-4 rounded-2xl bg-white/5 border border-white/10">
+                      <p className="text-gray-500 text-xs uppercase font-bold tracking-widest mb-1">Plan Duration</p>
+                      <p className="text-white font-bold text-xl">5 Year Membership</p>
+                    </div>
+                    <div className="p-4 rounded-2xl bg-white/5 border border-white/10">
+                      <p className="text-gray-500 text-xs uppercase font-bold tracking-widest mb-1">Current Tier</p>
+                      <p className="text-[#C5A059] font-bold text-xl uppercase tracking-wider">Elite Pro Max</p>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row items-center gap-4">
+                    <Button 
+                      onClick={() => navigate("/dashboard")}
+                      className="w-full sm:w-auto h-14 px-8 rounded-2xl font-black text-lg bg-gradient-to-r from-[#C5A059] to-[#8E6E37] text-black hover:brightness-110 active:scale-95 transition-all"
+                    >
+                      Return to Dashboard
+                    </Button>
+                    <div className="flex items-center gap-2 text-gray-500 text-sm font-medium">
+                      <LucideCheck size={16} className="text-green-500" /> Secure Elite Access Verified
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           ) : (
+            /* Standard Pricing Table */
             <div className="bg-background rounded-lg p-4 sm:p-6">
               <PricingContainer
                 title="Subscription Plans"

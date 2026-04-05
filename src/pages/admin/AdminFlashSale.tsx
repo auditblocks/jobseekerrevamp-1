@@ -8,12 +8,18 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Loader2, Save } from "lucide-react";
+import { Loader2, Save, X } from "lucide-react";
 import { Database } from "@/integrations/supabase/types";
 
 type FlashSaleConfig = Database['public']['Tables']['flash_sale_config']['Row'];
 
 export default function AdminFlashSale() {
+  const formatLocalDate = (date: Date) => {
+    const offset = date.getTimezoneOffset();
+    const localDate = new Date(date.getTime() - offset * 60 * 1000);
+    return localDate.toISOString().slice(0, 16);
+  };
+
   const [config, setConfig] = useState<FlashSaleConfig | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -23,8 +29,16 @@ export default function AdminFlashSale() {
     subtitle: "Special Anniversary Offer",
     offer_text: "5 Years for ₹1999",
     button_text: "Claim Offer Now",
-    end_time: new Date().toISOString().slice(0, 16),
+    end_time: formatLocalDate(new Date(Date.now() + 86400000)), // Default 24h from now
     progress_percentage: 80,
+    price: 1999,
+    features: [
+      'Everything in PRO MAX',
+      'Exclusive Beta Access',
+      'Premium Support & Insights',
+      'Legacy License Status',
+      '5 Years of Continuous Value'
+    ] as string[],
   });
 
   useEffect(() => {
@@ -52,8 +66,16 @@ export default function AdminFlashSale() {
           subtitle: data.subtitle || "Special Anniversary Offer",
           offer_text: data.offer_text || "5 Years for ₹1999",
           button_text: data.button_text || "Claim Offer Now",
-          end_time: data.end_time ? new Date(data.end_time).toISOString().slice(0, 16) : new Date().toISOString().slice(0, 16),
+          end_time: data.end_time ? formatLocalDate(new Date(data.end_time)) : formatLocalDate(new Date()),
           progress_percentage: data.progress_percentage || 80,
+          price: data.price ?? 1999,
+          features: data.features || [
+            'Everything in PRO MAX',
+            'Exclusive Beta Access',
+            'Premium Support & Insights',
+            'Legacy License Status',
+            '5 Years of Continuous Value'
+          ],
         });
       }
     } catch (error: any) {
@@ -76,6 +98,8 @@ export default function AdminFlashSale() {
         button_text: formData.button_text,
         end_time: new Date(formData.end_time).toISOString(),
         progress_percentage: formData.progress_percentage,
+        price: formData.price,
+        features: formData.features,
       };
 
       if (config?.id) {
@@ -216,6 +240,69 @@ export default function AdminFlashSale() {
                   onChange={(e) => setFormData({ ...formData, button_text: e.target.value })}
                   placeholder="Claim Offer Now"
                 />
+              </div>
+
+              <div className="p-4 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-200 dark:border-green-800 space-y-2">
+                <Label className="text-base font-semibold text-green-700 dark:text-green-400">💰 Flash Sale Offer Price</Label>
+                <p className="text-sm text-muted-foreground">This is the price charged to users who claim from the popup. The backend uses this securely.</p>
+                <div className="flex items-center gap-2">
+                  <span className="text-xl font-bold">₹</span>
+                  <Input
+                    type="number"
+                    min="1"
+                    value={formData.price}
+                    onChange={(e) => setFormData({ ...formData, price: parseInt(e.target.value) || 1999 })}
+                    className="max-w-[160px] text-lg font-bold"
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">Default: ₹1999 for 5 Years (PRO MAX)</p>
+              </div>
+
+              <div className="space-y-4 pt-4 border-t border-accent/20">
+                <div className="flex items-center justify-between">
+                  <Label className="text-base font-bold">5-Year Benefits / Features</Label>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => {
+                      const newFeatures = [...formData.features, "New Benefit"];
+                      setFormData({ ...formData, features: newFeatures });
+                    }}
+                  >
+                    Add Benefit
+                  </Button>
+                </div>
+                <div className="space-y-2">
+                  {formData.features.map((feature, index) => (
+                    <div key={index} className="flex gap-2">
+                      <Input
+                        value={feature}
+                        onChange={(e) => {
+                          const newFeatures = [...formData.features];
+                          newFeatures[index] = e.target.value;
+                          setFormData({ ...formData, features: newFeatures });
+                        }}
+                        placeholder={`Benefit ${index + 1}`}
+                      />
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="text-destructive hover:bg-destructive/10"
+                        onClick={() => {
+                          const newFeatures = formData.features.filter((_, i) => i !== index);
+                          setFormData({ ...formData, features: newFeatures });
+                        }}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                  {formData.features.length === 0 && (
+                    <p className="text-sm text-muted-foreground py-2 text-center border-2 border-dashed rounded-lg">
+                      No benefits added. Clicking "Claim" will still work, but users won't see details.
+                    </p>
+                  )}
+                </div>
               </div>
 
             </CardContent>

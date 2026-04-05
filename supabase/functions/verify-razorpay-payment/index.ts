@@ -100,10 +100,28 @@ serve(async (req) => {
       throw new Error("Subscription not found");
     }
 
-    // Calculate expiry date
+    // Determine subscription tier and duration
+    const isFlashSale = subscription.plan_id === 'flash_sale';
     const plan = subscription.subscription_plans;
+
+    let daysToAdd: number;
+    let subscriptionTier: string;
+
+    if (isFlashSale) {
+      // Flash sale = 5 Years of PRO_MAX
+      daysToAdd = 1825;
+      subscriptionTier = 'PRO_MAX';
+    } else {
+      // Regular plan - determine duration from amount paid vs plan prices
+      daysToAdd = plan?.duration_days || 30;
+      if (subscription.amount === plan?.yearly_price || subscription.amount === Math.round(plan.price * 12 * 0.8)) {
+        daysToAdd = 365; // 1 year
+      }
+      subscriptionTier = plan?.name?.toUpperCase() || 'PRO';
+    }
+    
     const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + (plan?.duration_days || 30));
+    expiresAt.setDate(expiresAt.getDate() + daysToAdd);
 
     // Update subscription history
     const { error: updateError } = await supabase
@@ -123,8 +141,9 @@ serve(async (req) => {
     const { error: profileError } = await supabase
       .from("profiles")
       .update({
-        subscription_tier: plan?.name?.toUpperCase() || "PRO",
+        subscription_tier: subscriptionTier,
         subscription_expires_at: expiresAt.toISOString(),
+        is_elite_member: isFlashSale,
       })
       .eq("id", user.id);
 
@@ -168,7 +187,7 @@ serve(async (req) => {
       JSON.stringify({
         success: true,
         message: "Payment verified successfully",
-        subscription_tier: plan?.name?.toUpperCase() || "PRO",
+        subscription_tier: subscriptionTier,
         expires_at: expiresAt.toISOString(),
       }),
       {

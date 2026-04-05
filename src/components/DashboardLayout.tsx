@@ -22,6 +22,7 @@ import {
     PanelLeft,
     GraduationCap,
     Rocket,
+    Crown,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -59,7 +60,7 @@ function isNavItemActive(item: NavItem, pathname: string): boolean {
 const DashboardLayout = ({ children }: DashboardLayoutProps) => {
     const navigate = useNavigate();
     const location = useLocation();
-    const { user, profile, isSuperadmin, signOut } = useAuth();
+    const { user, profile, isSuperadmin, isElite, signOut } = useAuth();
     const [sidebarOpen, setSidebarOpen] = useState(false);
 
     // Initialize collapsed state from localStorage to persist across navigation
@@ -219,8 +220,15 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                                 </span>
                             </div>
                             <div className="flex-1 min-w-0">
-                                <div className="text-sm font-medium text-sidebar-foreground truncate">
-                                    {user?.user_metadata?.name || "User"}
+                                <div className="flex items-center gap-2">
+                                    <div className="text-sm font-medium text-sidebar-foreground truncate">
+                                        {user?.user_metadata?.name || "User"}
+                                    </div>
+                                    {isElite && (
+                                        <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-[#C5A059]/20 border border-[#C5A059]/30 text-[#C5A059] text-[9px] font-bold tracking-tighter uppercase shadow-[0_0_10px_rgba(197,160,89,0.3)]">
+                                            <Crown size={8} /> Elite
+                                        </div>
+                                    )}
                                 </div>
                                 <div className="text-xs text-sidebar-foreground/60 truncate">
                                     {user?.email}
@@ -279,7 +287,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
 
                     <div className="flex items-center gap-2 sm:gap-4">
                         <NotificationBell />
-                        {profile?.subscription_tier !== "PRO_MAX" && (
+                        {profile?.subscription_tier !== "PRO_MAX" ? (
                             <Button
                                 variant="accent"
                                 size="sm"
@@ -292,7 +300,12 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                                 </span>
                                 <span className="sm:hidden">Upgrade</span>
                             </Button>
-                        )}
+                        ) : isElite ? (
+                            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#C5A059]/10 border border-[#C5A059]/30 text-[#C5A059] shadow-[0_0_15px_rgba(197,160,89,0.2)]">
+                                <Crown size={16} className="text-[#C5A059]" />
+                                <span className="text-sm font-bold tracking-tight hidden sm:inline">Elite Member</span>
+                            </div>
+                        ) : null}
                     </div>
                 </header>
 

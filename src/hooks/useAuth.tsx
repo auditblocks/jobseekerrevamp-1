@@ -8,6 +8,7 @@ interface AuthContextType {
   loading: boolean;
   profile: any | null;
   isSuperadmin: boolean;
+  isElite: boolean;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 }
@@ -18,6 +19,7 @@ const AuthContext = createContext<AuthContextType>({
   loading: true,
   profile: null,
   isSuperadmin: false,
+  isElite: false,
   signOut: async () => {},
   refreshProfile: async () => {},
 });
@@ -190,7 +192,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, profile, isSuperadmin, signOut, refreshProfile }}>
+    <AuthContext.Provider 
+      value={{ 
+        user, 
+        session, 
+        loading, 
+        profile, 
+        isSuperadmin, 
+        isElite: !!profile?.is_elite_member,
+        signOut, 
+        refreshProfile 
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

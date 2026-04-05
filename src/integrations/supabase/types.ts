@@ -24,6 +24,8 @@ export type Database = {
           end_time: string
           progress_percentage: number
           button_text: string
+          price: number
+          features: string[] | null
           created_at: string | null
           updated_at: string | null
         }
@@ -36,6 +38,8 @@ export type Database = {
           end_time?: string
           progress_percentage?: number
           button_text?: string
+          price?: number
+          features?: string[] | null
           created_at?: string | null
           updated_at?: string | null
         }
@@ -48,6 +52,8 @@ export type Database = {
           end_time?: string
           progress_percentage?: number
           button_text?: string
+          price?: number
+          features?: string[] | null
           created_at?: string | null
           updated_at?: string | null
         }
@@ -748,6 +754,7 @@ export type Database = {
           google_refresh_token: string | null
           id: string
           job_domains: Json | null
+          is_elite_member: boolean
           last_sent_date: string | null
           linkedin_url: string | null
           location: string | null
@@ -777,6 +784,7 @@ export type Database = {
           google_refresh_token?: string | null
           id: string
           job_domains?: Json | null
+          is_elite_member?: boolean
           last_sent_date?: string | null
           linkedin_url?: string | null
           location?: string | null
@@ -806,6 +814,7 @@ export type Database = {
           google_refresh_token?: string | null
           id?: string
           job_domains?: Json | null
+          is_elite_member?: boolean
           last_sent_date?: string | null
           linkedin_url?: string | null
           location?: string | null
@@ -1225,6 +1234,7 @@ export type Database = {
           name: string
           old_price: number | null
           price: number
+          yearly_price: number | null
           sort_order: number
           updated_at: string | null
         }
@@ -1247,6 +1257,7 @@ export type Database = {
           name: string
           old_price?: number | null
           price: number
+          yearly_price?: number | null
           sort_order?: number
           updated_at?: string | null
         }
@@ -1269,6 +1280,7 @@ export type Database = {
           name?: string
           old_price?: number | null
           price?: number
+          yearly_price?: number | null
           sort_order?: number
           updated_at?: string | null
         }
