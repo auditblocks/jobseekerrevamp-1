@@ -32,6 +32,103 @@ function isIos(): boolean {
   );
 }
 
+/** iOS third-party browsers use different menus than Safari; UA tokens are reliable enough for copy. */
+function getIosBrowserKind(): "safari" | "chrome" | "edge" | "firefox" | "other" {
+  if (typeof navigator === "undefined") return "other";
+  const ua = navigator.userAgent;
+  if (/CriOS/i.test(ua)) return "chrome";
+  if (/EdgiOS/i.test(ua)) return "edge";
+  if (/FxiOS/i.test(ua)) return "firefox";
+  if (/OPiOS/i.test(ua)) return "other";
+  if (/Safari/i.test(ua) && !/CriOS|EdgiOS|FxiOS|OPiOS/i.test(ua)) return "safari";
+  return "other";
+}
+
+function IosInstallSteps() {
+  const kind = getIosBrowserKind();
+
+  if (kind === "chrome" || kind === "edge") {
+    const label = kind === "edge" ? "Edge" : "Chrome";
+    return (
+      <div className="space-y-3 text-sm text-muted-foreground">
+        <p className="rounded-lg border border-border/80 bg-muted/40 px-3 py-2 text-xs leading-relaxed text-foreground/90">
+          On iPhone, <span className="font-medium">{label}</span> does not offer a single “Install” button like the App
+          Store. Add this site from the menu below (same as other websites you pin to your Home Screen).
+        </p>
+        <ol className="list-decimal space-y-2.5 pl-5 marker:font-semibold marker:text-foreground">
+          <li className="pl-1">
+            Tap <span className="font-medium text-foreground">⋯</span> (three dots) in the{" "}
+            <span className="font-medium text-foreground">bottom toolbar</span> of {label}.
+          </li>
+          <li className="pl-1">
+            Tap <span className="font-medium text-foreground">Add to Home Screen</span> if it appears here. If not,
+            tap <span className="font-medium text-foreground">Share…</span>, then choose{" "}
+            <span className="font-medium text-foreground">Add to Home Screen</span> in the share sheet (scroll if
+            needed).
+          </li>
+          <li className="pl-1">
+            Tap <span className="font-medium text-foreground">Add</span> to confirm.
+          </li>
+        </ol>
+        <p className="text-xs leading-relaxed">
+          Don’t see it? Update {label} from the App Store, or open this page in{" "}
+          <span className="font-medium text-foreground">Safari</span> and use{" "}
+          <span className="font-medium text-foreground">Share → Add to Home Screen</span>.
+        </p>
+      </div>
+    );
+  }
+
+  if (kind === "firefox") {
+    return (
+      <div className="space-y-3 text-sm text-muted-foreground">
+        <ol className="list-decimal space-y-2.5 pl-5 marker:font-semibold marker:text-foreground">
+          <li className="pl-1">
+            Tap the <span className="font-medium text-foreground">menu</span> (three lines) in Firefox.
+          </li>
+          <li className="pl-1">
+            Tap <span className="font-medium text-foreground">Share</span>, then{" "}
+            <span className="font-medium text-foreground">Add to Home Screen</span>, then{" "}
+            <span className="font-medium text-foreground">Add</span>.
+          </li>
+        </ol>
+      </div>
+    );
+  }
+
+  if (kind === "safari") {
+    return (
+      <ol className="list-decimal space-y-2.5 pl-5 text-sm marker:font-semibold marker:text-foreground">
+        <li className="pl-1">
+          Tap the{" "}
+          <span className="inline-flex items-center gap-1 font-medium text-foreground">
+            Share
+            <Share2 className="inline h-3.5 w-3.5" aria-hidden />
+          </span>{" "}
+          button (square with arrow) in Safari’s toolbar — bottom on iPhone, top on iPad.
+        </li>
+        <li className="pl-1">
+          Scroll the sheet and tap <span className="font-medium text-foreground">Add to Home Screen</span>, then{" "}
+          <span className="font-medium text-foreground">Add</span>.
+        </li>
+      </ol>
+    );
+  }
+
+  return (
+    <ol className="list-decimal space-y-2.5 pl-5 text-sm marker:font-semibold marker:text-foreground">
+      <li className="pl-1">
+        Open your browser’s <span className="font-medium text-foreground">Share</span> or{" "}
+        <span className="font-medium text-foreground">⋯</span> menu.
+      </li>
+      <li className="pl-1">
+        Look for <span className="font-medium text-foreground">Add to Home Screen</span> and confirm with{" "}
+        <span className="font-medium text-foreground">Add</span>.
+      </li>
+    </ol>
+  );
+}
+
 export function MobilePwaInstallPrompt() {
   const location = useLocation();
   const [open, setOpen] = useState(false);
@@ -178,7 +275,11 @@ export function MobilePwaInstallPrompt() {
 
         <p className="text-left text-sm leading-relaxed text-muted-foreground">
           {mode === "ios" && (
-            <>Add this site to your Home Screen for quick access and an app-like experience.</>
+            <>
+              {getIosBrowserKind() === "safari"
+                ? "Add JobSeeker to your Home Screen for an app-like icon and full-screen experience."
+                : "iOS doesn’t offer a store-style Install button for websites in Chrome and other browsers — use Add to Home Screen from the steps below."}
+            </>
           )}
           {mode === "android-chrome" && (
             <>Install JobSeeker on your device. It opens full screen and works offline where supported.</>
@@ -191,24 +292,8 @@ export function MobilePwaInstallPrompt() {
           )}
         </p>
 
-        <div className="mt-4 space-y-3 text-sm text-muted-foreground">
-          {mode === "ios" && (
-            <ol className="list-decimal space-y-2 pl-5 marker:font-medium marker:text-foreground">
-              <li className="pl-1">
-                Tap the{" "}
-                <span className="inline-flex items-center gap-1 font-medium text-foreground">
-                  Share
-                  <Share2 className="inline h-3.5 w-3.5" aria-hidden />
-                </span>{" "}
-                button (Safari toolbar or Chrome menu).
-              </li>
-              <li className="pl-1">
-                Choose{" "}
-                <span className="font-medium text-foreground">Add to Home Screen</span>, then{" "}
-                <span className="font-medium text-foreground">Add</span>.
-              </li>
-            </ol>
-          )}
+        <div className="mt-4">
+          {mode === "ios" && <IosInstallSteps />}
 
           {mode === "generic" && (
             <ol className="list-decimal space-y-2 pl-5 marker:font-medium marker:text-foreground">
