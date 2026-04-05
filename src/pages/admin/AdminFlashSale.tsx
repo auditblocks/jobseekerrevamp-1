@@ -32,6 +32,7 @@ export default function AdminFlashSale() {
     end_time: formatLocalDate(new Date(Date.now() + 86400000)), // Default 24h from now
     progress_percentage: 80,
     price: 1999,
+    compare_at_price: 4999,
     features: [
       'Everything in PRO MAX',
       'Exclusive Beta Access',
@@ -69,6 +70,7 @@ export default function AdminFlashSale() {
           end_time: data.end_time ? formatLocalDate(new Date(data.end_time)) : formatLocalDate(new Date()),
           progress_percentage: data.progress_percentage || 80,
           price: data.price ?? 1999,
+          compare_at_price: data.compare_at_price ?? 4999,
           features: data.features || [
             'Everything in PRO MAX',
             'Exclusive Beta Access',
@@ -99,6 +101,7 @@ export default function AdminFlashSale() {
         end_time: new Date(formData.end_time).toISOString(),
         progress_percentage: formData.progress_percentage,
         price: formData.price,
+        compare_at_price: formData.compare_at_price,
         features: formData.features,
       };
 
@@ -242,20 +245,47 @@ export default function AdminFlashSale() {
                 />
               </div>
 
-              <div className="p-4 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-200 dark:border-green-800 space-y-2">
-                <Label className="text-base font-semibold text-green-700 dark:text-green-400">💰 Flash Sale Offer Price</Label>
-                <p className="text-sm text-muted-foreground">This is the price charged to users who claim from the popup. The backend uses this securely.</p>
-                <div className="flex items-center gap-2">
-                  <span className="text-xl font-bold">₹</span>
-                  <Input
-                    type="number"
-                    min="1"
-                    value={formData.price}
-                    onChange={(e) => setFormData({ ...formData, price: parseInt(e.target.value) || 1999 })}
-                    className="max-w-[160px] text-lg font-bold"
-                  />
+              <div className="p-4 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-200 dark:border-green-800 space-y-4">
+                <div className="space-y-2">
+                  <Label className="text-base font-semibold text-green-700 dark:text-green-400">💰 Flash Sale Offer Price</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Amount charged at checkout. The backend uses this securely.
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xl font-bold">₹</span>
+                    <Input
+                      type="number"
+                      min="1"
+                      value={formData.price}
+                      onChange={(e) => setFormData({ ...formData, price: parseInt(e.target.value) || 1999 })}
+                      className="max-w-[160px] text-lg font-bold"
+                    />
+                  </div>
                 </div>
-                <p className="text-xs text-muted-foreground">Default: ₹1999 for 5 Years (PRO MAX)</p>
+                <div className="space-y-2 pt-2 border-t border-green-200/60 dark:border-green-800/60">
+                  <Label className="text-base font-semibold text-green-700 dark:text-green-400">
+                    Strikethrough (compare) price
+                  </Label>
+                  <p className="text-sm text-muted-foreground">
+                    Shown crossed out next to the sale price in the membership details modal (e.g. ₹4999). Set to{" "}
+                    <strong>0</strong> to hide it.
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xl font-bold text-muted-foreground">₹</span>
+                    <Input
+                      type="number"
+                      min="0"
+                      value={formData.compare_at_price}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          compare_at_price: Math.max(0, parseInt(e.target.value, 10) || 0),
+                        })
+                      }
+                      className="max-w-[160px] text-lg"
+                    />
+                  </div>
+                </div>
               </div>
 
               <div className="space-y-4 pt-4 border-t border-accent/20">

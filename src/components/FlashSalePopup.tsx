@@ -258,7 +258,7 @@ export function FlashSalePopup() {
       {/* Elite Detailed Modal */}
       <AnimatePresence>
         {showDetails && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 origin-center">
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-[max(0.75rem,env(safe-area-inset-top))] sm:p-6 origin-center">
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -271,7 +271,7 @@ export function FlashSalePopup() {
               initial={{ opacity: 0, scale: 0.9, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              className="relative w-full max-w-2xl overflow-hidden rounded-3xl border border-[#C5A059]/30 shadow-[0_0_50px_rgba(197,160,89,0.2)]"
+              className="relative flex w-full max-w-2xl min-h-0 max-h-[calc(100dvh-1.5rem-env(safe-area-inset-top)-env(safe-area-inset-bottom))] flex-col overflow-hidden rounded-3xl border border-[#C5A059]/30 shadow-[0_0_50px_rgba(197,160,89,0.2)] sm:max-h-[calc(100dvh-3rem)]"
               style={{
                 background: 'linear-gradient(165deg, #111111 0%, #1a1a1a 100%)'
               }}
@@ -287,72 +287,96 @@ export function FlashSalePopup() {
 
               <button 
                 onClick={() => setShowDetails(false)}
-                className="absolute top-6 right-6 z-10 text-gray-500 hover:text-white transition-colors"
+                className="absolute top-3 right-3 z-20 rounded-lg p-1 text-gray-500 hover:bg-white/5 hover:text-white transition-colors sm:top-4 sm:right-4"
                 disabled={processingPayment}
+                aria-label="Close"
               >
-                <X size={24} />
+                <X size={22} />
               </button>
 
-              <div className="relative p-8 sm:p-12 overflow-y-auto max-h-[90vh]">
-                <div className="text-center mb-10">
+              {/* Column: header (fixed) + scrollable features + CTA footer (always visible) */}
+              <div className="relative flex min-h-0 flex-1 flex-col">
+                <div className="shrink-0 px-4 pb-2 pt-11 text-center sm:px-6 sm:pb-3 sm:pt-12">
                   <motion.div
-                    initial={{ y: -20, opacity: 0 }}
+                    initial={{ y: -12, opacity: 0 }}
                     animate={{ y: 0, opacity: 1 }}
-                    transition={{ delay: 0.1 }}
-                    className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#C5A059]/10 border border-[#C5A059]/30 text-[#C5A059] text-xs font-bold tracking-widest uppercase mb-6"
+                    transition={{ delay: 0.05 }}
+                    className="mb-2 inline-flex items-center gap-1.5 rounded-full border border-[#C5A059]/30 bg-[#C5A059]/10 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-[#C5A059] sm:mb-3 sm:px-4 sm:text-xs"
                   >
-                    <ShieldCheck size={14} /> Elite Membership Offer
+                    <ShieldCheck size={12} className="sm:h-3.5 sm:w-3.5" /> Elite Membership Offer
                   </motion.div>
-                  
-                  <h2 className="text-4xl sm:text-5xl font-black text-white mb-4 tracking-tight">
-                    Unleash Your <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#C5A059] via-[#F2D091] to-[#C5A059]">Full Potential</span>
+
+                  <h2 className="mb-1.5 text-2xl font-black leading-tight tracking-tight text-white sm:mb-2 sm:text-3xl md:text-4xl">
+                    Unleash Your{" "}
+                    <span className="bg-gradient-to-r from-[#C5A059] via-[#F2D091] to-[#C5A059] bg-clip-text text-transparent">
+                      Full Potential
+                    </span>
                   </h2>
-                  <p className="text-gray-400 text-lg">Excellence Unlocked: The Ultimate 5-Year Experience</p>
+                  <p className="text-xs text-gray-400 sm:text-sm md:text-base">
+                    Excellence Unlocked: The Ultimate 5-Year Experience
+                  </p>
                 </div>
 
-                <div className="grid gap-4 mb-10">
-                  {config.features?.map((feature, idx) => (
-                    <motion.div 
-                      key={idx}
-                      initial={{ x: -20, opacity: 0 }}
-                      animate={{ x: 0, opacity: 1 }}
-                      transition={{ delay: 0.2 + (idx * 0.1) }}
-                      className="flex items-center gap-4 p-4 rounded-2xl bg-white/5 border border-white/10 hover:border-[#C5A059]/40 transition-colors group"
-                    >
-                      <div className="flex-shrink-0 w-8 h-8 rounded-full bg-[#C5A059]/20 flex items-center justify-center text-[#C5A059] group-hover:bg-[#C5A059] group-hover:text-black transition-all">
-                        <Check size={18} strokeWidth={3} />
-                      </div>
-                      <span className="text-lg text-gray-200 font-medium">{feature}</span>
-                    </motion.div>
-                  ))}
-                </div>
-
-                <div className="flex flex-col items-center gap-6 pt-6 border-t border-white/10">
-                  <div className="text-center">
-                    <div className="flex items-baseline justify-center gap-2 mb-1">
-                      <span className="text-4xl sm:text-6xl font-black text-white">₹{config.price}</span>
-                      <span className="text-gray-500 text-xl line-through">₹4999</span>
-                    </div>
-                    <p className="text-[#C5A059] font-bold text-sm tracking-wide uppercase">Limited Time 5-Year Access • Non-Renewable</p>
+                <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 sm:px-6 [-webkit-overflow-scrolling:touch]">
+                  <div className="grid gap-2 pb-2 sm:gap-2.5">
+                    {config.features?.map((feature, idx) => (
+                      <motion.div
+                        key={idx}
+                        initial={{ x: -12, opacity: 0 }}
+                        animate={{ x: 0, opacity: 1 }}
+                        transition={{ delay: 0.08 + idx * 0.04 }}
+                        className="group flex items-center gap-2.5 rounded-xl border border-white/10 bg-white/5 p-2.5 transition-colors hover:border-[#C5A059]/40 sm:gap-3 sm:rounded-2xl sm:p-3"
+                      >
+                        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#C5A059]/20 text-[#C5A059] transition-all group-hover:bg-[#C5A059] group-hover:text-black sm:h-8 sm:w-8">
+                          <Check size={15} strokeWidth={3} className="sm:h-[18px] sm:w-[18px]" />
+                        </div>
+                        <span className="text-left text-sm font-medium leading-snug text-gray-200 sm:text-base">
+                          {feature}
+                        </span>
+                      </motion.div>
+                    ))}
                   </div>
+                </div>
 
-                  <button
-                    onClick={handleClaim}
-                    disabled={processingPayment}
-                    className="w-full max-w-md py-5 rounded-2xl font-black text-xl text-black border-none cursor-pointer transition-all hover:scale-[1.02] hover:shadow-[0_0_30px_rgba(197,160,89,0.4)] active:scale-[0.98] disabled:opacity-70 flex items-center justify-center gap-3"
-                    style={{ background: 'linear-gradient(135deg, #F2D091 0%, #C5A059 50%, #8E6E37 100%)' }}
-                  >
-                    {processingPayment ? (
-                      <Loader2 size={24} className="animate-spin" />
-                    ) : (
-                      <>SECURE MY 5-YEAR PLAN <Crown size={24} /></>
-                    )}
-                  </button>
-                  
-                  <div className="flex items-center gap-6 text-gray-500 text-sm font-medium">
-                    <span className="flex items-center gap-1.5"><Hourglass size={14} /> Offer expires in {timeLeftStr}</span>
-                    <span className="w-1 h-1 rounded-full bg-gray-700" />
-                    <span>Safe & Secure checkout</span>
+                <div className="shrink-0 border-t border-white/10 bg-gradient-to-t from-[#121212] via-[#141414]/95 to-transparent px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-6 sm:pb-4 sm:pt-4">
+                  <div className="mx-auto flex max-w-md flex-col items-center gap-3 sm:gap-4">
+                    <div className="text-center">
+                      <div className="mb-0.5 flex flex-wrap items-baseline justify-center gap-2">
+                        <span className="text-3xl font-black text-white sm:text-5xl md:text-6xl">₹{config.price}</span>
+                        {(config.compare_at_price ?? 0) > 0 ? (
+                          <span className="text-base text-gray-500 line-through decoration-2 sm:text-xl">
+                            ₹{config.compare_at_price}
+                          </span>
+                        ) : null}
+                      </div>
+                      <p className="text-[10px] font-bold uppercase tracking-wide text-[#C5A059] sm:text-xs">
+                        Limited Time 5-Year Access • Non-Renewable
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleClaim}
+                      disabled={processingPayment}
+                      className="flex w-full items-center justify-center gap-2 rounded-2xl border-none py-3.5 text-base font-black text-black transition-all hover:scale-[1.01] hover:shadow-[0_0_24px_rgba(197,160,89,0.35)] active:scale-[0.99] disabled:opacity-70 sm:gap-3 sm:py-4 sm:text-lg"
+                      style={{ background: 'linear-gradient(135deg, #F2D091 0%, #C5A059 50%, #8E6E37 100%)' }}
+                    >
+                      {processingPayment ? (
+                        <Loader2 size={22} className="animate-spin sm:h-6 sm:w-6" />
+                      ) : (
+                        <>
+                          SECURE MY 5-YEAR PLAN <Crown size={20} className="sm:h-6 sm:w-6" />
+                        </>
+                      )}
+                    </button>
+
+                    <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[11px] font-medium text-gray-500 sm:text-xs">
+                      <span className="inline-flex items-center gap-1">
+                        <Hourglass size={12} className="shrink-0 sm:h-3.5 sm:w-3.5" /> Expires {timeLeftStr}
+                      </span>
+                      <span className="hidden h-1 w-1 rounded-full bg-gray-600 sm:inline" aria-hidden />
+                      <span>Secure checkout</span>
+                    </div>
                   </div>
                 </div>
               </div>

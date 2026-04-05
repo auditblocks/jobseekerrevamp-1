@@ -25,6 +25,7 @@ export type Database = {
           progress_percentage: number
           button_text: string
           price: number
+          compare_at_price: number
           features: string[] | null
           created_at: string | null
           updated_at: string | null
@@ -39,6 +40,7 @@ export type Database = {
           progress_percentage?: number
           button_text?: string
           price?: number
+          compare_at_price?: number
           features?: string[] | null
           created_at?: string | null
           updated_at?: string | null
@@ -53,6 +55,7 @@ export type Database = {
           progress_percentage?: number
           button_text?: string
           price?: number
+          compare_at_price?: number
           features?: string[] | null
           created_at?: string | null
           updated_at?: string | null
