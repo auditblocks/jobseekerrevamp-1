@@ -14,6 +14,7 @@ import {
   User,
   Bell,
   CreditCard,
+  Mail,
   FileText,
   Upload,
   Save,
@@ -36,6 +37,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { PricingContainer, PricingPlan } from "@/components/ui/pricing-container";
 import DashboardLayout from "@/components/DashboardLayout";
 import { EliteMembershipOfferCard } from "@/components/subscription/EliteMembershipOfferCard";
+import { ContactSupportForm } from "@/components/ContactSupportForm";
 import {
   normalizeRazorpayHandlerResponse,
   parseSupabaseFunctionInvokeError,
@@ -659,6 +661,10 @@ const Settings = () => {
               <CreditCard className="h-4 w-4 mr-2" />
               Subscription
             </TabsTrigger>
+            <TabsTrigger value="contact" className="data-[state=active]:bg-accent data-[state=active]:text-accent-foreground">
+              <Mail className="h-4 w-4 mr-2" />
+              Contact us
+            </TabsTrigger>
           </TabsList>
 
           {/* Profile Tab */}
@@ -1049,6 +1055,27 @@ const Settings = () => {
                   </Card>
                 </div>
               )}
+            </motion.div>
+          </TabsContent>
+
+          <TabsContent value="contact">
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+              <Card className="border-border/50 bg-card/50 max-w-2xl">
+                <CardHeader>
+                  <CardTitle>Contact us</CardTitle>
+                  <CardDescription>
+                    Send a message to our team. All fields are required. We&apos;ll reply to the email you provide below.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ContactSupportForm
+                    source="settings"
+                    defaultName={profile.name}
+                    defaultEmail={profile.email || user?.email || ""}
+                    variant="default"
+                  />
+                </CardContent>
+              </Card>
             </motion.div>
           </TabsContent>
         </Tabs>
