@@ -14,6 +14,45 @@ export type Database = {
   }
   public: {
     Tables: {
+      flash_sale_config: {
+        Row: {
+          id: string
+          is_active: boolean
+          title: string
+          subtitle: string
+          offer_text: string
+          end_time: string
+          progress_percentage: number
+          button_text: string
+          created_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          is_active?: boolean
+          title?: string
+          subtitle?: string
+          offer_text?: string
+          end_time?: string
+          progress_percentage?: number
+          button_text?: string
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          is_active?: boolean
+          title?: string
+          subtitle?: string
+          offer_text?: string
+          end_time?: string
+          progress_percentage?: number
+          button_text?: string
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       chatbot_conversations: {
         Row: {
           created_at: string | null

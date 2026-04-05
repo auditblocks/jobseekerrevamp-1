@@ -19,6 +19,7 @@ import {
   ArrowLeft,
   BookOpen,
   Rocket,
+  Zap,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
@@ -63,6 +64,7 @@ const managementItems = [
   { title: "Order History", url: "/admin/order-history", icon: Receipt },
   { title: "Notifications", url: "/admin/notifications", icon: Bell },
   { title: "Requests", url: "/admin/requests", icon: FileText },
+  { title: "Flash Sale", url: "/admin/flash-sale", icon: Zap },
   { title: "Dashboard Config", url: "/admin/dashboard-config", icon: Sliders },
 ];
 

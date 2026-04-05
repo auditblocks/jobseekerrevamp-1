@@ -9,7 +9,10 @@ import { AuthProvider } from "@/hooks/useAuth";
 import { ActivityTracker } from "@/components/ActivityTracker";
 import { Loader2 } from "lucide-react";
 import ErrorBoundary from "@/components/ErrorBoundary";
-import { LoadingScreen } from "@/components/ui/loading-screen";// Lazy load all page components for code splitting
+import { LoadingScreen } from "@/components/ui/loading-screen";
+import { FlashSalePopup } from "@/components/FlashSalePopup";
+
+// Lazy load all page components for code splitting
 const Index = lazy(() => import("./pages/Index"));
 const Auth = lazy(() => import("./pages/Auth"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
@@ -56,6 +59,7 @@ const AdminDashboardConfig = lazy(() => import("./pages/admin/AdminDashboardConf
 const AdminUserActivity = lazy(() => import("./pages/admin/AdminUserActivity"));
 const AdminEmailCampaigns = lazy(() => import("./pages/admin/AdminEmailCampaigns"));
 const AdminWhatsappCampaigns = lazy(() => import("./pages/admin/AdminWhatsappCampaigns"));
+const AdminFlashSale = lazy(() => import("./pages/admin/AdminFlashSale"));
 const AdminBlogs = lazy(() => import("./pages/admin/AdminBlogs"));
 const AdminBlogEditor = lazy(() => import("./pages/admin/AdminBlogEditor"));
 const AdminScraperConfig = lazy(() => import("./pages/admin/AdminScraperConfig"));
@@ -82,6 +86,7 @@ const App = () => (
           <Sonner />
           <BrowserRouter>
             <ActivityTracker />
+            <FlashSalePopup />
             <ErrorBoundary>
               <Suspense fallback={<LoadingScreen />}>
                 <Routes>
@@ -133,6 +138,7 @@ const App = () => (
                   <Route path="/admin/user-activity" element={<AdminUserActivity />} />
                   <Route path="/admin/email-campaigns" element={<AdminEmailCampaigns />} />
                   <Route path="/admin/whatsapp-campaigns" element={<AdminWhatsappCampaigns />} />
+                  <Route path="/admin/flash-sale" element={<AdminFlashSale />} />
 
                   {/* Content */}
                   <Route path="/admin/blogs" element={<AdminBlogs />} />
