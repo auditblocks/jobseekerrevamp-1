@@ -25,7 +25,12 @@ serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const lovableApiKey = Deno.env.get("LOVABLE_API_KEY")!;
+    const openRouterKey = Deno.env.get("OPENROUTER_API_KEY")?.trim();
+    const lovableApiKey = Deno.env.get("LOVABLE_API_KEY")?.trim();
+    const useOpenRouter = !!openRouterKey;
+    if (!useOpenRouter && !lovableApiKey) {
+      throw new Error("Configure OPENROUTER_API_KEY or LOVABLE_API_KEY for ai-chat");
+    }
 
     const authHeader = req.headers.get("Authorization");
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
@@ -64,21 +69,38 @@ You may also help with:
 Be professional, encouraging, and actionable.
 ${context ? `\n## Current page context\n${context}\n` : ""}`;
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${lovableApiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-pro",
-        messages: [
-          { role: "system", content: systemPrompt },
-          ...messages,
-        ],
-        stream: true,
-      }),
-    });
+    const chatMessages = [
+      { role: "system" as const, content: systemPrompt },
+      ...messages,
+    ];
+
+    const response = useOpenRouter
+      ? await fetch("https://openrouter.ai/api/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${openRouterKey}`,
+            "Content-Type": "application/json",
+            "HTTP-Referer": Deno.env.get("SITE_URL") || "https://startworking.in",
+            "X-Title": "JobSeeker Chat",
+          },
+          body: JSON.stringify({
+            model: "google/gemini-2.0-flash-001",
+            messages: chatMessages,
+            stream: true,
+          }),
+        })
+      : await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${lovableApiKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "google/gemini-pro",
+            messages: chatMessages,
+            stream: true,
+          }),
+        });
 
     if (!response.ok) {
       if (response.status === 429) {
