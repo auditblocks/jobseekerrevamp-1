@@ -12,6 +12,7 @@ import ErrorBoundary from "@/components/ErrorBoundary";
 import { LoadingScreen } from "@/components/ui/loading-screen";
 import { FlashSalePopup } from "@/components/FlashSalePopup";
 import { MobilePwaInstallPrompt } from "@/components/MobilePwaInstallPrompt";
+import { JobSeekerChatWidget } from "@/components/chat/JobSeekerChatWidget";
 
 // Lazy load all page components for code splitting
 const Index = lazy(() => import("./pages/Index"));
@@ -89,6 +90,7 @@ const App = () => (
             <ActivityTracker />
             <FlashSalePopup />
             <MobilePwaInstallPrompt />
+            <JobSeekerChatWidget />
             <ErrorBoundary>
               <Suspense fallback={<LoadingScreen />}>
                 <Routes>
