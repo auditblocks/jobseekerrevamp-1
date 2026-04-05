@@ -10,7 +10,12 @@ import { PricingContainer, PricingPlan } from "@/components/ui/pricing-container
 import SEOHead from "@/components/SEO/SEOHead";
 import StructuredData from "@/components/SEO/StructuredData";
 import DashboardLayout from "@/components/DashboardLayout";
+import { EliteMembershipOfferCard } from "@/components/subscription/EliteMembershipOfferCard";
 import { Crown, ShieldCheck, Check as LucideCheck } from "lucide-react";
+import {
+  normalizeRazorpayHandlerResponse,
+  parseSupabaseFunctionInvokeError,
+} from "@/lib/razorpay-verify";
 
 declare global {
   interface Window {
@@ -170,17 +175,20 @@ const Subscription = () => {
         description: `${plan.display_name || plan.name} - ${billingPeriod} Subscription`,
         order_id: orderData.order_id,
         image: "/icon-192.png", // Add logo to payment modal
-        handler: async (response: any) => {
+        handler: async (response: Record<string, unknown>) => {
           try {
             console.log("Payment successful, verifying...", response);
+
+            const { error: refreshErr } = await supabase.auth.refreshSession();
+            if (refreshErr) {
+              console.warn("refreshSession before verify:", refreshErr);
+            }
 
             const { data: verifyData, error: verifyError } = await supabase.functions.invoke(
               "verify-razorpay-payment",
               {
                 body: {
-                  razorpay_order_id: response.razorpay_order_id,
-                  razorpay_payment_id: response.razorpay_payment_id,
-                  razorpay_signature: response.razorpay_signature,
+                  ...normalizeRazorpayHandlerResponse(response),
                   plan_id: plan.id,
                 },
               }
@@ -190,7 +198,7 @@ const Subscription = () => {
 
             if (verifyError) {
               console.error("Verification error:", verifyError);
-              throw verifyError;
+              throw new Error(parseSupabaseFunctionInvokeError(verifyError as never));
             }
 
             // Payment verified successfully
@@ -423,16 +431,31 @@ const Subscription = () => {
               </div>
             </div>
           ) : (
-            /* Standard Pricing Table */
-            <div className="bg-background rounded-lg p-4 sm:p-6">
-              <PricingContainer
-                title="Subscription Plans"
-                plans={convertToPricingPlans()}
-                className="bg-transparent min-h-0"
-                showYearlyToggle={true}
-                isYearly={isYearly}
-                onYearlyChange={setIsYearly}
-              />
+            <div className="space-y-8 sm:space-y-10">
+              <div>
+                <EliteMembershipOfferCard variant="hero" className="mx-auto max-w-5xl" />
+              </div>
+
+              <div className="space-y-3">
+                <div className="text-center">
+                  <p className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                    Standard subscription
+                  </p>
+                  <p className="text-xs text-muted-foreground/90">
+                    Monthly or yearly — same plans everywhere in the app
+                  </p>
+                </div>
+                <div className="bg-background rounded-lg p-4 sm:p-6">
+                  <PricingContainer
+                    title="Subscription Plans"
+                    plans={convertToPricingPlans()}
+                    className="bg-transparent min-h-0"
+                    showYearlyToggle={true}
+                    isYearly={isYearly}
+                    onYearlyChange={setIsYearly}
+                  />
+                </div>
+              </div>
             </div>
           )}
         </motion.div>

@@ -39,6 +39,7 @@ interface UserData {
   role: string;
   status: string;
   subscription_tier: string;
+  is_elite_member: boolean;
   created_at: string;
   last_sign_in_at: string | null;
 }
@@ -88,18 +89,31 @@ export default function AdminUsers() {
     }
   };
 
-  const updateUserSubscriptionTier = async (userId: string, tier: string) => {
+  const subscriptionSelectValue = (user: UserData) =>
+    user.subscription_tier === "PRO_MAX" && user.is_elite_member
+      ? "PRO_MAX_ELITE"
+      : user.subscription_tier;
+
+  const updateUserSubscriptionTier = async (userId: string, value: string) => {
     try {
-      const updateData: any = {
+      const isEliteTier = value === "PRO_MAX_ELITE";
+      const tier = isEliteTier ? "PRO_MAX" : value;
+
+      const updateData: Record<string, unknown> = {
         subscription_tier: tier,
         updated_at: new Date().toISOString(),
       };
 
-      // If downgrading to FREE, clear expiration date
-      // If upgrading to PRO or PRO_MAX, set expiration date to 1 year from now
       if (tier === "FREE") {
         updateData.subscription_expires_at = null;
-      } else if (tier === "PRO" || tier === "PRO_MAX") {
+        updateData.is_elite_member = false;
+      } else if (tier === "PRO") {
+        updateData.is_elite_member = false;
+        const expiresAt = new Date();
+        expiresAt.setFullYear(expiresAt.getFullYear() + 1);
+        updateData.subscription_expires_at = expiresAt.toISOString();
+      } else if (tier === "PRO_MAX") {
+        updateData.is_elite_member = isEliteTier;
         const expiresAt = new Date();
         expiresAt.setFullYear(expiresAt.getFullYear() + 1);
         updateData.subscription_expires_at = expiresAt.toISOString();
@@ -111,7 +125,8 @@ export default function AdminUsers() {
         .eq("id", userId);
 
       if (error) throw error;
-      toast.success(`User subscription tier updated to ${tier}. User may need to refresh their page to see changes.`);
+      const label = isEliteTier ? "Pro Max (Elite member)" : tier;
+      toast.success(`User subscription updated to ${label}. User may need to refresh their page to see changes.`);
       fetchUsers();
     } catch (error: any) {
       console.error("Failed to update subscription tier:", error);
@@ -124,7 +139,12 @@ export default function AdminUsers() {
       user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       user.email.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStatus = statusFilter === "all" || user.status === statusFilter;
-    const matchesTier = tierFilter === "all" || user.subscription_tier === tierFilter;
+    const matchesTier =
+      tierFilter === "all"
+        ? true
+        : tierFilter === "elite"
+          ? user.is_elite_member === true
+          : user.subscription_tier === tierFilter;
     return matchesSearch && matchesStatus && matchesTier;
   });
 
@@ -237,6 +257,7 @@ export default function AdminUsers() {
                   <SelectItem value="FREE">Free</SelectItem>
                   <SelectItem value="PRO">Pro</SelectItem>
                   <SelectItem value="PRO_MAX">Pro Max</SelectItem>
+                  <SelectItem value="elite">Elite member</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -259,6 +280,7 @@ export default function AdminUsers() {
                     <TableHead className="min-w-[200px]">User</TableHead>
                     <TableHead className="min-w-[100px]">Status</TableHead>
                     <TableHead className="min-w-[120px]">Subscription</TableHead>
+                    <TableHead className="min-w-[100px]">Elite</TableHead>
                     <TableHead className="min-w-[120px]">Joined</TableHead>
                     <TableHead className="min-w-[120px]">Last Active</TableHead>
                     <TableHead className="text-right min-w-[120px]">Actions</TableHead>
@@ -267,13 +289,13 @@ export default function AdminUsers() {
                 <TableBody>
                   {loading ? (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center py-8">
+                      <TableCell colSpan={7} className="text-center py-8">
                         <RefreshCw className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
                       </TableCell>
                     </TableRow>
                   ) : filteredUsers.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                      <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                         No users found
                       </TableCell>
                     </TableRow>
@@ -310,6 +332,19 @@ export default function AdminUsers() {
                           </Badge>
                         </TableCell>
                         <TableCell>
+                          {user.is_elite_member ? (
+                            <Badge
+                              variant="outline"
+                              className="border-[#C5A059]/50 bg-[#C5A059]/10 text-[#8B6914] dark:text-[#E8C77B]"
+                            >
+                              <Crown className="mr-1 h-3 w-3" />
+                              Yes
+                            </Badge>
+                          ) : (
+                            <span className="text-sm text-muted-foreground">—</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
                           <div className="flex items-center gap-1 text-sm text-muted-foreground">
                             <Calendar className="h-3 w-3" />
                             {format(new Date(user.created_at), "MMM d, yyyy")}
@@ -336,16 +371,17 @@ export default function AdminUsers() {
                               <Activity className="h-3 w-3 sm:h-4 sm:w-4" />
                             </Button>
                             <Select
-                              value={user.subscription_tier}
+                              value={subscriptionSelectValue(user)}
                               onValueChange={(value) => updateUserSubscriptionTier(user.id, value)}
                             >
-                              <SelectTrigger className="w-[110px] h-8 text-xs">
+                              <SelectTrigger className="w-[148px] sm:w-[160px] h-8 text-xs">
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
                                 <SelectItem value="FREE">FREE</SelectItem>
                                 <SelectItem value="PRO">PRO</SelectItem>
-                                <SelectItem value="PRO_MAX">PRO_MAX</SelectItem>
+                                <SelectItem value="PRO_MAX">PRO MAX</SelectItem>
+                                <SelectItem value="PRO_MAX_ELITE">Elite member</SelectItem>
                               </SelectContent>
                             </Select>
                             <Select

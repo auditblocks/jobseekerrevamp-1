@@ -144,6 +144,9 @@ serve(async (req) => {
 
     if (insertError) {
       console.error("Failed to store subscription:", insertError);
+      throw new Error(
+        "Could not start checkout (subscription record failed). If this persists, contact support.",
+      );
     }
 
     return new Response(

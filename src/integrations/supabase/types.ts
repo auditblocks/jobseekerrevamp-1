@@ -1600,6 +1600,7 @@ export type Database = {
           created_at: string
           email: string
           id: string
+          is_elite_member: boolean
           last_sign_in_at: string
           name: string
           role: string

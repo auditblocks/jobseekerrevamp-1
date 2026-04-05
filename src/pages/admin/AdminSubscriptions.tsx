@@ -24,7 +24,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
-import { CreditCard, RefreshCw, IndianRupee, Calendar, User, Pencil, Plus, Trash2, Loader2 } from "lucide-react";
+import { CreditCard, RefreshCw, IndianRupee, Calendar, User, Pencil, Plus, Trash2, Loader2, Crown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
 import { toast } from "sonner";
@@ -38,7 +38,7 @@ interface SubscriptionHistory {
   created_at: string;
   expires_at: string | null;
   razorpay_payment_id: string | null;
-  profiles?: { name: string; email: string };
+  profiles?: { name: string; email: string; is_elite_member?: boolean | null };
   subscription_plans?: { name: string; display_name: string };
 }
 
@@ -162,7 +162,7 @@ export default function AdminSubscriptions() {
         .from("subscription_history")
         .select(`
           *,
-          profiles:user_id(name, email),
+          profiles:user_id(name, email, is_elite_member),
           subscription_plans:plan_id(name, display_name)
         `)
         .order("created_at", { ascending: false })
@@ -422,6 +422,7 @@ export default function AdminSubscriptions() {
                   <TableRow>
                     <TableHead>User</TableHead>
                     <TableHead>Plan</TableHead>
+                    <TableHead>Elite</TableHead>
                     <TableHead>Amount</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Date</TableHead>
@@ -431,13 +432,13 @@ export default function AdminSubscriptions() {
                 <TableBody>
                   {loading ? (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center py-8">
+                      <TableCell colSpan={7} className="text-center py-8">
                         <RefreshCw className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
                       </TableCell>
                     </TableRow>
                   ) : subscriptions.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                      <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                         No subscriptions found
                       </TableCell>
                     </TableRow>
@@ -459,6 +460,21 @@ export default function AdminSubscriptions() {
                           <Badge variant="outline">
                             {sub.subscription_plans?.display_name || sub.plan_id}
                           </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {sub.plan_id === "flash_sale" ? (
+                            <Badge
+                              variant="outline"
+                              className="border-[#C5A059]/50 bg-[#C5A059]/10 text-[#8B6914] dark:text-[#E8C77B]"
+                            >
+                              <Crown className="mr-1 h-3 w-3" />
+                              Elite purchase
+                            </Badge>
+                          ) : sub.profiles?.is_elite_member ? (
+                            <span className="text-xs text-muted-foreground">Elite member</span>
+                          ) : (
+                            <span className="text-sm text-muted-foreground">—</span>
+                          )}
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-1">

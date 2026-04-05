@@ -8,6 +8,10 @@ import { useAuth } from "@/hooks/useAuth";
 import { Database } from "@/integrations/supabase/types";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import {
+  normalizeRazorpayHandlerResponse,
+  parseSupabaseFunctionInvokeError,
+} from "@/lib/razorpay-verify";
 
 type FlashSaleConfig = Database['public']['Tables']['flash_sale_config']['Row'];
 
@@ -23,7 +27,7 @@ export function FlashSalePopup() {
   const [showDetails, setShowDetails] = useState(false);
   const [timeLeftStr, setTimeLeftStr] = useState("");
   const [processingPayment, setProcessingPayment] = useState(false);
-  const { user, profile, isElite } = useAuth();
+  const { user, profile, isElite, refreshProfile } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -129,30 +133,34 @@ export function FlashSalePopup() {
         name: "StartWorking.in",
         description: `Flash Sale — 5 Years PRO MAX`,
         order_id: orderData.order_id,
-        handler: async (response: any) => {
+        handler: async (response: Record<string, unknown>) => {
           try {
+            const { data: refreshed, error: refreshErr } = await supabase.auth.refreshSession();
+            if (refreshErr || !refreshed.session) {
+              throw new Error("Session expired. Sign in again, then contact support if you were charged.");
+            }
+
+            const body = normalizeRazorpayHandlerResponse(response || {});
             const { data: verifyData, error: verifyError } = await supabase.functions.invoke(
               "verify-razorpay-payment",
-              {
-                body: {
-                  razorpay_order_id: response.razorpay_order_id,
-                  razorpay_payment_id: response.razorpay_payment_id,
-                  razorpay_signature: response.razorpay_signature,
-                },
-              }
+              { body },
             );
 
-            if (verifyError) throw new Error(verifyError.message || "Payment verification failed");
+            if (verifyError) {
+              throw new Error(parseSupabaseFunctionInvokeError(verifyError as never));
+            }
 
-            if (verifyData?.success) {
+            if (verifyData && typeof verifyData === "object" && "success" in verifyData && verifyData.success) {
               toast.success("🎉 You're now PRO MAX for 5 years! Thank you!", { duration: 6000 });
               sessionStorage.setItem("flashSaleDismissed", "true");
               setIsVisible(false);
               setShowDetails(false);
+              await refreshProfile();
             }
-          } catch (err: any) {
+          } catch (err: unknown) {
             console.error("Verification error:", err);
-            toast.error("Payment verification failed. Please contact support.");
+            const detail = err instanceof Error ? err.message : "Please contact support.";
+            toast.error(`Payment verification failed: ${detail}`);
           }
           setProcessingPayment(false);
         },

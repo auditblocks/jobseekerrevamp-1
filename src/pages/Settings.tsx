@@ -35,6 +35,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { PricingContainer, PricingPlan } from "@/components/ui/pricing-container";
 import DashboardLayout from "@/components/DashboardLayout";
+import { EliteMembershipOfferCard } from "@/components/subscription/EliteMembershipOfferCard";
+import {
+  normalizeRazorpayHandlerResponse,
+  parseSupabaseFunctionInvokeError,
+} from "@/lib/razorpay-verify";
 
 declare global {
   interface Window {
@@ -503,22 +508,22 @@ const Settings = () => {
         name: "JobSeeker",
         description: `${plan.display_name || plan.name} Plan Subscription`,
         order_id: orderData.order_id,
-        handler: async (response: any) => {
-          // Verify payment on backend
+        handler: async (response: Record<string, unknown>) => {
           try {
+            const { error: refreshErr } = await supabase.auth.refreshSession();
+            if (refreshErr) {
+              console.warn("refreshSession before verify:", refreshErr);
+            }
+
             const { data: verifyData, error: verifyError } = await supabase.functions.invoke(
               "verify-razorpay-payment",
               {
-                body: {
-                  razorpay_order_id: response.razorpay_order_id,
-                  razorpay_payment_id: response.razorpay_payment_id,
-                  razorpay_signature: response.razorpay_signature,
-                },
+                body: normalizeRazorpayHandlerResponse(response),
               }
             );
 
             if (verifyError) {
-              throw new Error(verifyError.message || "Payment verification failed");
+              throw new Error(parseSupabaseFunctionInvokeError(verifyError as never));
             }
 
             if (verifyData?.success) {
@@ -1006,6 +1011,10 @@ const Settings = () => {
                       View Plan Details
                     </Button>
                   </div>
+
+                  {!isElite ? (
+                    <EliteMembershipOfferCard variant="compact" className="w-full" />
+                  ) : null}
 
                   <div className="bg-background rounded-lg p-4">
                     <PricingContainer

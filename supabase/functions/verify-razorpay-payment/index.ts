@@ -1,7 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
 import { crypto } from "https://deno.land/std@0.190.0/crypto/mod.ts";
-import { encode } from "https://deno.land/std@0.190.0/encoding/hex.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -12,6 +11,33 @@ interface PaymentVerification {
   razorpay_order_id: string;
   razorpay_payment_id: string;
   razorpay_signature: string;
+}
+
+function normalizeVerifyPayload(raw: Record<string, unknown>): PaymentVerification {
+  const order =
+    (typeof raw.razorpay_order_id === "string" && raw.razorpay_order_id) ||
+    (typeof raw.order_id === "string" && raw.order_id) ||
+    "";
+  const payment =
+    (typeof raw.razorpay_payment_id === "string" && raw.razorpay_payment_id) ||
+    (typeof raw.payment_id === "string" && raw.payment_id) ||
+    "";
+  const sig =
+    (typeof raw.razorpay_signature === "string" && raw.razorpay_signature) ||
+    (typeof raw.signature === "string" && raw.signature) ||
+    "";
+  return {
+    razorpay_order_id: order.trim(),
+    razorpay_payment_id: payment.trim(),
+    razorpay_signature: sig.trim(),
+  };
+}
+
+/** Razorpay expects HMAC-SHA256 as a lowercase hex string (Deno std `hex.encode` returns Uint8Array, not string). */
+function hmacDigestToHex(digest: ArrayBuffer): string {
+  return [...new Uint8Array(digest)]
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
 }
 
 async function createHmac(key: string, message: string): Promise<string> {
@@ -28,7 +54,7 @@ async function createHmac(key: string, message: string): Promise<string> {
   );
   
   const signature = await crypto.subtle.sign("HMAC", cryptoKey, messageData);
-  return new TextDecoder().decode(encode(new Uint8Array(signature)));
+  return hmacDigestToHex(signature);
 }
 
 serve(async (req) => {
@@ -48,14 +74,16 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     
-    const token = authHeader.replace("Bearer ", "");
+    const token = authHeader.replace(/^Bearer\s+/i, "").trim();
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     if (authError || !user) {
       throw new Error("Unauthorized");
     }
 
-    const payload = await req.json();
-    const { razorpay_order_id, razorpay_payment_id, razorpay_signature }: PaymentVerification = payload || {} as PaymentVerification;
+    const payload = (await req.json()) as Record<string, unknown> | null;
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = normalizeVerifyPayload(
+      payload && typeof payload === "object" ? payload : {},
+    );
 
     // Validate payload before computing HMAC
     if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
@@ -75,7 +103,7 @@ serve(async (req) => {
     const body = razorpay_order_id + "|" + razorpay_payment_id;
     const expectedSignature = await createHmac(razorpayKeySecret, body);
 
-    if (expectedSignature !== razorpay_signature) {
+    if (expectedSignature.toLowerCase() !== razorpay_signature.toLowerCase()) {
       // Log enough detail to debug, without leaking secrets
       console.error("Signature verification failed", {
         order_id: razorpay_order_id,
@@ -88,16 +116,54 @@ serve(async (req) => {
 
     console.log("Payment verified successfully:", razorpay_payment_id);
 
-    // Get subscription history record
-    const { data: subscription, error: subError } = await supabase
+    const { data: idemRows } = await supabase
+      .from("subscription_history")
+      .select("id, plan_id, amount, expires_at, subscription_plans(*)")
+      .eq("razorpay_order_id", razorpay_order_id)
+      .eq("user_id", user.id)
+      .eq("razorpay_payment_id", razorpay_payment_id)
+      .eq("status", "completed")
+      .order("created_at", { ascending: false })
+      .limit(1);
+
+    const idempotentRow = idemRows?.[0];
+
+    if (idempotentRow) {
+      const isFlash = idempotentRow.plan_id === "flash_sale";
+      const plan = idempotentRow.subscription_plans as { name?: string; duration_days?: number } | null;
+      const subscriptionTier = isFlash ? "PRO_MAX" : (plan?.name?.toUpperCase() || "PRO");
+      const expiresAt =
+        idempotentRow.expires_at || new Date().toISOString();
+      return new Response(
+        JSON.stringify({
+          success: true,
+          message: "Payment already verified",
+          subscription_tier: subscriptionTier,
+          expires_at: expiresAt,
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
+    const { data: subRows, error: subError } = await supabase
       .from("subscription_history")
       .select("*, subscription_plans(*)")
       .eq("razorpay_order_id", razorpay_order_id)
       .eq("user_id", user.id)
-      .single();
+      .order("created_at", { ascending: false })
+      .limit(1);
+
+    const subscription = subRows?.[0];
 
     if (subError || !subscription) {
-      throw new Error("Subscription not found");
+      console.error("verify-razorpay-payment: subscription_history lookup failed", subError, {
+        order_id: razorpay_order_id,
+        user_id: user.id,
+        row_count: Array.isArray(subRows) ? subRows.length : 0,
+      });
+      throw new Error(
+        "Payment record not found for this order. If you were charged, contact support with your payment ID.",
+      );
     }
 
     // Determine subscription tier and duration

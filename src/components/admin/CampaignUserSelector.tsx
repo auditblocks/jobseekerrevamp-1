@@ -25,7 +25,7 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
-import { Search, CheckSquare, Square, Loader2 } from "lucide-react";
+import { Search, CheckSquare, Square, Loader2, Crown } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 
 interface User {
@@ -34,6 +34,7 @@ interface User {
   email: string;
   subscription_tier: string;
   status: string;
+  is_elite_member?: boolean;
 }
 
 interface CampaignUserSelectorProps {
@@ -61,11 +62,15 @@ export function CampaignUserSelector({ selectedUsers, onUsersChange }: CampaignU
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      const { data, error } = await (supabase.rpc as any)("admin_get_all_users");
-      
+      const { data, error } = await supabase.rpc("admin_get_all_users");
+
       if (error) throw error;
-      setUsers((data as User[]) || []);
-      setFilteredUsers((data as User[]) || []);
+      const rows = (data ?? []).map((u) => ({
+        ...u,
+        is_elite_member: !!u.is_elite_member,
+      }));
+      setUsers(rows);
+      setFilteredUsers(rows);
     } catch (error: any) {
       console.error("Error fetching users:", error);
     } finally {
@@ -78,7 +83,11 @@ export function CampaignUserSelector({ selectedUsers, onUsersChange }: CampaignU
 
     if (activeTab === "filter") {
       if (tierFilter !== "all") {
-        filtered = filtered.filter(u => u.subscription_tier === tierFilter);
+        if (tierFilter === "elite") {
+          filtered = filtered.filter((u) => u.is_elite_member);
+        } else {
+          filtered = filtered.filter((u) => u.subscription_tier === tierFilter);
+        }
       }
       if (statusFilter !== "all") {
         filtered = filtered.filter(u => u.status === statusFilter);
@@ -202,9 +211,20 @@ export function CampaignUserSelector({ selectedUsers, onUsersChange }: CampaignU
                         <TableCell className="font-medium text-sm">{user.name || "—"}</TableCell>
                         <TableCell className="text-sm">{user.email}</TableCell>
                         <TableCell>
-                          <Badge variant="outline" className="text-xs">
-                            {user.subscription_tier}
-                          </Badge>
+                          <div className="flex flex-col gap-1">
+                            <Badge variant="outline" className="text-xs w-fit">
+                              {user.subscription_tier}
+                            </Badge>
+                            {user.is_elite_member && (
+                              <Badge
+                                variant="outline"
+                                className="text-xs w-fit border-[#C5A059]/50 bg-[#C5A059]/10 text-[#8B6914] dark:text-[#E8C77B]"
+                              >
+                                <Crown className="mr-1 h-3 w-3 inline" />
+                                Elite
+                              </Badge>
+                            )}
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))
@@ -227,6 +247,7 @@ export function CampaignUserSelector({ selectedUsers, onUsersChange }: CampaignU
                     <SelectItem value="FREE">FREE</SelectItem>
                     <SelectItem value="PRO">PRO</SelectItem>
                     <SelectItem value="PRO_MAX">PRO_MAX</SelectItem>
+                    <SelectItem value="elite">Elite members</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -321,9 +342,20 @@ export function CampaignUserSelector({ selectedUsers, onUsersChange }: CampaignU
                         <TableCell className="font-medium text-sm">{user.name || "—"}</TableCell>
                         <TableCell className="text-sm">{user.email}</TableCell>
                         <TableCell>
-                          <Badge variant="outline" className="text-xs">
-                            {user.subscription_tier}
-                          </Badge>
+                          <div className="flex flex-col gap-1">
+                            <Badge variant="outline" className="text-xs w-fit">
+                              {user.subscription_tier}
+                            </Badge>
+                            {user.is_elite_member && (
+                              <Badge
+                                variant="outline"
+                                className="text-xs w-fit border-[#C5A059]/50 bg-[#C5A059]/10 text-[#8B6914] dark:text-[#E8C77B]"
+                              >
+                                <Crown className="mr-1 h-3 w-3 inline" />
+                                Elite
+                              </Badge>
+                            )}
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))

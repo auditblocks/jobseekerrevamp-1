@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
+import { isAuthorizedAdminRequest } from "../_shared/admin-auth.ts";
 import { externalKeyFromUrl, mapApifyItemToRow } from "./map-item.ts";
 
 const corsHeaders = {
@@ -13,31 +14,6 @@ function json(body: unknown, status = 200) {
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
-}
-
-async function isAuthorizedRequest(req: Request, supabase: ReturnType<typeof createClient>): Promise<boolean> {
-  const authHeader = req.headers.get("Authorization") ?? "";
-  const token = authHeader.replace(/^Bearer\s+/i, "").trim();
-  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-  if (token && serviceKey && token === serviceKey) {
-    return true;
-  }
-
-  const cronSecret = Deno.env.get("NAUKRI_SYNC_CRON_SECRET");
-  const headerSecret = req.headers.get("x-cron-secret");
-  if (cronSecret && headerSecret && headerSecret === cronSecret) {
-    return true;
-  }
-
-  if (!token) return false;
-  const { data: { user }, error } = await supabase.auth.getUser(token);
-  if (error || !user) return false;
-
-  const [{ data: roleData }, { data: profileData }] = await Promise.all([
-    supabase.from("user_roles").select("role").eq("user_id", user.id).eq("role", "admin").maybeSingle(),
-    supabase.from("profiles").select("role").eq("id", user.id).maybeSingle(),
-  ]);
-  return !!roleData || profileData?.role === "superadmin";
 }
 
 async function getSecret(
@@ -240,7 +216,7 @@ serve(async (req) => {
   const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-  if (!(await isAuthorizedRequest(req, supabase))) {
+  if (!(await isAuthorizedAdminRequest(req, supabase))) {
     return json({ success: false, error: "Unauthorized" }, 401);
   }
 

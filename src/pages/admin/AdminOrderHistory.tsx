@@ -32,7 +32,8 @@ import {
   RotateCcw,
   Loader2,
   IndianRupee,
-  Search
+  Search,
+  Crown,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -51,6 +52,7 @@ interface OrderHistoryItem {
   profiles: {
     name: string | null;
     email: string;
+    is_elite_member?: boolean | null;
   } | null;
   subscription_plans: {
     name: string;
@@ -83,7 +85,8 @@ const AdminOrderHistory = () => {
           *,
           profiles:user_id (
             name,
-            email
+            email,
+            is_elite_member
           ),
           subscription_plans:plan_id (
             name,
@@ -345,6 +348,7 @@ const AdminOrderHistory = () => {
                         <TableHead>Order ID</TableHead>
                         <TableHead>Customer</TableHead>
                         <TableHead>Plan</TableHead>
+                        <TableHead>Elite</TableHead>
                         <TableHead>Amount</TableHead>
                         <TableHead>Status</TableHead>
                         <TableHead>Purchase Date</TableHead>
@@ -372,6 +376,21 @@ const AdminOrderHistory = () => {
                             {order.subscription_plans?.display_name || 
                              order.subscription_plans?.name || 
                              order.plan_id}
+                          </TableCell>
+                          <TableCell>
+                            {order.plan_id === "flash_sale" ? (
+                              <Badge
+                                variant="outline"
+                                className="border-[#C5A059]/50 bg-[#C5A059]/10 text-[#8B6914] dark:text-[#E8C77B]"
+                              >
+                                <Crown className="mr-1 h-3 w-3" />
+                                Elite
+                              </Badge>
+                            ) : order.profiles?.is_elite_member ? (
+                              <span className="text-xs text-muted-foreground">Member</span>
+                            ) : (
+                              <span className="text-muted-foreground">—</span>
+                            )}
                           </TableCell>
                           <TableCell className="font-semibold">
                             {formatCurrency(order.amount)}

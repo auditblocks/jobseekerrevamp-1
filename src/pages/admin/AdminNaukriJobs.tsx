@@ -332,6 +332,10 @@ const AdminNaukriJobs = () => {
     fnName: "sync-naukri-apify" | "sync-linkedin-apify",
     body: Record<string, unknown>,
   ) => {
+    const { data: refreshed, error: refreshErr } = await supabase.auth.refreshSession();
+    if (refreshErr || !refreshed.session) {
+      throw new Error("Your session expired. Sign in again to run the scraper.");
+    }
     const { data, error } = await supabase.functions.invoke(fnName, { body });
     if (error) throw new Error(parseInvokeError(error as never));
     const d = data as ApifySyncResponse;
