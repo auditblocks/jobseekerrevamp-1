@@ -21,7 +21,8 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { format, formatDistanceToNow } from "date-fns";
+import { format, formatDistanceToNow, isToday, parseISO } from "date-fns";
+import { useChatListingContext } from "@/contexts/ChatListingContext";
 import Navbar from "@/components/landing/Navbar";
 import FooterSection from "@/components/landing/FooterSection";
 import DashboardLayout from "@/components/DashboardLayout";
@@ -62,8 +63,26 @@ interface GovtJob {
     created_at?: string | null;
 }
 
+function normalizeTagKey(t: string): string {
+    return t.toLowerCase().trim().replace(/\s+/g, "-");
+}
+
+function matchesGovernmentJobCategoryTag(tags: string[] | null | undefined): boolean {
+    if (!tags?.length) return false;
+    return tags.some((t) => {
+        const k = normalizeTagKey(t);
+        return (
+            k === "government-job" ||
+            k === "government-jobs" ||
+            k === "government" ||
+            (t.toLowerCase().includes("government") && t.toLowerCase().includes("job"))
+        );
+    });
+}
+
 const GovtJobs = () => {
     const navigate = useNavigate();
+    const { setListingContext } = useChatListingContext();
     const { user, profile, loading: authLoading } = useAuth();
     const [jobs, setJobs] = useState<GovtJob[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -141,6 +160,76 @@ const GovtJobs = () => {
             setCurrentPage(totalPages);
         }
     }, [currentPage, totalPages]);
+
+    useEffect(() => {
+        if (typeof window === "undefined") return;
+        if (isLoading) {
+            setListingContext(null);
+            return;
+        }
+        const origin = window.location.origin;
+        const rs = totalFiltered === 0 ? 0 : (safePage - 1) * pageSize + 1;
+        const re = Math.min(safePage * pageSize, totalFiltered);
+        const govCategoryCount = filteredJobs.filter((j) => matchesGovernmentJobCategoryTag(j.tags)).length;
+        const postedToday = filteredJobs.filter((j) => {
+            if (!j.created_at) return false;
+            try {
+                return isToday(parseISO(j.created_at));
+            } catch {
+                return false;
+            }
+        });
+        const lines: string[] = [
+            "LISTING DATA FOR THIS PAGE",
+            `Page: /government-jobs (Government job listings)`,
+            `User filters: search="${searchQuery}" | state/region=${stateFilter}`,
+            `FILTERED SET: ${totalFiltered} jobs match current filters (of ${jobs.length} active jobs loaded).`,
+            `Pagination: page ${safePage} of ${totalPages}; on-screen positions ${rs}–${re}.`,
+            `Jobs in FILTERED SET whose tags look like "government-job" / government category: ${govCategoryCount}`,
+            "",
+            "VISIBLE SCREEN LIST (card order — #1 is the first job listed on this page):",
+        ];
+        paginatedJobs.forEach((job, i) => {
+            const path = `/government-jobs/${job.slug || job.id}`;
+            const url = `${origin}${path}`;
+            let createdIso = "unknown";
+            if (job.created_at) {
+                try {
+                    createdIso = parseISO(job.created_at).toISOString();
+                } catch {
+                    createdIso = job.created_at;
+                }
+            }
+            const tagStr = (job.tags || []).join(", ") || "none";
+            lines.push(
+                `${i + 1}. ${job.post_name} | ${job.organization} | exam: ${job.exam_name || "n/a"} | tags: [${tagStr}] | created: ${createdIso} | url: ${url}`,
+            );
+        });
+        lines.push("");
+        lines.push(`POSTED TODAY (created date = local today, within FILTERED SET): ${postedToday.length} job(s)`);
+        const maxToday = 40;
+        postedToday.slice(0, maxToday).forEach((job) => {
+            const url = `${origin}/government-jobs/${job.slug || job.id}`;
+            lines.push(`- [${job.post_name} — ${job.organization}](${url})`);
+        });
+        if (postedToday.length > maxToday) {
+            lines.push(`- …and ${postedToday.length - maxToday} more posted today (use filters or pagination).`);
+        }
+        setListingContext(lines.join("\n"));
+        return () => setListingContext(null);
+    }, [
+        isLoading,
+        setListingContext,
+        searchQuery,
+        stateFilter,
+        totalFiltered,
+        jobs.length,
+        safePage,
+        totalPages,
+        pageSize,
+        paginatedJobs,
+        filteredJobs,
+    ]);
 
     const skipPaginationScrollRef = useRef(true);
     useEffect(() => {

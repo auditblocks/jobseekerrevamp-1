@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { streamAiChat, type ChatTurn } from "@/lib/ai-chat-stream";
+import { useChatListingContext } from "@/contexts/ChatListingContext";
 import { toast } from "sonner";
 
 const INTRO: ChatTurn = {
@@ -15,6 +16,7 @@ const INTRO: ChatTurn = {
 
 export function JobSeekerChatWidget() {
   const location = useLocation();
+  const { listingContext } = useChatListingContext();
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<ChatTurn[]>([INTRO]);
@@ -45,6 +47,10 @@ export function JobSeekerChatWidget() {
     const contextParts = [`Path: ${location.pathname}`];
     if (typeof document !== "undefined" && document.title) {
       contextParts.push(`Title: ${document.title}`);
+    }
+    if (listingContext) {
+      contextParts.push("");
+      contextParts.push(listingContext);
     }
     const context = contextParts.join("\n");
 

@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
-import { CHATBOT_SAFETY_RULES, SITE_KNOWLEDGE } from "./site-knowledge.ts";
+import { CHATBOT_SAFETY_RULES, LISTING_SNAPSHOT_RULES, SITE_KNOWLEDGE } from "./site-knowledge.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -60,6 +60,8 @@ Your job is to help visitors and users understand the product, find the right pa
 ${SITE_KNOWLEDGE}
 
 ${CHATBOT_SAFETY_RULES}
+
+${LISTING_SNAPSHOT_RULES}
 
 You may also help with:
 - Writing or improving resumes and cover letters (general guidance)

@@ -13,6 +13,7 @@ import { LoadingScreen } from "@/components/ui/loading-screen";
 import { FlashSalePopup } from "@/components/FlashSalePopup";
 import { MobilePwaInstallPrompt } from "@/components/MobilePwaInstallPrompt";
 import { JobSeekerChatWidget } from "@/components/chat/JobSeekerChatWidget";
+import { ChatListingProvider } from "@/contexts/ChatListingContext";
 
 // Lazy load all page components for code splitting
 const Index = lazy(() => import("./pages/Index"));
@@ -87,6 +88,7 @@ const App = () => (
           {/* Sonner renders in a portal to body, ensuring it's above all content */}
           <Sonner />
           <BrowserRouter>
+            <ChatListingProvider>
             <ActivityTracker />
             <FlashSalePopup />
             <MobilePwaInstallPrompt />
@@ -170,6 +172,7 @@ const App = () => (
                 </Routes>
               </Suspense>
             </ErrorBoundary>
+            </ChatListingProvider>
           </BrowserRouter>
         </AuthProvider>
       </TooltipProvider>

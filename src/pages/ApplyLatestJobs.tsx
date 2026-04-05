@@ -40,7 +40,8 @@ import {
   X,
   FileText,
 } from "lucide-react";
-import { format } from "date-fns";
+import { format, isToday, parseISO } from "date-fns";
+import { useChatListingContext } from "@/contexts/ChatListingContext";
 import { toast } from "sonner";
 
 interface NaukriJobRow {
@@ -205,6 +206,7 @@ const APPLY_LATEST_JOBS_PATH = "/apply-latest-jobs";
 
 const ApplyLatestJobs = () => {
   const navigate = useNavigate();
+  const { setListingContext } = useChatListingContext();
   const { user, loading: authLoading } = useAuth();
   const signUpApplyHref = `/auth?mode=signup&redirect=${encodeURIComponent(APPLY_LATEST_JOBS_PATH)}`;
   const signInApplyHref = `/auth?redirect=${encodeURIComponent(APPLY_LATEST_JOBS_PATH)}`;
@@ -402,6 +404,68 @@ const ApplyLatestJobs = () => {
 
   const rangeStart = totalFiltered === 0 ? 0 : (safePage - 1) * pageSize + 1;
   const rangeEnd = Math.min(safePage * pageSize, totalFiltered);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (loading) {
+      setListingContext(null);
+      return;
+    }
+    const dateRef = (j: NaukriJobRow) => j.posted_at ?? j.scraped_at;
+    const postedToday = filteredSorted.filter((j) => {
+      const d = dateRef(j);
+      if (!d) return false;
+      try {
+        return isToday(parseISO(d));
+      } catch {
+        return false;
+      }
+    });
+    const lines: string[] = [
+      "LISTING DATA FOR THIS PAGE",
+      `Page: /apply-latest-jobs (aggregated listings; Apply uses the employer’s site)`,
+      `Filters: search="${searchQuery}", sort=${sortBy}, experience=${experienceFilter}, salary=${salaryFilter}, recency=${recencyFilter}, location=${locationFilter}, remoteOnly=${remoteOnly}, source=${sourceFilter}`,
+      `FILTERED SET: ${totalFiltered} jobs match filters (${jobs.length} loaded). Page ${safePage} of ${totalPages}; rows ${rangeStart}–${rangeEnd}.`,
+      "",
+      "VISIBLE SCREEN LIST (card order — #1 is the first job listed on this page):",
+    ];
+    paginatedJobs.forEach((job, i) => {
+      const posted = dateRef(job) || "unknown";
+      lines.push(
+        `${i + 1}. ${job.title} | ${job.company_name || "n/a"} | ${job.location || "n/a"} | posted/scraped: ${posted} | apply_url: ${job.apply_url}`,
+      );
+    });
+    lines.push("");
+    lines.push(`POSTED TODAY (posted/scraped = local today, within FILTERED SET): ${postedToday.length} job(s)`);
+    const maxT = 40;
+    postedToday.slice(0, maxT).forEach((job) => {
+      lines.push(`- [${job.title} — ${job.company_name || "Employer"}](${job.apply_url})`);
+    });
+    if (postedToday.length > maxT) {
+      lines.push(`- …and ${postedToday.length - maxT} more posted today.`);
+    }
+    setListingContext(lines.join("\n"));
+    return () => setListingContext(null);
+  }, [
+    loading,
+    setListingContext,
+    searchQuery,
+    sortBy,
+    experienceFilter,
+    salaryFilter,
+    recencyFilter,
+    locationFilter,
+    remoteOnly,
+    sourceFilter,
+    totalFiltered,
+    jobs.length,
+    safePage,
+    totalPages,
+    rangeStart,
+    rangeEnd,
+    paginatedJobs,
+    filteredSorted,
+  ]);
 
   const initials = (name: string | null) => {
     if (!name?.trim()) return "?";

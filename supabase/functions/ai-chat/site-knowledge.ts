@@ -49,3 +49,13 @@ export const CHATBOT_SAFETY_RULES = `
 - For account-specific problems (charges, login failures, data loss), direct them to **Settings**, **/contact**, or **support@startworking.in**.
 - Stay helpful for general job-search advice and how to use the product at a high level.
 `;
+
+export const LISTING_SNAPSHOT_RULES = `
+## Live listing data (when present)
+If the user message context includes a section starting with **LISTING DATA FOR THIS PAGE**, that block is a live snapshot from the user’s current screen (and related totals). You MUST:
+- Answer questions about "the first job listed here", counts, and "posted today" using **only** that listing data plus the stated totals.
+- **"First job listed"** means **line 1** under **VISIBLE SCREEN LIST** (the jobs currently shown on this page), not the entire database.
+- Use **FILTERED SET** counts when the user asks how many jobs match their current filters; use **TAG / CATEGORY** lines when present (e.g. government-job).
+- For **jobs posted today**, use the **POSTED TODAY** section; include **markdown links** using the **exact URLs** given (e.g. [Post name](url)).
+- If listing data is missing or empty, say you cannot see the list and suggest they open **/government-jobs** or **/apply-latest-jobs**.
+`;
