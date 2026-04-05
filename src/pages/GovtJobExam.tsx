@@ -17,7 +17,18 @@ import {
     CheckCircle2,
     XCircle,
     Sparkles,
+    LogOut,
 } from "lucide-react";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface Question {
@@ -42,6 +53,7 @@ const GovtJobExam = () => {
     const [isCompleted, setIsCompleted] = useState(false);
     const [result, setResult] = useState<any>(null);
     const [job, setJob] = useState<any>(null);
+    const [exitDialogOpen, setExitDialogOpen] = useState(false);
 
     const timerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -190,6 +202,12 @@ const GovtJobExam = () => {
         return `${mins}:${secs.toString().padStart(2, '0')}`;
     };
 
+    const exitPracticeTest = () => {
+        if (timerRef.current) clearInterval(timerRef.current);
+        setExitDialogOpen(false);
+        navigate("/government-jobs");
+    };
+
     if (loading) {
         return (
             <div className="flex flex-col items-center justify-center min-h-screen space-y-4">
@@ -307,19 +325,51 @@ const GovtJobExam = () => {
 
     return (
         <div className="min-h-screen bg-background flex flex-col">
+            <AlertDialog open={exitDialogOpen} onOpenChange={setExitDialogOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Leave practice test?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Your progress on this attempt will not be saved. You can start a new practice test anytime from the job list.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Continue test</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={exitPracticeTest}
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        >
+                            Exit
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
             {/* Header / Timer */}
             <div className="sticky top-0 z-50 bg-background/80 backdrop-blur-md border-b">
-                <div className="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                        <AlertCircle className="h-5 w-5 text-accent" />
-                        <div>
-                            <h2 className="font-bold text-sm md:text-base truncate max-w-[200px] md:max-w-md">{job?.post_name}</h2>
+                <div className="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                        <AlertCircle className="h-5 w-5 text-accent shrink-0" />
+                        <div className="min-w-0">
+                            <h2 className="font-bold text-sm md:text-base truncate">{job?.post_name}</h2>
                             <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold">Practice Test</p>
                         </div>
                     </div>
-                    <div className={`flex items-center gap-2 px-4 py-2 rounded-full border ${timeLeft < 300 ? 'bg-destructive/10 border-destructive/20 text-destructive animate-pulse' : 'bg-accent/5 border-accent/20 text-accent font-mono'}`}>
-                        <Timer className="h-4 w-4" />
-                        <span className="font-bold">{formatTime(timeLeft)}</span>
+                    <div className="flex items-center gap-2 shrink-0">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="h-9 gap-1.5 rounded-full border-border"
+                            onClick={() => setExitDialogOpen(true)}
+                        >
+                            <LogOut className="h-3.5 w-3.5" />
+                            Exit
+                        </Button>
+                        <div className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-full border ${timeLeft < 300 ? 'bg-destructive/10 border-destructive/20 text-destructive animate-pulse' : 'bg-accent/5 border-accent/20 text-accent font-mono'}`}>
+                            <Timer className="h-4 w-4 shrink-0" />
+                            <span className="font-bold tabular-nums">{formatTime(timeLeft)}</span>
+                        </div>
                     </div>
                 </div>
                 <Progress value={progress} className="h-1 rounded-none bg-muted" />
