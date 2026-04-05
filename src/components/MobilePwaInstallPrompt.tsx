@@ -1,15 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetFooter,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { Download, Share2, Smartphone } from "lucide-react";
+import { Download, Share2, Smartphone, X } from "lucide-react";
+import { isMobileOrNarrowTouchDevice } from "@/lib/mobile-env";
 
 const STORAGE_INSTALLED = "jobseeker_pwa_installed";
 const STORAGE_SNOOZE_UNTIL = "jobseeker_pwa_install_snooze_until";
@@ -31,13 +24,6 @@ function isStandaloneDisplay(): boolean {
   );
 }
 
-function isMobileUserAgent(): boolean {
-  if (typeof navigator === "undefined") return false;
-  const ua = navigator.userAgent;
-  if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua)) return true;
-  return navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1;
-}
-
 function isIos(): boolean {
   if (typeof navigator === "undefined") return false;
   return (
@@ -52,6 +38,15 @@ export function MobilePwaInstallPrompt() {
   const [mode, setMode] = useState<InstallMode>("generic");
   const [canPromptInstall, setCanPromptInstall] = useState(false);
   const deferredRef = useRef<BeforeInstallPromptEvent | null>(null);
+  const [mobileLike, setMobileLike] = useState(false);
+
+  useEffect(() => {
+    const check = () => setMobileLike(isMobileOrNarrowTouchDevice());
+    check();
+    const mq = window.matchMedia("(max-width: 900px)");
+    mq.addEventListener("change", check);
+    return () => mq.removeEventListener("change", check);
+  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -60,7 +55,7 @@ export function MobilePwaInstallPrompt() {
     const snoozeUntil = Number(localStorage.getItem(STORAGE_SNOOZE_UNTIL) || 0);
     if (Number.isFinite(snoozeUntil) && snoozeUntil > Date.now()) return;
     if (isStandaloneDisplay()) return;
-    if (!isMobileUserAgent()) return;
+    if (!mobileLike) return;
 
     let cancelled = false;
     let iosTimer: ReturnType<typeof setTimeout> | undefined;
@@ -80,7 +75,7 @@ export function MobilePwaInstallPrompt() {
       if (iosTimer) clearTimeout(iosTimer);
       if (androidFallbackTimer) clearTimeout(androidFallbackTimer);
       if (chromeOpenTimer) clearTimeout(chromeOpenTimer);
-      chromeOpenTimer = window.setTimeout(tryOpen, 500);
+      chromeOpenTimer = window.setTimeout(tryOpen, 400);
     };
 
     const onAppInstalled = () => {
@@ -95,13 +90,13 @@ export function MobilePwaInstallPrompt() {
 
     if (isIos()) {
       setMode("ios");
-      iosTimer = window.setTimeout(tryOpen, 3200);
+      iosTimer = window.setTimeout(tryOpen, 1800);
     } else {
       setMode("generic");
       androidFallbackTimer = window.setTimeout(() => {
         if (cancelled || deferredRef.current) return;
         tryOpen();
-      }, 6500);
+      }, 4000);
     }
 
     return () => {
@@ -112,7 +107,26 @@ export function MobilePwaInstallPrompt() {
       if (androidFallbackTimer) clearTimeout(androidFallbackTimer);
       if (chromeOpenTimer) clearTimeout(chromeOpenTimer);
     };
-  }, [location.pathname]);
+  }, [location.pathname, mobileLike]);
+
+  const handleDismiss = useCallback(() => {
+    setOpen(false);
+    localStorage.setItem(STORAGE_SNOOZE_UNTIL, String(Date.now() + SNOOZE_MS));
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") handleDismiss();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = prev;
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [open, handleDismiss]);
 
   const handleInstallTap = async () => {
     const ev = deferredRef.current;
@@ -132,42 +146,50 @@ export function MobilePwaInstallPrompt() {
     }
   };
 
+  if (!open) return null;
+
   return (
-    <Sheet
-      open={open}
-      onOpenChange={(next) => {
-        setOpen(next);
-        if (!next) {
-          localStorage.setItem(STORAGE_SNOOZE_UNTIL, String(Date.now() + SNOOZE_MS));
-        }
-      }}
-    >
-      <SheetContent
-        side="bottom"
-        className="z-[70] rounded-t-2xl border-t border-border/80 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-2"
+    <div className="fixed inset-0 z-[200]" role="presentation">
+      <button
+        type="button"
+        className="absolute inset-0 z-0 bg-black/60 backdrop-blur-[2px]"
+        aria-label="Close install prompt"
+        onClick={handleDismiss}
+      />
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="pwa-install-title"
+        className="absolute bottom-0 left-0 right-0 z-10 max-h-[85dvh] overflow-y-auto rounded-t-2xl border-t border-border bg-background px-5 pt-4 shadow-2xl sm:px-6"
+        style={{ paddingBottom: "max(1.25rem, env(safe-area-inset-bottom))" }}
       >
-        <SheetHeader className="space-y-1 text-left">
-          <div className="flex items-center gap-2 text-primary">
+        <div className="mb-3 flex items-start justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-2 text-primary">
             <Smartphone className="h-5 w-5 shrink-0" aria-hidden />
-            <SheetTitle className="text-base font-semibold sm:text-lg">Install JobSeeker app</SheetTitle>
+            <h2 id="pwa-install-title" className="text-base font-semibold sm:text-lg">
+              Install JobSeeker app
+            </h2>
           </div>
-          <SheetDescription className="text-left text-sm leading-relaxed">
-            {mode === "ios" && (
-              <>
-                Add this site to your Home Screen for quick access and an app-like experience.
-              </>
-            )}
-            {mode === "android-chrome" && (
-              <>Install JobSeeker on your device. It opens full screen and works offline where supported.</>
-            )}
-            {mode === "generic" && (
-              <>
-                Add JobSeeker to your home screen from your browser menu for faster access and a cleaner
-                full-screen experience.
-              </>
-            )}
-          </SheetDescription>
-        </SheetHeader>
+          <Button type="button" variant="ghost" size="icon" className="shrink-0" onClick={handleDismiss}>
+            <X className="h-4 w-4" />
+            <span className="sr-only">Close</span>
+          </Button>
+        </div>
+
+        <p className="text-left text-sm leading-relaxed text-muted-foreground">
+          {mode === "ios" && (
+            <>Add this site to your Home Screen for quick access and an app-like experience.</>
+          )}
+          {mode === "android-chrome" && (
+            <>Install JobSeeker on your device. It opens full screen and works offline where supported.</>
+          )}
+          {mode === "generic" && (
+            <>
+              Add JobSeeker to your home screen from your browser menu for faster access and a cleaner
+              full-screen experience.
+            </>
+          )}
+        </p>
 
         <div className="mt-4 space-y-3 text-sm text-muted-foreground">
           {mode === "ios" && (
@@ -178,10 +200,10 @@ export function MobilePwaInstallPrompt() {
                   Share
                   <Share2 className="inline h-3.5 w-3.5" aria-hidden />
                 </span>{" "}
-                button in Safari (center or bottom of the toolbar).
+                button (Safari toolbar or Chrome menu).
               </li>
               <li className="pl-1">
-                Scroll and tap{" "}
+                Choose{" "}
                 <span className="font-medium text-foreground">Add to Home Screen</span>, then{" "}
                 <span className="font-medium text-foreground">Add</span>.
               </li>
@@ -199,18 +221,18 @@ export function MobilePwaInstallPrompt() {
           )}
         </div>
 
-        <SheetFooter className="mt-6 flex-col gap-2 sm:flex-col">
+        <div className="mt-6 flex flex-col gap-2">
           {mode === "android-chrome" && canPromptInstall && (
             <Button type="button" className="w-full gap-2 font-semibold" onClick={handleInstallTap}>
               <Download className="h-4 w-4" aria-hidden />
               Install app
             </Button>
           )}
-          <Button type="button" variant="outline" className="w-full" onClick={() => setOpen(false)}>
+          <Button type="button" variant="outline" className="w-full" onClick={handleDismiss}>
             Not now
           </Button>
-        </SheetFooter>
-      </SheetContent>
-    </Sheet>
+        </div>
+      </div>
+    </div>
   );
 }

@@ -31,34 +31,57 @@ export function FlashSalePopup() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const isAllowedRoute = location.pathname === '/' || location.pathname === '/dashboard';
+  const isAllowedRoute =
+    location.pathname === "/" ||
+    location.pathname === "/pricing" ||
+    location.pathname === "/dashboard" ||
+    location.pathname === "/subscription" ||
+    location.pathname === "/dashboard/subscription";
 
   useEffect(() => {
+    if (isElite) {
+      setIsVisible(false);
+      return;
+    }
     const isDismissed = sessionStorage.getItem("flashSaleDismissed");
-    if (isDismissed || isElite) return;
+    if (isDismissed) return;
     fetchConfig();
-  }, [isElite]);
+  }, [isElite, profile?.subscription_tier]);
 
   const fetchConfig = async () => {
     try {
       const { data, error } = await supabase
         .from("flash_sale_config")
         .select("*")
-        .single();
-        
-      if (error) {
-        if (error.code !== 'PGRST116') console.error("Error fetching flash sale config:", error);
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (error && error.code !== "PGRST116") {
+        console.error("Error fetching flash sale config:", error);
         return;
       }
 
       if (data && data.is_active) {
-        if (isElite) return;
-        if (profile?.subscription_tier && profile.subscription_tier !== "FREE" && profile.subscription_tier !== "free") return;
+        if (isElite) {
+          setIsVisible(false);
+          return;
+        }
+        if (
+          profile?.subscription_tier &&
+          profile.subscription_tier !== "FREE" &&
+          profile.subscription_tier !== "free"
+        ) {
+          setIsVisible(false);
+          return;
+        }
 
         const endsAt = new Date(data.end_time);
         if (endsAt > new Date()) {
           setConfig(data);
           setIsVisible(true);
+        } else {
+          setIsVisible(false);
         }
       }
     } catch (err) {

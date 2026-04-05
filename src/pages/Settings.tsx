@@ -977,7 +977,13 @@ const Settings = () => {
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
+              className="min-w-0"
             >
+              {!isElite && (
+                <div className="mb-6">
+                  <EliteMembershipOfferCard variant="compact" className="w-full" />
+                </div>
+              )}
               {loadingPlans ? (
                 <div className="flex justify-center py-12">
                   <Loader2 className="h-8 w-8 animate-spin text-accent" />
@@ -1011,10 +1017,6 @@ const Settings = () => {
                       View Plan Details
                     </Button>
                   </div>
-
-                  {!isElite ? (
-                    <EliteMembershipOfferCard variant="compact" className="w-full" />
-                  ) : null}
 
                   <div className="bg-background rounded-lg p-4">
                     <PricingContainer

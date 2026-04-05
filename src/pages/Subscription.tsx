@@ -374,56 +374,66 @@ const Subscription = () => {
           </motion.div>
         </div>
 
-        {/* Pricing Content */}
+        {/* Pricing Content — Elite offer is not blocked by slow subscription_plans fetch (common on mobile) */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.2 }}
+          className="min-w-0"
         >
+          {!isElite && (
+            <div className="mb-8 sm:mb-10">
+              <EliteMembershipOfferCard variant="hero" className="mx-auto max-w-5xl" />
+            </div>
+          )}
+
           {loadingPlans ? (
             <div className="flex justify-center py-12">
               <Loader2 className="h-8 w-8 animate-spin text-accent" />
             </div>
           ) : isElite ? (
-            /* Elite Member View */
-            <div className="max-w-3xl mx-auto">
-              <div className="relative overflow-hidden rounded-3xl border border-[#C5A059]/30 shadow-[0_0_50px_rgba(197,160,89,0.15)] bg-gradient-to-br from-[#111] to-[#1a1a1a] p-8 sm:p-12">
-                <div className="absolute top-0 right-0 p-8 opacity-10 pointer-events-none">
+            <div className="mx-auto max-w-3xl">
+              <div className="relative overflow-hidden rounded-3xl border border-[#C5A059]/30 bg-gradient-to-br from-[#111] to-[#1a1a1a] p-8 shadow-[0_0_50px_rgba(197,160,89,0.15)] sm:p-12">
+                <div className="pointer-events-none absolute right-0 top-0 p-8 opacity-10">
                   <Crown size={120} className="text-[#C5A059]" />
                 </div>
-                
+
                 <div className="relative z-10 text-center sm:text-left">
-                  <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#C5A059]/10 border border-[#C5A059]/30 text-[#C5A059] text-xs font-bold tracking-widest uppercase mb-8">
+                  <div className="mb-8 inline-flex items-center gap-2 rounded-full border border-[#C5A059]/30 bg-[#C5A059]/10 px-4 py-1.5 text-xs font-bold uppercase tracking-widest text-[#C5A059]">
                     <ShieldCheck size={14} /> Active Elite Membership
                   </div>
-                  
-                  <h2 className="text-4xl sm:text-5xl font-black text-white mb-6">
-                    Elite <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#C5A059] via-[#F2D091] to-[#C5A059]">Status Confirmed</span>
+
+                  <h2 className="mb-6 text-4xl font-black text-white sm:text-5xl">
+                    Elite{" "}
+                    <span className="bg-gradient-to-r from-[#C5A059] via-[#F2D091] to-[#C5A059] bg-clip-text text-transparent">
+                      Status Confirmed
+                    </span>
                   </h2>
-                  
-                  <p className="text-gray-300 text-lg mb-10 max-w-xl">
-                    Welcome to the highest tier of JobSeeker. You have secured full PRO MAX access for 5 years. Your legacy account is active and protected.
+
+                  <p className="mb-10 max-w-xl text-lg text-gray-300">
+                    Welcome to the highest tier of JobSeeker. You have secured full PRO MAX access for 5 years.
+                    Your legacy account is active and protected.
                   </p>
-                  
-                  <div className="grid sm:grid-cols-2 gap-4 mb-10">
-                    <div className="p-4 rounded-2xl bg-white/5 border border-white/10">
-                      <p className="text-gray-500 text-xs uppercase font-bold tracking-widest mb-1">Plan Duration</p>
-                      <p className="text-white font-bold text-xl">5 Year Membership</p>
+
+                  <div className="mb-10 grid gap-4 sm:grid-cols-2">
+                    <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                      <p className="mb-1 text-xs font-bold uppercase tracking-widest text-gray-500">Plan Duration</p>
+                      <p className="text-xl font-bold text-white">5 Year Membership</p>
                     </div>
-                    <div className="p-4 rounded-2xl bg-white/5 border border-white/10">
-                      <p className="text-gray-500 text-xs uppercase font-bold tracking-widest mb-1">Current Tier</p>
-                      <p className="text-[#C5A059] font-bold text-xl uppercase tracking-wider">Elite Pro Max</p>
+                    <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                      <p className="mb-1 text-xs font-bold uppercase tracking-widest text-gray-500">Current Tier</p>
+                      <p className="text-xl font-bold uppercase tracking-wider text-[#C5A059]">Elite Pro Max</p>
                     </div>
                   </div>
 
-                  <div className="flex flex-col sm:flex-row items-center gap-4">
-                    <Button 
+                  <div className="flex flex-col items-center gap-4 sm:flex-row">
+                    <Button
                       onClick={() => navigate("/dashboard")}
-                      className="w-full sm:w-auto h-14 px-8 rounded-2xl font-black text-lg bg-gradient-to-r from-[#C5A059] to-[#8E6E37] text-black hover:brightness-110 active:scale-95 transition-all"
+                      className="h-14 w-full rounded-2xl bg-gradient-to-r from-[#C5A059] to-[#8E6E37] px-8 text-lg font-black text-black transition-all hover:brightness-110 active:scale-95 sm:w-auto"
                     >
                       Return to Dashboard
                     </Button>
-                    <div className="flex items-center gap-2 text-gray-500 text-sm font-medium">
+                    <div className="flex items-center gap-2 text-sm font-medium text-gray-500">
                       <LucideCheck size={16} className="text-green-500" /> Secure Elite Access Verified
                     </div>
                   </div>
@@ -431,30 +441,24 @@ const Subscription = () => {
               </div>
             </div>
           ) : (
-            <div className="space-y-8 sm:space-y-10">
-              <div>
-                <EliteMembershipOfferCard variant="hero" className="mx-auto max-w-5xl" />
+            <div className="space-y-3">
+              <div className="text-center">
+                <p className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                  Standard subscription
+                </p>
+                <p className="text-xs text-muted-foreground/90">
+                  Monthly or yearly — same plans everywhere in the app
+                </p>
               </div>
-
-              <div className="space-y-3">
-                <div className="text-center">
-                  <p className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                    Standard subscription
-                  </p>
-                  <p className="text-xs text-muted-foreground/90">
-                    Monthly or yearly — same plans everywhere in the app
-                  </p>
-                </div>
-                <div className="bg-background rounded-lg p-4 sm:p-6">
-                  <PricingContainer
-                    title="Subscription Plans"
-                    plans={convertToPricingPlans()}
-                    className="bg-transparent min-h-0"
-                    showYearlyToggle={true}
-                    isYearly={isYearly}
-                    onYearlyChange={setIsYearly}
-                  />
-                </div>
+              <div className="rounded-lg bg-background p-4 sm:p-6">
+                <PricingContainer
+                  title="Subscription Plans"
+                  plans={convertToPricingPlans()}
+                  className="min-h-0 bg-transparent"
+                  showYearlyToggle={true}
+                  isYearly={isYearly}
+                  onYearlyChange={setIsYearly}
+                />
               </div>
             </div>
           )}
