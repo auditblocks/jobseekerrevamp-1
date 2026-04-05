@@ -20,6 +20,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Loader2, RefreshCw, Save, AlertTriangle, CheckCircle2, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { AdminPrivateJobsListings } from "@/components/admin/AdminPrivateJobsListings";
 
 const NAUKRI_SECRET_KEYS = {
   token: "apify_api_token",
@@ -440,10 +441,34 @@ const AdminNaukriJobs = () => {
         </Card>
 
         <Tabs defaultValue="naukri" className="space-y-6">
-          <TabsList className="grid w-full max-w-md grid-cols-2">
-            <TabsTrigger value="naukri">Naukri</TabsTrigger>
-            <TabsTrigger value="linkedin">LinkedIn</TabsTrigger>
+          <TabsList className="grid w-full max-w-2xl grid-cols-3 h-auto gap-1 p-1">
+            <TabsTrigger value="listings" className="text-xs sm:text-sm">
+              Job listings
+            </TabsTrigger>
+            <TabsTrigger value="naukri" className="text-xs sm:text-sm">
+              Naukri
+            </TabsTrigger>
+            <TabsTrigger value="linkedin" className="text-xs sm:text-sm">
+              LinkedIn
+            </TabsTrigger>
           </TabsList>
+
+          <TabsContent value="listings" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Browse &amp; manage jobs</CardTitle>
+                <CardDescription>
+                  All rows in <code className="text-xs bg-muted px-1 rounded">naukri_jobs</code> (Naukri and
+                  LinkedIn). Toggle <strong>Public</strong> to show or hide a job on{" "}
+                  <strong>Apply latest jobs</strong>. Open the link icon to verify the employer URL before
+                  deleting.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <AdminPrivateJobsListings />
+              </CardContent>
+            </Card>
+          </TabsContent>
 
           <TabsContent value="naukri" className="space-y-8">
             <Card>

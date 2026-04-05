@@ -195,6 +195,12 @@ const EXPERIENCE_LABELS: Record<Exclude<ExperienceFilter, "all">, string> = {
 const PAGE_SIZE_OPTIONS = [12, 24, 48] as const;
 const DEFAULT_PAGE_SIZE = 12;
 
+/** PostgREST returns at most this many rows per request (project default is often 1000). */
+const NAUKRI_JOBS_FETCH_BATCH = 1000;
+
+const NAUKRI_JOBS_SELECT =
+  "id, title, company_name, location, apply_url, posted_at, summary, salary_text, experience_text, scraped_at, raw_item, skills, source";
+
 const APPLY_LATEST_JOBS_PATH = "/apply-latest-jobs";
 
 const ApplyLatestJobs = () => {
@@ -204,6 +210,7 @@ const ApplyLatestJobs = () => {
   const signInApplyHref = `/auth?redirect=${encodeURIComponent(APPLY_LATEST_JOBS_PATH)}`;
   const [jobs, setJobs] = useState<NaukriJobRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [fetchProgressCount, setFetchProgressCount] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<SortKey>("scraped_desc");
   const [experienceFilter, setExperienceFilter] = useState<ExperienceFilter>("all");
@@ -219,28 +226,39 @@ const ApplyLatestJobs = () => {
   useEffect(() => {
     const run = async () => {
       setLoading(true);
+      setFetchProgressCount(null);
       try {
-        const { data, error } = await supabase
-          .from("naukri_jobs" as never)
-          .select(
-            "id, title, company_name, location, apply_url, posted_at, summary, salary_text, experience_text, scraped_at, raw_item, skills, source",
-          )
-          .eq("is_active", true)
-          .order("scraped_at", { ascending: false })
-          .limit(500);
+        const allRows: NaukriJobRow[] = [];
+        let offset = 0;
 
-        if (error) throw error;
-        const rows = (data as unknown as NaukriJobRow[]) || [];
-        setJobs(
-          rows.map((j) => ({
-            ...j,
-            source: j.source ?? "naukri",
-          })),
-        );
+        for (;;) {
+          const { data, error } = await supabase
+            .from("naukri_jobs" as never)
+            .select(NAUKRI_JOBS_SELECT)
+            .eq("is_active", true)
+            .order("scraped_at", { ascending: false })
+            .range(offset, offset + NAUKRI_JOBS_FETCH_BATCH - 1);
+
+          if (error) throw error;
+          const batch = (data as unknown as NaukriJobRow[]) || [];
+          if (batch.length === 0) break;
+
+          allRows.push(
+            ...batch.map((j) => ({
+              ...j,
+              source: j.source ?? "naukri",
+            })),
+          );
+          setFetchProgressCount(allRows.length);
+          offset += batch.length;
+        }
+
+        setJobs(allRows);
       } catch (e) {
         console.error(e);
         toast.error("Could not load jobs");
       } finally {
+        setFetchProgressCount(null);
         setLoading(false);
       }
     };
@@ -663,7 +681,17 @@ const ApplyLatestJobs = () => {
           {loading ? (
             <div className="flex flex-col items-center justify-center gap-3 py-24">
               <Loader2 className="h-10 w-10 animate-spin text-teal-600" />
-              <p className="text-sm text-muted-foreground">Loading opportunities…</p>
+              <p className="text-sm text-muted-foreground text-center px-4">
+                Loading opportunities…
+                {fetchProgressCount != null && fetchProgressCount > 0 ? (
+                  <>
+                    <br />
+                    <span className="text-xs">
+                      {fetchProgressCount.toLocaleString()} job{fetchProgressCount === 1 ? "" : "s"} loaded so far
+                    </span>
+                  </>
+                ) : null}
+              </p>
             </div>
           ) : totalFiltered === 0 ? (
             <Card className="overflow-hidden border-dashed border-2 border-border/60 bg-muted/20">
