@@ -11,6 +11,7 @@ import { Loader2 } from "lucide-react";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { LoadingScreen } from "@/components/ui/loading-screen";
 import { FlashSalePopup } from "@/components/FlashSalePopup";
+import { MobilePwaInstallPrompt } from "@/components/MobilePwaInstallPrompt";
 
 // Lazy load all page components for code splitting
 const Index = lazy(() => import("./pages/Index"));
@@ -87,6 +88,7 @@ const App = () => (
           <BrowserRouter>
             <ActivityTracker />
             <FlashSalePopup />
+            <MobilePwaInstallPrompt />
             <ErrorBoundary>
               <Suspense fallback={<LoadingScreen />}>
                 <Routes>
