@@ -1,10 +1,13 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { Resend } from "https://esm.sh/resend@2.0.0";
+import nodemailer from "npm:nodemailer@6.9.15";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
+type ReceiptKind = "subscription" | "ats";
 
 interface ReceiptRequest {
   user_id: string;
@@ -18,6 +21,8 @@ interface ReceiptRequest {
   purchase_date: string; // ISO string
   expiry_date: string; // ISO string
   duration_days: number;
+  /** Default subscription — use "ats" for one-time ATS scan receipts */
+  receipt_kind?: ReceiptKind;
 }
 
 function formatCurrency(amount: number): string {
@@ -52,11 +57,121 @@ function generateInvoiceNumber(): string {
   return `INV-${Date.now()}`;
 }
 
-function generateReceiptHTML(data: ReceiptRequest, invoiceNumber: string, dashboardUrl: string): string {
+function htmlToPlainText(html: string): string {
+  return html
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function resolveSiteUrl(): string {
+  const raw = Deno.env.get("SITE_URL")?.trim();
+  if (raw) return raw.replace(/\/$/, "");
+  return "https://startworking.in";
+}
+
+function resolveDashboardUrl(): string {
+  return `${resolveSiteUrl()}/dashboard`;
+}
+
+function smtpConfigured(): boolean {
+  return Boolean(
+    Deno.env.get("SMTP_HOST")?.trim() &&
+      Deno.env.get("SMTP_USER")?.trim() &&
+      Deno.env.get("SMTP_PASS")?.trim(),
+  );
+}
+
+async function sendEmailSmtp(opts: {
+  to: string;
+  subject: string;
+  html: string;
+  text: string;
+}): Promise<void> {
+  const host = Deno.env.get("SMTP_HOST")!.trim();
+  const user = Deno.env.get("SMTP_USER")!.trim();
+  const pass = Deno.env.get("SMTP_PASS")!.trim();
+  const port = Number(Deno.env.get("SMTP_PORT")?.trim() || "465");
+  const fromRaw =
+    Deno.env.get("SMTP_FROM")?.trim() || `"StartWorking" <support@startworking.in>`;
+
+  const transporter = nodemailer.createTransport({
+    host,
+    port,
+    secure: port === 465,
+    auth: { user, pass },
+    ...(port === 587 ? { requireTLS: true } : {}),
+  });
+
+  await transporter.sendMail({
+    from: fromRaw,
+    to: opts.to,
+    subject: opts.subject,
+    text: opts.text,
+    html: opts.html,
+    replyTo: "support@startworking.in",
+  });
+}
+
+async function sendEmailResend(opts: {
+  to: string;
+  subject: string;
+  html: string;
+  apiKey: string;
+}): Promise<void> {
+  const resend = new Resend(opts.apiKey);
+  await resend.emails.send({
+    from: "StartWorking <support@startworking.in>",
+    to: [opts.to],
+    subject: opts.subject,
+    html: opts.html,
+    reply_to: "support@startworking.in",
+  });
+}
+
+function generateReceiptHTML(
+  data: ReceiptRequest,
+  invoiceNumber: string,
+  dashboardUrl: string,
+): string {
   const formattedAmount = formatCurrency(data.amount);
   const purchaseDate = formatDateTime(data.purchase_date);
   const expiryDate = formatDate(data.expiry_date);
   const planDisplayName = data.plan_display_name || data.plan_name;
+  const kind: ReceiptKind = data.receipt_kind ?? "subscription";
+  const isAts = kind === "ats";
+
+  const subscriptionBlock = isAts
+    ? `
+          <tr>
+            <td style="padding: 0 30px 30px 30px; background-color: #ffffff;">
+              <h2 style="margin: 0 0 15px 0; color: #333333; font-size: 20px; font-weight: 600;">Service details</h2>
+              <p style="margin: 0; color: #555555; font-size: 14px; line-height: 1.6;">
+                One-time <strong>ATS resume scan</strong>. Open the Resume Optimizer in your account to view your report.
+              </p>
+            </td>
+          </tr>`
+    : `
+          <tr>
+            <td style="padding: 0 30px 30px 30px; background-color: #ffffff;">
+              <h2 style="margin: 0 0 15px 0; color: #333333; font-size: 20px; font-weight: 600;">Subscription Details</h2>
+              <table role="presentation" style="width: 100%; border-collapse: collapse;">
+                <tr>
+                  <td style="padding: 10px 0; border-bottom: 1px solid #e0e0e0;">
+                    <p style="margin: 0; color: #666666; font-size: 14px; font-weight: 500;">Purchase Date</p>
+                    <p style="margin: 5px 0 0 0; color: #333333; font-size: 14px;">${purchaseDate}</p>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding: 10px 0;">
+                    <p style="margin: 0; color: #666666; font-size: 14px; font-weight: 500;">Expiry Date</p>
+                    <p style="margin: 5px 0 0 0; color: #333333; font-size: 14px;">${expiryDate}</p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>`;
 
   return `
 <!DOCTYPE html>
@@ -72,7 +187,6 @@ function generateReceiptHTML(data: ReceiptRequest, invoiceNumber: string, dashbo
       <td align="center" style="padding: 20px 0;">
         <table role="presentation" style="max-width: 600px; width: 100%; border-collapse: collapse; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
           
-          <!-- Header with Gradient -->
           <tr>
             <td style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px 30px; text-align: center;">
               <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 600;">Payment Successful</h1>
@@ -80,7 +194,6 @@ function generateReceiptHTML(data: ReceiptRequest, invoiceNumber: string, dashbo
             </td>
           </tr>
 
-          <!-- Invoice Number and Date -->
           <tr>
             <td style="padding: 30px 30px 20px 30px; background-color: #ffffff;">
               <table role="presentation" style="width: 100%; border-collapse: collapse;">
@@ -98,27 +211,30 @@ function generateReceiptHTML(data: ReceiptRequest, invoiceNumber: string, dashbo
             </td>
           </tr>
 
-          <!-- Order Summary Table -->
           <tr>
             <td style="padding: 0 30px 30px 30px; background-color: #ffffff;">
               <h2 style="margin: 0 0 20px 0; color: #333333; font-size: 20px; font-weight: 600;">Order Summary</h2>
               <table role="presentation" style="width: 100%; border-collapse: collapse; border: 1px solid #e0e0e0; border-radius: 6px; overflow: hidden;">
                 <tr style="background-color: #f8f9fa;">
                   <td style="padding: 15px; border-bottom: 1px solid #e0e0e0;">
-                    <p style="margin: 0; color: #666666; font-size: 14px; font-weight: 500;">Plan</p>
+                    <p style="margin: 0; color: #666666; font-size: 14px; font-weight: 500;">${isAts ? "Product" : "Plan"}</p>
                   </td>
                   <td style="padding: 15px; border-bottom: 1px solid #e0e0e0; text-align: right;">
                     <p style="margin: 0; color: #333333; font-size: 14px; font-weight: 600;">${planDisplayName}</p>
                   </td>
                 </tr>
-                <tr>
+                ${
+    isAts
+      ? ""
+      : `<tr>
                   <td style="padding: 15px; border-bottom: 1px solid #e0e0e0;">
                     <p style="margin: 0; color: #666666; font-size: 14px; font-weight: 500;">Duration</p>
                   </td>
                   <td style="padding: 15px; border-bottom: 1px solid #e0e0e0; text-align: right;">
                     <p style="margin: 0; color: #333333; font-size: 14px;">${data.duration_days} days</p>
                   </td>
-                </tr>
+                </tr>`
+  }
                 <tr style="background-color: #f8f9fa;">
                   <td style="padding: 15px;">
                     <p style="margin: 0; color: #333333; font-size: 16px; font-weight: 600;">Total Amount</p>
@@ -131,7 +247,6 @@ function generateReceiptHTML(data: ReceiptRequest, invoiceNumber: string, dashbo
             </td>
           </tr>
 
-          <!-- Customer Information -->
           <tr>
             <td style="padding: 0 30px 30px 30px; background-color: #ffffff;">
               <h2 style="margin: 0 0 15px 0; color: #333333; font-size: 20px; font-weight: 600;">Customer Information</h2>
@@ -152,7 +267,6 @@ function generateReceiptHTML(data: ReceiptRequest, invoiceNumber: string, dashbo
             </td>
           </tr>
 
-          <!-- Payment Details -->
           <tr>
             <td style="padding: 0 30px 30px 30px; background-color: #ffffff;">
               <h2 style="margin: 0 0 15px 0; color: #333333; font-size: 20px; font-weight: 600;">Payment Details</h2>
@@ -173,38 +287,17 @@ function generateReceiptHTML(data: ReceiptRequest, invoiceNumber: string, dashbo
             </td>
           </tr>
 
-          <!-- Subscription Dates -->
-          <tr>
-            <td style="padding: 0 30px 30px 30px; background-color: #ffffff;">
-              <h2 style="margin: 0 0 15px 0; color: #333333; font-size: 20px; font-weight: 600;">Subscription Details</h2>
-              <table role="presentation" style="width: 100%; border-collapse: collapse;">
-                <tr>
-                  <td style="padding: 10px 0; border-bottom: 1px solid #e0e0e0;">
-                    <p style="margin: 0; color: #666666; font-size: 14px; font-weight: 500;">Purchase Date</p>
-                    <p style="margin: 5px 0 0 0; color: #333333; font-size: 14px;">${purchaseDate}</p>
-                  </td>
-                </tr>
-                <tr>
-                  <td style="padding: 10px 0;">
-                    <p style="margin: 0; color: #666666; font-size: 14px; font-weight: 500;">Expiry Date</p>
-                    <p style="margin: 5px 0 0 0; color: #333333; font-size: 14px;">${expiryDate}</p>
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>
+          ${subscriptionBlock}
 
-          <!-- CTA Button -->
           <tr>
             <td style="padding: 0 30px 40px 30px; background-color: #ffffff; text-align: center;">
               <a href="${dashboardUrl}" style="display: inline-block; padding: 14px 32px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #ffffff; text-decoration: none; border-radius: 6px; font-size: 16px; font-weight: 600; box-shadow: 0 4px 6px rgba(102, 126, 234, 0.3);">Go to Dashboard</a>
             </td>
           </tr>
 
-          <!-- Footer -->
           <tr>
             <td style="padding: 30px; background-color: #f8f9fa; border-top: 1px solid #e0e0e0; text-align: center;">
-              <p style="margin: 0 0 10px 0; color: #666666; font-size: 12px;">© ${new Date().getFullYear()} JobSeeker. All rights reserved.</p>
+              <p style="margin: 0 0 10px 0; color: #666666; font-size: 12px;">© ${new Date().getFullYear()} StartWorking (startworking.in). All rights reserved.</p>
               <p style="margin: 0; color: #666666; font-size: 12px;">
                 Need help? Contact us at <a href="mailto:support@startworking.in" style="color: #667eea; text-decoration: none;">support@startworking.in</a>
               </p>
@@ -226,64 +319,66 @@ serve(async (req) => {
   }
 
   try {
-    const resendApiKey = Deno.env.get("RESEND_API_KEY");
-    if (!resendApiKey) {
-      throw new Error("RESEND_API_KEY not configured");
-    }
+    const receiptData = await req.json() as ReceiptRequest;
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL");
-    if (!supabaseUrl) {
-      throw new Error("SUPABASE_URL not configured");
-    }
-
-    const receiptData: ReceiptRequest = await req.json();
-
-    // Validate required fields
     if (!receiptData.user_email || !receiptData.order_id || !receiptData.payment_id) {
       throw new Error("Missing required receipt data");
     }
 
-    const resend = new Resend(resendApiKey);
     const invoiceNumber = generateInvoiceNumber();
-    const dashboardUrl = supabaseUrl.replace('/functions/v1', '').replace('/rest/v1', '') + '/dashboard';
-
+    const dashboardUrl = resolveDashboardUrl();
     const emailHTML = generateReceiptHTML(receiptData, invoiceNumber, dashboardUrl);
+    const subject =
+      `Payment Receipt - ${invoiceNumber} - ${receiptData.plan_display_name || receiptData.plan_name}`;
+    const plainText = htmlToPlainText(emailHTML);
 
-    const fromAddress = "JobSeeker <hello@startworking.in>";
-    const replyToEmail = "support@startworking.in";
-
-    const emailResponse = await resend.emails.send({
-      from: fromAddress,
-      to: [receiptData.user_email],
-      subject: `Payment Receipt - ${invoiceNumber} - ${receiptData.plan_display_name || receiptData.plan_name}`,
-      html: emailHTML,
-      reply_to: replyToEmail,
-    });
-
-    console.log("Receipt email sent successfully:", emailResponse);
+    if (smtpConfigured()) {
+      await sendEmailSmtp({
+        to: receiptData.user_email,
+        subject,
+        html: emailHTML,
+        text: plainText,
+      });
+      console.log("Receipt email sent via SMTP:", { invoiceNumber, to: receiptData.user_email });
+    } else {
+      const resendApiKey = Deno.env.get("RESEND_API_KEY");
+      if (!resendApiKey) {
+        throw new Error(
+          "Configure SMTP (SMTP_HOST, SMTP_USER, SMTP_PASS) or RESEND_API_KEY for receipts",
+        );
+      }
+      await sendEmailResend({
+        to: receiptData.user_email,
+        subject,
+        html: emailHTML,
+        apiKey: resendApiKey,
+      });
+      console.log("Receipt email sent via Resend (fallback):", { invoiceNumber, to: receiptData.user_email });
+    }
 
     return new Response(
       JSON.stringify({
         success: true,
         message: "Receipt email sent successfully",
         invoice_number: invoiceNumber,
+        transport: smtpConfigured() ? "smtp" : "resend",
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
+      },
     );
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const err = error as { message?: string; stack?: string };
     console.error("Error sending receipt email:", error);
     return new Response(
-      JSON.stringify({ 
-        error: error.message || "Failed to send receipt email",
-        details: error.stack 
+      JSON.stringify({
+        error: err.message || "Failed to send receipt email",
+        details: err.stack,
       }),
       {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
+      },
     );
   }
 });
-

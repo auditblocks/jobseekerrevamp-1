@@ -40,7 +40,7 @@ import {
   X,
   FileText,
 } from "lucide-react";
-import { format, isToday, parseISO } from "date-fns";
+import { format } from "date-fns";
 import { useChatListingContext } from "@/contexts/ChatListingContext";
 import { toast } from "sonner";
 
@@ -55,7 +55,8 @@ interface NaukriJobRow {
   salary_text: string | null;
   experience_text: string | null;
   scraped_at: string | null;
-  raw_item: Record<string, unknown> | null;
+  /** Omitted on list rows; loaded when opening the detail dialog. */
+  raw_item?: Record<string, unknown> | null;
   skills: unknown;
   source: string;
 }
@@ -147,43 +148,10 @@ function sourceBadgeVariant(source: "naukri" | "linkedin"): { label: string; cla
   };
 }
 
-function getExperienceMinYears(text: string | null): number | null {
-  if (!text?.trim()) return null;
-  const t = text.trim();
-  const range = t.match(/(\d+)\s*[-–]\s*(\d+)/);
-  if (range) return parseInt(range[1], 10);
-  const plus = t.match(/(\d+)\s*\+/);
-  if (plus) return parseInt(plus[1], 10);
-  const single = t.match(/(\d+)\s*(?:yr|yrs|year|years)\b/i);
-  if (single) return parseInt(single[1], 10);
-  return null;
-}
-
-type ExperienceBucket = "entry" | "mid" | "senior" | "lead" | "unknown";
-
-function classifyExperience(text: string | null): ExperienceBucket {
-  if (text && /fresher|intern|graduate|entry|trainee|student/i.test(text)) return "entry";
-  const min = getExperienceMinYears(text);
-  if (min === null) return "unknown";
-  if (min < 2) return "entry";
-  if (min < 5) return "mid";
-  if (min < 10) return "senior";
-  return "lead";
-}
-
 function isRemoteOrHybrid(job: NaukriJobRow): boolean {
   const desc = getFullJobDescription(job) ?? "";
   const blob = `${job.title} ${job.location ?? ""} ${desc}`.toLowerCase();
   return /\b(remote|wfh|work from home|hybrid|work-from-home)\b/.test(blob);
-}
-
-function withinRecency(dateIso: string | null, filter: RecencyFilter): boolean {
-  if (filter === "all" || !dateIso) return true;
-  const t = new Date(dateIso).getTime();
-  if (Number.isNaN(t)) return true;
-  const now = Date.now();
-  const days = filter === "week" ? 7 : 30;
-  return now - t <= days * 24 * 60 * 60 * 1000;
 }
 
 const EXPERIENCE_LABELS: Record<Exclude<ExperienceFilter, "all">, string> = {
@@ -196,13 +164,30 @@ const EXPERIENCE_LABELS: Record<Exclude<ExperienceFilter, "all">, string> = {
 const PAGE_SIZE_OPTIONS = [12, 24, 48] as const;
 const DEFAULT_PAGE_SIZE = 12;
 
-/** PostgREST returns at most this many rows per request (project default is often 1000). */
-const NAUKRI_JOBS_FETCH_BATCH = 1000;
-
-const NAUKRI_JOBS_SELECT =
-  "id, title, company_name, location, apply_url, posted_at, summary, salary_text, experience_text, scraped_at, raw_item, skills, source";
-
 const APPLY_LATEST_JOBS_PATH = "/apply-latest-jobs";
+
+type ApplyLatestJobsPagePayload = {
+  total: number;
+  items: NaukriJobRow[];
+  posted_today_count: number;
+  posted_today_sample: { title: string; company_name: string | null; apply_url: string }[];
+};
+
+function parseApplyPagePayload(raw: unknown): ApplyLatestJobsPagePayload | null {
+  if (!raw || typeof raw !== "object") return null;
+  const o = raw as Record<string, unknown>;
+  const total = Number(o.total);
+  if (!Number.isFinite(total)) return null;
+  const items = Array.isArray(o.items) ? (o.items as NaukriJobRow[]) : [];
+  const postedTodayCount = Number(o.posted_today_count);
+  const sample = Array.isArray(o.posted_today_sample) ? o.posted_today_sample : [];
+  return {
+    total,
+    items,
+    posted_today_count: Number.isFinite(postedTodayCount) ? postedTodayCount : 0,
+    posted_today_sample: sample as ApplyLatestJobsPagePayload["posted_today_sample"],
+  };
+}
 
 const ApplyLatestJobs = () => {
   const navigate = useNavigate();
@@ -210,10 +195,17 @@ const ApplyLatestJobs = () => {
   const { user, loading: authLoading } = useAuth();
   const signUpApplyHref = `/auth?mode=signup&redirect=${encodeURIComponent(APPLY_LATEST_JOBS_PATH)}`;
   const signInApplyHref = `/auth?redirect=${encodeURIComponent(APPLY_LATEST_JOBS_PATH)}`;
-  const [jobs, setJobs] = useState<NaukriJobRow[]>([]);
+  const [pageJobs, setPageJobs] = useState<NaukriJobRow[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
+  const [postedTodayCount, setPostedTodayCount] = useState(0);
+  const [postedTodaySample, setPostedTodaySample] = useState<
+    ApplyLatestJobsPagePayload["posted_today_sample"]
+  >([]);
+  const [locationOptions, setLocationOptions] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
-  const [fetchProgressCount, setFetchProgressCount] = useState<number | null>(null);
+  const [locationsLoading, setLocationsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const [searchForFetch, setSearchForFetch] = useState("");
   const [sortBy, setSortBy] = useState<SortKey>("scraped_desc");
   const [experienceFilter, setExperienceFilter] = useState<ExperienceFilter>("all");
   const [salaryFilter, setSalaryFilter] = useState<SalaryFilter>("all");
@@ -224,144 +216,132 @@ const ApplyLatestJobs = () => {
   const [detailJob, setDetailJob] = useState<NaukriJobRow | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState<number>(DEFAULT_PAGE_SIZE);
+  const [detailRawLoading, setDetailRawLoading] = useState(false);
+  const filtersDigest = useMemo(
+    () =>
+      [
+        searchForFetch,
+        sortBy,
+        experienceFilter,
+        salaryFilter,
+        recencyFilter,
+        locationFilter,
+        remoteOnly,
+        sourceFilter,
+      ].join("\u001f"),
+    [
+      searchForFetch,
+      sortBy,
+      experienceFilter,
+      salaryFilter,
+      recencyFilter,
+      locationFilter,
+      remoteOnly,
+      sourceFilter,
+    ],
+  );
+  const prevFiltersDigestRef = useRef<string | null>(null);
 
   useEffect(() => {
-    const run = async () => {
-      setLoading(true);
-      setFetchProgressCount(null);
+    const t = setTimeout(() => setSearchForFetch(searchQuery.trim()), 320);
+    return () => clearTimeout(t);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setLocationsLoading(true);
       try {
-        const allRows: NaukriJobRow[] = [];
-        let offset = 0;
-
-        for (;;) {
-          const { data, error } = await supabase
-            .from("naukri_jobs" as never)
-            .select(NAUKRI_JOBS_SELECT)
-            .eq("is_active", true)
-            .order("scraped_at", { ascending: false })
-            .range(offset, offset + NAUKRI_JOBS_FETCH_BATCH - 1);
-
-          if (error) throw error;
-          const batch = (data as unknown as NaukriJobRow[]) || [];
-          if (batch.length === 0) break;
-
-          allRows.push(
-            ...batch.map((j) => ({
-              ...j,
-              source: j.source ?? "naukri",
-            })),
-          );
-          setFetchProgressCount(allRows.length);
-          offset += batch.length;
-        }
-
-        setJobs(allRows);
+        const { data, error } = await supabase.rpc("get_naukri_jobs_location_facets");
+        if (cancelled) return;
+        if (error) throw error;
+        const list = (data ?? []) as unknown;
+        setLocationOptions(
+          Array.isArray(list)
+            ? list.filter((s): s is string => typeof s === "string" && s.trim().length > 0)
+            : [],
+        );
       } catch (e) {
         console.error(e);
-        toast.error("Could not load jobs");
+        if (!cancelled) toast.error("Could not load location filters");
       } finally {
-        setFetchProgressCount(null);
-        setLoading(false);
+        if (!cancelled) setLocationsLoading(false);
       }
+    })();
+    return () => {
+      cancelled = true;
     };
-    run();
   }, []);
 
-  const locationOptions = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const j of jobs) {
-      const loc = j.location?.trim();
-      if (!loc) continue;
-      counts.set(loc, (counts.get(loc) ?? 0) + 1);
+  useEffect(() => {
+    let cancelled = false;
+    const prev = prevFiltersDigestRef.current;
+    const digestChanged = prev !== null && prev !== filtersDigest;
+
+    if (digestChanged) {
+      prevFiltersDigestRef.current = filtersDigest;
+      if (currentPage !== 1) {
+        setCurrentPage(1);
+        return;
+      }
+    } else if (prev === null) {
+      prevFiltersDigestRef.current = filtersDigest;
     }
-    return [...counts.entries()]
-      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
-      .slice(0, 40)
-      .map(([loc]) => loc);
-  }, [jobs]);
 
-  const filteredSorted = useMemo(() => {
-    const q = searchQuery.toLowerCase().trim();
-    let list = jobs.filter((j) => {
-      if (q) {
-        const descLower = getFullJobDescription(j)?.toLowerCase() ?? "";
-        const hit =
-          j.title.toLowerCase().includes(q) ||
-          (j.company_name?.toLowerCase().includes(q) ?? false) ||
-          (j.location?.toLowerCase().includes(q) ?? false) ||
-          descLower.includes(q) ||
-          (j.salary_text?.toLowerCase().includes(q) ?? false) ||
-          (j.experience_text?.toLowerCase().includes(q) ?? false);
-        if (!hit) return false;
+    (async () => {
+      setLoading(true);
+      try {
+        const offset = Math.max(0, (currentPage - 1) * pageSize);
+        const { data, error } = await supabase.rpc("get_apply_latest_jobs_page", {
+          p_search: searchForFetch,
+          p_source: sourceFilter,
+          p_location: locationFilter,
+          p_salary: salaryFilter,
+          p_recency: recencyFilter,
+          p_experience: experienceFilter,
+          p_remote_only: remoteOnly,
+          p_sort: sortBy,
+          p_limit: pageSize,
+          p_offset: offset,
+        });
+        if (cancelled) return;
+        if (error) throw error;
+        const parsed = parseApplyPagePayload(data as unknown);
+        if (!parsed) throw new Error("Invalid list payload");
+        const normalized = parsed.items.map((j) => ({
+          ...j,
+          source: j.source ?? "naukri",
+        }));
+        setPageJobs(normalized);
+        setTotalCount(parsed.total);
+        setPostedTodayCount(parsed.posted_today_count);
+        setPostedTodaySample(parsed.posted_today_sample);
+      } catch (e) {
+        console.error(e);
+        if (!cancelled) {
+          toast.error("Could not load jobs");
+          setPageJobs([]);
+          setTotalCount(0);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
       }
+    })();
 
-      if (locationFilter !== "all" && (j.location?.trim() !== locationFilter)) return false;
+    return () => {
+      cancelled = true;
+    };
+  }, [filtersDigest, pageSize, currentPage]);
 
-      if (remoteOnly && !isRemoteOrHybrid(j)) return false;
-
-      if (salaryFilter === "listed" && !(j.salary_text?.trim())) return false;
-      if (salaryFilter === "unlisted" && !!(j.salary_text?.trim())) return false;
-
-      const exp = classifyExperience(j.experience_text);
-      if (experienceFilter !== "all" && exp !== experienceFilter) return false;
-
-      const dateRef = j.posted_at ?? j.scraped_at;
-      if (!withinRecency(dateRef, recencyFilter)) return false;
-
-      if (sourceFilter !== "all" && jobSource(j) !== sourceFilter) return false;
-
-      return true;
-    });
-
-    list = [...list].sort((a, b) => {
-      if (sortBy === "title_asc") {
-        return a.title.localeCompare(b.title, undefined, { sensitivity: "base" });
-      }
-      if (sortBy === "posted_desc") {
-        const ta = a.posted_at ? new Date(a.posted_at).getTime() : 0;
-        const tb = b.posted_at ? new Date(b.posted_at).getTime() : 0;
-        return tb - ta;
-      }
-      const sa = a.scraped_at ? new Date(a.scraped_at).getTime() : 0;
-      const sb = b.scraped_at ? new Date(b.scraped_at).getTime() : 0;
-      return sb - sa;
-    });
-
-    return list;
-  }, [
-    jobs,
-    searchQuery,
-    sortBy,
-    experienceFilter,
-    salaryFilter,
-    recencyFilter,
-    locationFilter,
-    remoteOnly,
-    sourceFilter,
-  ]);
-
-  const totalFiltered = filteredSorted.length;
+  const totalFiltered = totalCount;
   const totalPages = Math.max(1, Math.ceil(totalFiltered / pageSize));
   const safePage = Math.min(Math.max(1, currentPage), totalPages);
 
-  const paginatedJobs = useMemo(() => {
-    const start = (safePage - 1) * pageSize;
-    return filteredSorted.slice(start, start + pageSize);
-  }, [filteredSorted, safePage, pageSize]);
+  const paginatedJobs = pageJobs;
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [
-    searchQuery,
-    sortBy,
-    experienceFilter,
-    salaryFilter,
-    recencyFilter,
-    locationFilter,
-    remoteOnly,
-    sourceFilter,
-    pageSize,
-  ]);
+  }, [pageSize]);
 
   useEffect(() => {
     if (currentPage > totalPages) {
@@ -383,6 +363,7 @@ const ApplyLatestJobs = () => {
   }, [currentPage]);
 
   const filtersActive =
+    Boolean(searchForFetch) ||
     experienceFilter !== "all" ||
     salaryFilter !== "all" ||
     recencyFilter !== "all" ||
@@ -392,6 +373,8 @@ const ApplyLatestJobs = () => {
     sortBy !== "scraped_desc";
 
   const clearFilters = () => {
+    setSearchQuery("");
+    setSearchForFetch("");
     setExperienceFilter("all");
     setSalaryFilter("all");
     setRecencyFilter("all");
@@ -411,45 +394,38 @@ const ApplyLatestJobs = () => {
       setListingContext(null);
       return;
     }
-    const dateRef = (j: NaukriJobRow) => j.posted_at ?? j.scraped_at;
-    const postedToday = filteredSorted.filter((j) => {
-      const d = dateRef(j);
-      if (!d) return false;
-      try {
-        return isToday(parseISO(d));
-      } catch {
-        return false;
-      }
-    });
     const lines: string[] = [
       "LISTING DATA FOR THIS PAGE",
       `Page: /apply-latest-jobs (aggregated listings; Apply uses the employer’s site)`,
-      `Filters: search="${searchQuery}", sort=${sortBy}, experience=${experienceFilter}, salary=${salaryFilter}, recency=${recencyFilter}, location=${locationFilter}, remoteOnly=${remoteOnly}, source=${sourceFilter}`,
-      `FILTERED SET: ${totalFiltered} jobs match filters (${jobs.length} loaded). Page ${safePage} of ${totalPages}; rows ${rangeStart}–${rangeEnd}.`,
+      `Filters: search="${searchForFetch}", sort=${sortBy}, experience=${experienceFilter}, salary=${salaryFilter}, recency=${recencyFilter}, location=${locationFilter}, remoteOnly=${remoteOnly}, source=${sourceFilter}`,
+      `FILTERED SET (server-side): ${totalFiltered} job(s) match current filters. Page ${safePage} of ${totalPages}; rows ${rangeStart}–${rangeEnd} (this page only in list below).`,
       "",
       "VISIBLE SCREEN LIST (card order — #1 is the first job listed on this page):",
     ];
     paginatedJobs.forEach((job, i) => {
-      const posted = dateRef(job) || "unknown";
+      const posted =
+        (job.posted_at ?? job.scraped_at) ||
+        "unknown";
       lines.push(
         `${i + 1}. ${job.title} | ${job.company_name || "n/a"} | ${job.location || "n/a"} | posted/scraped: ${posted} | apply_url: ${job.apply_url}`,
       );
     });
     lines.push("");
-    lines.push(`POSTED TODAY (posted/scraped = local today, within FILTERED SET): ${postedToday.length} job(s)`);
-    const maxT = 40;
-    postedToday.slice(0, maxT).forEach((job) => {
-      lines.push(`- [${job.title} — ${job.company_name || "Employer"}](${job.apply_url})`);
+    lines.push(
+      `POSTED TODAY (Asia/Kolkata date on coalesce(posted_at, scraped_at), within FILTERED SET): ${postedTodayCount} job(s)`,
+    );
+    postedTodaySample.forEach((row) => {
+      lines.push(`- [${row.title} — ${row.company_name || "Employer"}](${row.apply_url})`);
     });
-    if (postedToday.length > maxT) {
-      lines.push(`- …and ${postedToday.length - maxT} more posted today.`);
+    if (postedTodayCount > postedTodaySample.length) {
+      lines.push(`- …and ${postedTodayCount - postedTodaySample.length} more posted today (sample capped).`);
     }
     setListingContext(lines.join("\n"));
     return () => setListingContext(null);
   }, [
     loading,
     setListingContext,
-    searchQuery,
+    searchForFetch,
     sortBy,
     experienceFilter,
     salaryFilter,
@@ -458,14 +434,43 @@ const ApplyLatestJobs = () => {
     remoteOnly,
     sourceFilter,
     totalFiltered,
-    jobs.length,
     safePage,
     totalPages,
     rangeStart,
     rangeEnd,
     paginatedJobs,
-    filteredSorted,
+    postedTodayCount,
+    postedTodaySample,
   ]);
+
+  useEffect(() => {
+    if (!detailJob?.id) return;
+    if (detailJob.raw_item !== undefined) return;
+
+    let cancelled = false;
+    setDetailRawLoading(true);
+    (async () => {
+      try {
+        const { data, error } = await supabase
+          .from("naukri_jobs" as never)
+          .select("raw_item")
+          .eq("id", detailJob.id)
+          .maybeSingle();
+        if (cancelled || error) return;
+        const raw =
+          (data as { raw_item?: Record<string, unknown> | null } | null)?.raw_item ?? null;
+        setDetailJob((prev) =>
+          prev && prev.id === detailJob.id ? { ...prev, raw_item: raw } : prev,
+        );
+      } finally {
+        if (!cancelled) setDetailRawLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [detailJob?.id, detailJob?.raw_item]);
 
   const initials = (name: string | null) => {
     if (!name?.trim()) return "?";
@@ -696,13 +701,9 @@ const ApplyLatestJobs = () => {
             <div className="space-y-1">
               <p className="text-sm text-muted-foreground">
                 <span className="font-semibold text-foreground">{totalFiltered}</span>
-                {jobs.length ? (
-                  <>
-                    {" "}
-                    of {jobs.length} job{jobs.length === 1 ? "" : "s"} loaded
-                  </>
-                ) : null}
-                {searchQuery.trim() || filtersActive ? " match your filters" : null}
+                {" "}
+                job{totalFiltered === 1 ? "" : "s"}
+                {searchForFetch || filtersActive ? " match your filters" : ""}
               </p>
               {totalFiltered > 0 ? (
                 <p className="text-xs text-muted-foreground">
@@ -734,7 +735,7 @@ const ApplyLatestJobs = () => {
                   </Select>
                 </div>
               ) : null}
-              {!loading && jobs.length > 0 && totalFiltered === 0 ? (
+              {!loading && totalFiltered === 0 ? (
                 <Badge variant="outline" className="font-normal">
                   Try broadening filters
                 </Badge>
@@ -747,25 +748,17 @@ const ApplyLatestJobs = () => {
               <Loader2 className="h-10 w-10 animate-spin text-teal-600" />
               <p className="text-sm text-muted-foreground text-center px-4">
                 Loading opportunities…
-                {fetchProgressCount != null && fetchProgressCount > 0 ? (
-                  <>
-                    <br />
-                    <span className="text-xs">
-                      {fetchProgressCount.toLocaleString()} job{fetchProgressCount === 1 ? "" : "s"} loaded so far
-                    </span>
-                  </>
-                ) : null}
               </p>
             </div>
           ) : totalFiltered === 0 ? (
             <Card className="overflow-hidden border-dashed border-2 border-border/60 bg-muted/20">
               <CardContent className="py-16 text-center">
                 <p className="text-muted-foreground">
-                  {jobs.length === 0
+                  {!locationsLoading && totalFiltered === 0 && !searchForFetch && !filtersActive
                     ? "No jobs yet. Ask an admin to configure Apify and run a sync."
                     : "No jobs match your search or filters."}
                 </p>
-                {jobs.length > 0 ? (
+                {totalFiltered === 0 && (searchForFetch || filtersActive) ? (
                   <Button variant="link" className="mt-2" onClick={clearFilters}>
                     Clear filters
                   </Button>
@@ -1006,6 +999,13 @@ const ApplyLatestJobs = () => {
                       Job description
                     </p>
                     {(() => {
+                      if (detailRawLoading && !getFullJobDescription(detailJob)) {
+                        return (
+                          <div className="flex justify-center py-10">
+                            <Loader2 className="h-8 w-8 animate-spin text-teal-600" aria-label="Loading description" />
+                          </div>
+                        );
+                      }
                       const jd = getFullJobDescription(detailJob);
                       if (jd) {
                         return (

@@ -93,6 +93,39 @@ serve(async (req) => {
       throw new Error("Failed to update analysis payment status");
     }
 
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("name, email")
+      .eq("id", user.id)
+      .single();
+
+    const purchaseIso = new Date().toISOString();
+    const amountPaid = Number(analysis.amount_paid) || 0;
+
+    fetch(`${supabaseUrl}/functions/v1/send-purchase-receipt`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${supabaseServiceKey}`,
+      },
+      body: JSON.stringify({
+        user_id: user.id,
+        user_email: profile?.email || user.email || "",
+        user_name: profile?.name || "User",
+        plan_name: "ATS scan",
+        plan_display_name: "ATS resume scan",
+        amount: amountPaid,
+        order_id: razorpay_order_id,
+        payment_id: razorpay_payment_id,
+        purchase_date: purchaseIso,
+        expiry_date: purchaseIso,
+        duration_days: 0,
+        receipt_kind: "ats",
+      }),
+    }).catch((err) => {
+      console.error("Failed to send ATS receipt email:", err);
+    });
+
     return new Response(
       JSON.stringify({
         success: true,
