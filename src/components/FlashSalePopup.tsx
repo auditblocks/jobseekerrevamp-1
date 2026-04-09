@@ -348,17 +348,23 @@ export function FlashSalePopup() {
                   </motion.div>
 
                   <h2 className="mb-1.5 text-2xl font-black leading-tight tracking-tight text-white sm:mb-2 sm:text-3xl md:text-4xl">
-                    Unleash Your{" "}
+                    {config.modal_headline_prefix?.trim() || "Unleash Your"}{" "}
                     <span className="bg-gradient-to-r from-[#C5A059] via-[#F2D091] to-[#C5A059] bg-clip-text text-transparent">
-                      Full Potential
+                      {config.modal_headline_accent?.trim() || "Full Potential"}
                     </span>
                   </h2>
                   <p className="text-xs text-gray-400 sm:text-sm md:text-base">
-                    Excellence Unlocked: The Ultimate 5-Year Experience
+                    {config.modal_subheadline?.trim() ||
+                      "Excellence Unlocked: The Ultimate 5-Year Experience"}
                   </p>
                 </div>
 
                 <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 sm:px-6 [-webkit-overflow-scrolling:touch]">
+                  {config.features && config.features.filter(Boolean).length > 0 ? (
+                    <h3 className="mb-3 text-left text-xs font-bold uppercase tracking-widest text-[#C5A059] sm:mb-4 sm:text-sm">
+                      {config.features_section_label?.trim() || "5-Year Benefits / Features"}
+                    </h3>
+                  ) : null}
                   <div className="grid gap-2 pb-2 sm:gap-2.5">
                     {config.features?.map((feature, idx) => (
                       <motion.div
@@ -391,7 +397,7 @@ export function FlashSalePopup() {
                         ) : null}
                       </div>
                       <p className="text-[10px] font-bold uppercase tracking-wide text-[#C5A059] sm:text-xs">
-                        Limited Time 5-Year Access • Non-Renewable
+                        {config.price_tagline?.trim() || "Limited Time 5-Year Access • Non-Renewable"}
                       </p>
                     </div>
 
@@ -406,7 +412,8 @@ export function FlashSalePopup() {
                         <Loader2 size={22} className="animate-spin sm:h-6 sm:w-6" />
                       ) : (
                         <>
-                          SECURE MY 5-YEAR PLAN <Crown size={20} className="sm:h-6 sm:w-6" />
+                          {config.modal_cta_text?.trim() || "SECURE MY 5-YEAR PLAN"}{" "}
+                          <Crown size={20} className="sm:h-6 sm:w-6" />
                         </>
                       )}
                     </button>

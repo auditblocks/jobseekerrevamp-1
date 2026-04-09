@@ -27,6 +27,12 @@ export type Database = {
           price: number
           compare_at_price: number
           features: string[] | null
+          features_section_label: string
+          price_tagline: string
+          modal_headline_prefix: string
+          modal_headline_accent: string
+          modal_subheadline: string
+          modal_cta_text: string
           created_at: string | null
           updated_at: string | null
         }
@@ -42,6 +48,12 @@ export type Database = {
           price?: number
           compare_at_price?: number
           features?: string[] | null
+          features_section_label?: string
+          price_tagline?: string
+          modal_headline_prefix?: string
+          modal_headline_accent?: string
+          modal_subheadline?: string
+          modal_cta_text?: string
           created_at?: string | null
           updated_at?: string | null
         }
@@ -57,6 +69,12 @@ export type Database = {
           price?: number
           compare_at_price?: number
           features?: string[] | null
+          features_section_label?: string
+          price_tagline?: string
+          modal_headline_prefix?: string
+          modal_headline_accent?: string
+          modal_subheadline?: string
+          modal_cta_text?: string
           created_at?: string | null
           updated_at?: string | null
         }

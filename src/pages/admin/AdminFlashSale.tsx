@@ -8,10 +8,41 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Loader2, Save, X } from "lucide-react";
+import { ChevronDown, ChevronUp, Loader2, Save, X } from "lucide-react";
 import { Database } from "@/integrations/supabase/types";
 
 type FlashSaleConfig = Database['public']['Tables']['flash_sale_config']['Row'];
+
+const DEFAULT_FEATURE_LINES = [
+  "Everything in PRO MAX",
+  "Exclusive Beta Access",
+  "Premium Support & Insights",
+  "Legacy License Status",
+  "5 Years of Continuous Value",
+] as const;
+
+const DEFAULT_FEATURES_SECTION_LABEL = "5-Year Benefits / Features";
+
+const DEFAULT_PRICE_TAGLINE = "Limited Time 5-Year Access • Non-Renewable";
+
+const DEFAULT_MODAL_HEADLINE_PREFIX = "Unleash Your";
+const DEFAULT_MODAL_HEADLINE_ACCENT = "Full Potential";
+const DEFAULT_MODAL_SUBHEADLINE = "Excellence Unlocked: The Ultimate 5-Year Experience";
+
+const DEFAULT_MODAL_CTA_TEXT = "SECURE MY 5-YEAR PLAN";
+
+type FeatureRow = { id: string; text: string };
+
+function newFeatureRowId(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `feat-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+}
+
+function featureRowsFromStrings(lines: string[]): FeatureRow[] {
+  return lines.map((text) => ({ id: newFeatureRowId(), text }));
+}
 
 export default function AdminFlashSale() {
   const formatLocalDate = (date: Date) => {
@@ -33,13 +64,13 @@ export default function AdminFlashSale() {
     progress_percentage: 80,
     price: 1999,
     compare_at_price: 4999,
-    features: [
-      'Everything in PRO MAX',
-      'Exclusive Beta Access',
-      'Premium Support & Insights',
-      'Legacy License Status',
-      '5 Years of Continuous Value'
-    ] as string[],
+    features_section_label: DEFAULT_FEATURES_SECTION_LABEL,
+    price_tagline: DEFAULT_PRICE_TAGLINE,
+    modal_headline_prefix: DEFAULT_MODAL_HEADLINE_PREFIX,
+    modal_headline_accent: DEFAULT_MODAL_HEADLINE_ACCENT,
+    modal_subheadline: DEFAULT_MODAL_SUBHEADLINE,
+    modal_cta_text: DEFAULT_MODAL_CTA_TEXT,
+    featureRows: featureRowsFromStrings([...DEFAULT_FEATURE_LINES]),
   });
 
   useEffect(() => {
@@ -61,6 +92,10 @@ export default function AdminFlashSale() {
 
       if (data) {
         setConfig(data);
+        const lines =
+          Array.isArray(data.features) && data.features.length > 0
+            ? data.features
+            : [...DEFAULT_FEATURE_LINES];
         setFormData({
           is_active: data.is_active,
           title: data.title || "FLASH SALE!",
@@ -71,13 +106,13 @@ export default function AdminFlashSale() {
           progress_percentage: data.progress_percentage || 80,
           price: data.price ?? 1999,
           compare_at_price: data.compare_at_price ?? 4999,
-          features: data.features || [
-            'Everything in PRO MAX',
-            'Exclusive Beta Access',
-            'Premium Support & Insights',
-            'Legacy License Status',
-            '5 Years of Continuous Value'
-          ],
+          features_section_label: data.features_section_label?.trim() || DEFAULT_FEATURES_SECTION_LABEL,
+          price_tagline: data.price_tagline?.trim() || DEFAULT_PRICE_TAGLINE,
+          modal_headline_prefix: data.modal_headline_prefix?.trim() || DEFAULT_MODAL_HEADLINE_PREFIX,
+          modal_headline_accent: data.modal_headline_accent?.trim() || DEFAULT_MODAL_HEADLINE_ACCENT,
+          modal_subheadline: data.modal_subheadline?.trim() || DEFAULT_MODAL_SUBHEADLINE,
+          modal_cta_text: data.modal_cta_text?.trim() || DEFAULT_MODAL_CTA_TEXT,
+          featureRows: featureRowsFromStrings(lines),
         });
       }
     } catch (error: any) {
@@ -92,6 +127,8 @@ export default function AdminFlashSale() {
     try {
       setSaving(true);
       
+      const features = formData.featureRows.map((r) => r.text.trim()).filter((t) => t.length > 0);
+
       const payload = {
         is_active: formData.is_active,
         title: formData.title,
@@ -102,7 +139,14 @@ export default function AdminFlashSale() {
         progress_percentage: formData.progress_percentage,
         price: formData.price,
         compare_at_price: formData.compare_at_price,
-        features: formData.features,
+        features,
+        features_section_label:
+          formData.features_section_label.trim() || DEFAULT_FEATURES_SECTION_LABEL,
+        price_tagline: formData.price_tagline.trim() || DEFAULT_PRICE_TAGLINE,
+        modal_headline_prefix: formData.modal_headline_prefix.trim() || DEFAULT_MODAL_HEADLINE_PREFIX,
+        modal_headline_accent: formData.modal_headline_accent.trim() || DEFAULT_MODAL_HEADLINE_ACCENT,
+        modal_subheadline: formData.modal_subheadline.trim() || DEFAULT_MODAL_SUBHEADLINE,
+        modal_cta_text: formData.modal_cta_text.trim() || DEFAULT_MODAL_CTA_TEXT,
       };
 
       if (config?.id) {
@@ -286,50 +330,176 @@ export default function AdminFlashSale() {
                     />
                   </div>
                 </div>
+                <div className="space-y-2 pt-2 border-t border-green-200/60 dark:border-green-800/60">
+                  <Label htmlFor="price-tagline" className="text-base font-semibold text-green-700 dark:text-green-400">
+                    Caption under price (membership modal)
+                  </Label>
+                  <p className="text-sm text-muted-foreground">
+                    Gold line below ₹ sale and compare prices in &quot;View Membership Details&quot; (shown in uppercase).
+                  </p>
+                  <Input
+                    id="price-tagline"
+                    value={formData.price_tagline}
+                    onChange={(e) => setFormData({ ...formData, price_tagline: e.target.value })}
+                    placeholder={DEFAULT_PRICE_TAGLINE}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-4 rounded-lg border border-zinc-200 bg-zinc-50/80 p-4 dark:border-zinc-700 dark:bg-zinc-900/40">
+                <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                  Membership details modal
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Copy for the full-screen modal when users tap &quot;View Membership Details&quot; on the flash sale.
+                </p>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="modal-headline-prefix">Headline — first part (white)</Label>
+                    <Input
+                      id="modal-headline-prefix"
+                      value={formData.modal_headline_prefix}
+                      onChange={(e) => setFormData({ ...formData, modal_headline_prefix: e.target.value })}
+                      placeholder={DEFAULT_MODAL_HEADLINE_PREFIX}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="modal-headline-accent">Headline — accent (gold gradient)</Label>
+                    <Input
+                      id="modal-headline-accent"
+                      value={formData.modal_headline_accent}
+                      onChange={(e) => setFormData({ ...formData, modal_headline_accent: e.target.value })}
+                      placeholder={DEFAULT_MODAL_HEADLINE_ACCENT}
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="modal-subheadline">Subheadline (gray)</Label>
+                  <Input
+                    id="modal-subheadline"
+                    value={formData.modal_subheadline}
+                    onChange={(e) => setFormData({ ...formData, modal_subheadline: e.target.value })}
+                    placeholder={DEFAULT_MODAL_SUBHEADLINE}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="modal-cta-text">Primary button (checkout)</Label>
+                  <Input
+                    id="modal-cta-text"
+                    value={formData.modal_cta_text}
+                    onChange={(e) => setFormData({ ...formData, modal_cta_text: e.target.value })}
+                    placeholder={DEFAULT_MODAL_CTA_TEXT}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Gold gradient button above the timer; crown icon stays on the right.
+                  </p>
+                </div>
               </div>
 
               <div className="space-y-4 pt-4 border-t border-accent/20">
-                <div className="flex items-center justify-between">
-                  <Label className="text-base font-bold">5-Year Benefits / Features</Label>
-                  <Button 
-                    variant="outline" 
+                <div className="space-y-2">
+                  <Label htmlFor="features-section-label" className="text-base font-bold">
+                    Section heading (shown above the benefit list)
+                  </Label>
+                  <Input
+                    id="features-section-label"
+                    value={formData.features_section_label}
+                    onChange={(e) => setFormData({ ...formData, features_section_label: e.target.value })}
+                    placeholder={DEFAULT_FEATURES_SECTION_LABEL}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    This title appears in the membership details modal and on the subscription Elite card.
+                  </p>
+                </div>
+
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <Label className="text-base font-bold sm:shrink-0">Benefit lines</Label>
+                  <Button
+                    type="button"
+                    variant="outline"
                     size="sm"
-                    onClick={() => {
-                      const newFeatures = [...formData.features, "New Benefit"];
-                      setFormData({ ...formData, features: newFeatures });
-                    }}
+                    className="w-full sm:w-auto"
+                    onClick={() =>
+                      setFormData({
+                        ...formData,
+                        featureRows: [
+                          ...formData.featureRows,
+                          { id: newFeatureRowId(), text: "" },
+                        ],
+                      })
+                    }
                   >
                     Add Benefit
                   </Button>
                 </div>
                 <div className="space-y-2">
-                  {formData.features.map((feature, index) => (
-                    <div key={index} className="flex gap-2">
+                  {formData.featureRows.map((row, index) => (
+                    <div key={row.id} className="flex gap-2">
                       <Input
-                        value={feature}
+                        value={row.text}
                         onChange={(e) => {
-                          const newFeatures = [...formData.features];
-                          newFeatures[index] = e.target.value;
-                          setFormData({ ...formData, features: newFeatures });
+                          const next = [...formData.featureRows];
+                          next[index] = { ...row, text: e.target.value };
+                          setFormData({ ...formData, featureRows: next });
                         }}
                         placeholder={`Benefit ${index + 1}`}
+                        className="min-w-0 flex-1"
                       />
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="text-destructive hover:bg-destructive/10"
-                        onClick={() => {
-                          const newFeatures = formData.features.filter((_, i) => i !== index);
-                          setFormData({ ...formData, features: newFeatures });
-                        }}
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
+                      <div className="flex shrink-0 gap-0.5">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-10 w-10 text-muted-foreground"
+                          disabled={index === 0}
+                          aria-label="Move benefit up"
+                          onClick={() => {
+                            if (index === 0) return;
+                            const next = [...formData.featureRows];
+                            [next[index - 1], next[index]] = [next[index], next[index - 1]];
+                            setFormData({ ...formData, featureRows: next });
+                          }}
+                        >
+                          <ChevronUp className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-10 w-10 text-muted-foreground"
+                          disabled={index === formData.featureRows.length - 1}
+                          aria-label="Move benefit down"
+                          onClick={() => {
+                            if (index >= formData.featureRows.length - 1) return;
+                            const next = [...formData.featureRows];
+                            [next[index], next[index + 1]] = [next[index + 1], next[index]];
+                            setFormData({ ...formData, featureRows: next });
+                          }}
+                        >
+                          <ChevronDown className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-10 w-10 text-destructive hover:bg-destructive/10"
+                          aria-label="Remove benefit"
+                          onClick={() => {
+                            setFormData({
+                              ...formData,
+                              featureRows: formData.featureRows.filter((_, i) => i !== index),
+                            });
+                          }}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
                   ))}
-                  {formData.features.length === 0 && (
-                    <p className="text-sm text-muted-foreground py-2 text-center border-2 border-dashed rounded-lg">
-                      No benefits added. Clicking "Claim" will still work, but users won't see details.
+                  {formData.featureRows.length === 0 && (
+                    <p className="rounded-lg border-2 border-dashed py-2 text-center text-sm text-muted-foreground">
+                      No benefits added. Checkout still works, but the list will be empty for users until you add lines
+                      and save.
                     </p>
                   )}
                 </div>

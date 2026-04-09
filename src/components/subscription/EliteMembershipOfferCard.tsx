@@ -303,24 +303,33 @@ export function EliteMembershipOfferCard({
         </div>
 
         {displayFeatures.length > 0 ? (
-          <ul
-            className={cn(
-              "mb-6 grid gap-2 sm:grid-cols-2",
-              variant === "compact" ? "sm:grid-cols-1" : "",
-            )}
-          >
-            {displayFeatures.map((line, i) => (
-              <li
-                key={i}
-                className="flex items-start gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-gray-200"
-              >
-                <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#C5A059]/20 text-[#C5A059]">
-                  <Check className="h-3.5 w-3.5" strokeWidth={3} />
-                </span>
-                <span className="leading-snug">{line}</span>
-              </li>
-            ))}
-          </ul>
+          <div className="mb-6">
+            <p
+              id={variant === "hero" ? "elite-features-heading" : undefined}
+              className="mb-2 text-xs font-bold uppercase tracking-wide text-[#C5A059] sm:text-sm"
+            >
+              {config.features_section_label?.trim() || "5-Year Benefits / Features"}
+            </p>
+            <ul
+              className={cn(
+                "grid gap-2 sm:grid-cols-2",
+                variant === "compact" ? "sm:grid-cols-1" : "",
+              )}
+              aria-labelledby={variant === "hero" ? "elite-features-heading" : undefined}
+            >
+              {displayFeatures.map((line, i) => (
+                <li
+                  key={i}
+                  className="flex items-start gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-gray-200"
+                >
+                  <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#C5A059]/20 text-[#C5A059]">
+                    <Check className="h-3.5 w-3.5" strokeWidth={3} />
+                  </span>
+                  <span className="leading-snug">{line}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
         ) : null}
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
