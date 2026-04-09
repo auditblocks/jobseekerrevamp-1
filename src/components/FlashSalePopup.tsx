@@ -39,14 +39,22 @@ export function FlashSalePopup() {
     location.pathname === "/dashboard/subscription";
 
   useEffect(() => {
+    if (!isAllowedRoute) {
+      setIsVisible(false);
+      return;
+    }
     if (isElite) {
       setIsVisible(false);
       return;
     }
-    const isDismissed = sessionStorage.getItem("flashSaleDismissed");
-    if (isDismissed) return;
+    // Signed-in users: respect "dismiss for this tab session" across refreshes.
+    // Guests: do not use sessionStorage — each full reload should be able to show the sale again.
+    if (user) {
+      const isDismissed = sessionStorage.getItem("flashSaleDismissed");
+      if (isDismissed) return;
+    }
     fetchConfig();
-  }, [isElite, profile?.subscription_tier]);
+  }, [isElite, profile?.subscription_tier, user?.id, location.pathname, isAllowedRoute]);
 
   const fetchConfig = async () => {
     try {
@@ -118,7 +126,9 @@ export function FlashSalePopup() {
   const handleDismiss = () => {
     setIsVisible(false);
     setShowDetails(false);
-    sessionStorage.setItem("flashSaleDismissed", "true");
+    if (user) {
+      sessionStorage.setItem("flashSaleDismissed", "true");
+    }
   };
 
   const handleClaim = async () => {
