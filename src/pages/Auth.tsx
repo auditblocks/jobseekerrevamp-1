@@ -52,6 +52,10 @@ const Auth = () => {
   /** When sign-up returns an immediate session, SIGNED_IN also fires — skip duplicate welcome toast. */
   const skipNextSignedInWelcomeRef = useRef(false);
 
+  useEffect(() => {
+    setIsLogin(searchParams.get("mode") !== "signup");
+  }, [searchParams]);
+
   // OAuth hash only: process tokens, then redirect (avoid racing AuthProvider /dashboard vs /auth)
   useEffect(() => {
     const hashParams = new URLSearchParams(window.location.hash.substring(1));
@@ -121,8 +125,9 @@ const Auth = () => {
       // Use production URL from env, or fall back to current origin
       const siteUrl = import.meta.env.VITE_SITE_URL || window.location.origin;
       const next = readRedirectFromSearch() ?? getSafeInternalRedirect(new URLSearchParams(window.location.search).get("returnTo"));
+      const signup = searchParams.get("mode") === "signup" ? "&mode=signup" : "";
       const redirectUrl = next
-        ? `${siteUrl}/auth?redirect=${encodeURIComponent(next)}`
+        ? `${siteUrl}/auth?redirect=${encodeURIComponent(next)}${signup}`
         : `${siteUrl}/dashboard`;
 
       const { error } = await supabase.auth.signInWithOAuth({

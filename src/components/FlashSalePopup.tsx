@@ -131,14 +131,22 @@ export function FlashSalePopup() {
     }
   };
 
+  const navigateToSignupForOffer = () => {
+    setIsVisible(false);
+    setShowDetails(false);
+    navigate(
+      "/auth?mode=signup&redirect=" + encodeURIComponent("/dashboard"),
+    );
+  };
+
   const handleClaim = async () => {
-    if (!user) {
-      setIsVisible(false);
-      setShowDetails(false);
-      // Land on dashboard after login (home can still show a guest header briefly; dashboard is auth-gated).
-      navigate("/auth?redirect=" + encodeURIComponent("/dashboard"));
+    const { data: sessionData } = await supabase.auth.getSession();
+    if (!sessionData.session?.user) {
+      navigateToSignupForOffer();
       return;
     }
+
+    const authUser = sessionData.session.user;
 
     setProcessingPayment(true);
     try {
@@ -200,7 +208,7 @@ export function FlashSalePopup() {
         },
         prefill: {
           name: profile?.name || "",
-          email: user.email || "",
+          email: authUser.email || "",
         },
         theme: { color: "#C5A059" },
         modal: { ondismiss: () => setProcessingPayment(false) },
