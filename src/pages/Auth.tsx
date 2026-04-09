@@ -38,7 +38,7 @@ export function readPostLoginRedirect(): string {
 const Auth = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { user, loading: authLoading } = useAuth();
+  const { user, session, loading: authLoading } = useAuth();
   const [isLogin, setIsLogin] = useState(searchParams.get("mode") !== "signup");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -97,10 +97,10 @@ const Auth = () => {
     const hashParams = new URLSearchParams(window.location.hash.substring(1));
     if (hashParams.get("access_token")) return;
 
-    if (user) {
+    if (user && session) {
       navigate(readPostLoginRedirect(), { replace: true });
     }
-  }, [authLoading, user, navigate]);
+  }, [authLoading, user, session, navigate]);
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
@@ -152,13 +152,15 @@ const Auth = () => {
 
     try {
       if (isLogin) {
-        const { error } = await supabase.auth.signInWithPassword({
+        const { data: signInData, error } = await supabase.auth.signInWithPassword({
           email: formData.email,
           password: formData.password,
         });
-        
+
         if (error) throw error;
-        // Welcome toast is shown once from onAuthStateChange(SIGNED_IN)
+        if (signInData.session) {
+          navigate(readPostLoginRedirect(), { replace: true });
+        }
       } else {
         const redirectUrl = `${window.location.origin}/`;
         
@@ -176,9 +178,12 @@ const Auth = () => {
         if (error) throw error;
         if (signUpData.session) {
           skipNextSignedInWelcomeRef.current = true;
+          toast.success("Account created! Welcome in.");
+          navigate(readPostLoginRedirect(), { replace: true });
+        } else {
+          toast.success("Account created! You can now sign in.");
+          setIsLogin(true);
         }
-        toast.success("Account created! You can now sign in.");
-        setIsLogin(true);
       }
     } catch (error: any) {
       console.error("Auth error:", error);

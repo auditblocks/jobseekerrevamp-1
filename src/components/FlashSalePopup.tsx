@@ -135,7 +135,8 @@ export function FlashSalePopup() {
     if (!user) {
       setIsVisible(false);
       setShowDetails(false);
-      navigate("/auth?redirect=" + encodeURIComponent("/"));
+      // Land on dashboard after login (home can still show a guest header briefly; dashboard is auth-gated).
+      navigate("/auth?redirect=" + encodeURIComponent("/dashboard"));
       return;
     }
 
