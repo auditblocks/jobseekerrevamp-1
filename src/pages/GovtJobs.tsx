@@ -489,7 +489,7 @@ const GovtJobs = () => {
                 {/* SEO Content Block */}
                 <div className="pt-20 border-t border-border/50">
                     <div className="prose prose-invert max-w-4xl mx-auto text-muted-foreground space-y-6">
-                        <h2 className="text-2xl font-bold text-foreground">Find Your Dream Career in the Government Sector</h2>
+                        <h2 className="text-2xl font-bold text-foreground">Find government sector roles that match your goals</h2>
                         <p>
                             Welcome to India's most comprehensive government jobs portal. Our platform is designed to provide you with real-time updates on all central and state government job opportunities. From UPSC Civil Services to SSC CGL, Banking (IBPS/SBI), Railways (RRB), and Defence sectors, we track every notification to ensure you never miss an application deadline.
                         </p>

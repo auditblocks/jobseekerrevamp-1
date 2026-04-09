@@ -1,5 +1,6 @@
 import { Mail, Twitter, Linkedin, Github } from "lucide-react";
 import { Link } from "react-router-dom";
+import { HomeSectionLink } from "@/components/landing/HomeSectionLink";
 
 const FooterSection = () => {
   return (
@@ -15,7 +16,7 @@ const FooterSection = () => {
               <span className="text-xl font-bold text-primary-foreground">JobSeeker</span>
             </div>
             <p className="text-primary-foreground/60 mb-6">
-              Automate your job search and land your dream role faster with AI-powered outreach.
+              Manage and optimize your job outreach efficiently with AI-powered tools for applications and recruiter communication.
             </p>
             <div className="flex gap-4">
               <a href="#" className="w-10 h-10 rounded-lg bg-primary-foreground/10 flex items-center justify-center hover:bg-accent transition-colors">
@@ -34,15 +35,23 @@ const FooterSection = () => {
           <div>
             <h4 className="font-semibold text-primary-foreground mb-4">Product</h4>
             <ul className="space-y-3">
-              <li><Link to="/#features" className="text-primary-foreground/60 hover:text-accent transition-colors">Features</Link></li>
-              <li><Link to="/#pricing" className="text-primary-foreground/60 hover:text-accent transition-colors">Pricing</Link></li>
+              <li>
+                <HomeSectionLink sectionId="features" className="text-primary-foreground/60 hover:text-accent transition-colors">
+                  Features
+                </HomeSectionLink>
+              </li>
+              <li>
+                <HomeSectionLink sectionId="pricing" className="text-primary-foreground/60 hover:text-accent transition-colors">
+                  Pricing
+                </HomeSectionLink>
+              </li>
               <li><Link to="/government-jobs" className="text-primary-foreground/60 hover:text-accent transition-colors">Govt. Jobs</Link></li>
               <li><Link to="/blog" className="text-primary-foreground/60 hover:text-accent transition-colors">Blog</Link></li>
               <li><Link to="/about" className="text-primary-foreground/60 hover:text-accent transition-colors">About</Link></li>
               <li>
-                <Link to={{ pathname: "/", hash: "contact" }} className="text-primary-foreground/60 hover:text-accent transition-colors">
+                <HomeSectionLink sectionId="contact" className="text-primary-foreground/60 hover:text-accent transition-colors">
                   Contact
-                </Link>
+                </HomeSectionLink>
               </li>
             </ul>
           </div>
@@ -53,9 +62,9 @@ const FooterSection = () => {
               <li><Link to="/about" className="text-primary-foreground/60 hover:text-accent transition-colors">About</Link></li>
               <li><Link to="/faq" className="text-primary-foreground/60 hover:text-accent transition-colors">FAQ</Link></li>
               <li>
-                <Link to={{ pathname: "/", hash: "contact" }} className="text-primary-foreground/60 hover:text-accent transition-colors">
+                <HomeSectionLink sectionId="contact" className="text-primary-foreground/60 hover:text-accent transition-colors">
                   Contact
-                </Link>
+                </HomeSectionLink>
               </li>
             </ul>
           </div>
@@ -69,6 +78,12 @@ const FooterSection = () => {
             </ul>
           </div>
         </div>
+
+        <p className="text-primary-foreground/50 text-xs sm:text-sm max-w-3xl mx-auto text-center leading-relaxed mb-8 sm:mb-10 px-2">
+          JobSeeker is a technology platform designed to assist with job outreach and application management. We do not provide
+          jobs, guarantee interviews, or ensure employment outcomes. Results may vary depending on individual efforts, profiles,
+          and market conditions.
+        </p>
 
         {/* Bottom */}
         <div className="pt-8 border-t border-primary-foreground/10 flex flex-col md:flex-row justify-between items-center gap-4">

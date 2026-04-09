@@ -9,34 +9,42 @@ import BlogPreviewSection from "@/components/landing/BlogPreviewSection";
 import SEOHead from "@/components/SEO/SEOHead";
 import StructuredData from "@/components/SEO/StructuredData";
 
-import { useEffect } from "react";
+import { useEffect, useLayoutEffect } from "react";
 import { useLocation } from "react-router-dom";
+
+const HOME_PATHS = new Set(["/", "/pricing"]);
 
 const Index = () => {
   const { pathname, hash } = useLocation();
+
+  useLayoutEffect(() => {
+    if (!HOME_PATHS.has(pathname)) return;
+    if (hash) return;
+    if (pathname === "/pricing") return;
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  }, [pathname, hash]);
 
   useEffect(() => {
     const handleScroll = () => {
       let targetId = "";
 
-      if (pathname === '/pricing') {
-        targetId = 'pricing';
+      if (pathname === "/pricing") {
+        targetId = "pricing";
       } else if (hash) {
-        targetId = hash.replace('#', '');
+        targetId = hash.replace(/^#/, "");
       }
 
-      if (targetId) {
-        const attemptScroll = (retryCount = 0) => {
-          const element = document.getElementById(targetId);
-          if (element) {
-            element.scrollIntoView({ behavior: 'smooth' });
-          } else if (retryCount < 10) {
-            // Keep trying for a bit as elements might be rendering or fetching data
-            setTimeout(() => attemptScroll(retryCount + 1), 100);
-          }
-        };
-        attemptScroll();
-      }
+      if (!targetId) return;
+
+      const attemptScroll = (retryCount = 0) => {
+        const element = document.getElementById(targetId);
+        if (element) {
+          element.scrollIntoView({ behavior: "smooth", block: "start" });
+        } else if (retryCount < 30) {
+          setTimeout(() => attemptScroll(retryCount + 1), 100);
+        }
+      };
+      attemptScroll();
     };
 
     handleScroll();
@@ -46,7 +54,7 @@ const Index = () => {
     <>
       <SEOHead
         title="JobSeeker - AI Job Search & Outreach Platform"
-        description="Automate your job search with AI-powered recruiter outreach. Send personalized emails, track responses, and manage applications to land your dream job faster."
+        description="Streamline job outreach with AI-powered recruiter emails, response tracking, and application management—all in one place. Tools to organize your search; outcomes depend on your profile and market."
         keywords="job search automation, AI recruiter outreach, automated job applications, recruiter email tool, job search platform, AI-powered job search, job application tracker, personalized recruiter emails, best job search tool"
         canonicalUrl="/"
         ogImage="/icon-512.png"

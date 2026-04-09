@@ -13,7 +13,8 @@ const About = () => {
     {
       icon: Target,
       title: "Mission-Driven",
-      description: "We're committed to helping job seekers land their dream roles by democratizing access to professional networking and outreach tools.",
+      description:
+        "We're committed to helping job seekers manage outreach and applications more effectively by democratizing access to professional networking and workflow tools.",
     },
     {
       icon: Users,
@@ -63,7 +64,7 @@ const About = () => {
     <>
       <SEOHead
         title="About Us | JobSeeker - AI-Powered Job Search Platform"
-        description="Learn about JobSeeker - AI-powered job outreach platform helping job seekers land their dream roles faster through automated, personalized email campaigns. Our mission is to democratize professional networking."
+        description="Learn about JobSeeker—an AI-powered job outreach platform for personalized recruiter emails, tracking, and application workflow. Our mission is to democratize professional networking tools."
         keywords="about jobseeker, job search platform, AI job search, recruiter outreach tool, job application automation"
         canonicalUrl="/about"
         ogImage="/icon-512.png"
@@ -134,9 +135,8 @@ const About = () => {
                 </p>
                 <p>
                   Today, JobSeeker combines the power of artificial intelligence with intuitive design 
-                  to help job seekers automate their outreach, track their progress, and land their 
-                  dream roles faster. We've helped thousands of professionals connect with recruiters, 
-                  secure interviews, and advance their careers.
+                  to help job seekers streamline outreach, track progress, and manage applications in one place. 
+                  Thousands of professionals use our tools to connect with recruiters and stay organized—results vary by individual and market.
                 </p>
                 <p>
                   Our platform continues to evolve based on user feedback and the changing needs of 
@@ -288,8 +288,8 @@ const About = () => {
                   Ready to Transform Your Job Search?
                 </h2>
                 <p className="text-lg text-muted-foreground mb-6 max-w-2xl mx-auto">
-                  Join thousands of job seekers who are already using JobSeeker to land their dream roles. 
-                  Start your free trial today and experience the difference AI-powered outreach can make.
+                  Join thousands of job seekers who use JobSeeker to manage outreach and applications. 
+                  Start your free trial today and explore AI-powered workflow tools—no employment outcome is guaranteed.
                 </p>
                 <div className="flex flex-col sm:flex-row gap-4 justify-center">
                   <Button 

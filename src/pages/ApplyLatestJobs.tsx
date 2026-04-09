@@ -487,7 +487,7 @@ const ApplyLatestJobs = () => {
         <title>Apply latest jobs | JobSeeker</title>
         <meta
           name="description"
-          content="Latest private job listings from Naukri and LinkedIn (via Apify). Apply on the employer site."
+          content="Curated listings from Naukri and LinkedIn. Apply on the employer site."
         />
       </Helmet>
 
@@ -506,7 +506,7 @@ const ApplyLatestJobs = () => {
             <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45 }}>
               <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-teal-500/20 bg-teal-500/10 px-3 py-1 text-xs font-medium text-teal-800 dark:text-teal-200">
                 <Sparkles className="h-3.5 w-3.5" />
-                Naukri &amp; LinkedIn via Apify
+                Curated listings from Naukri and LinkedIn
               </div>
               <h1 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl md:text-[2.25rem] leading-tight">
                 Apply latest jobs

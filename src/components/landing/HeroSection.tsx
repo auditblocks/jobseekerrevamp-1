@@ -2,6 +2,7 @@ import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Mail, BarChart3, Users, Sparkles, Send, Eye, MessageSquare, Briefcase } from "lucide-react";
 import { Link } from "react-router-dom";
+import { HomeSectionLink } from "@/components/landing/HomeSectionLink";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -9,8 +10,9 @@ const HeroSection = () => {
   const [landingStats, setLandingStats] = useState({
     activeUsers: "10k+",
     emailsSent: "500k+",
-    responseRate: "45%",
+    responseRate: "Real-time",
   });
+  const [thirdStatLabel, setThirdStatLabel] = useState("Engagement tracking");
   const [dashboardPreviewStats, setDashboardPreviewStats] = useState([
     { label: "Sent", value: "248", icon: Mail },
     { label: "Opened", value: "156", icon: BarChart3 },
@@ -52,6 +54,7 @@ const HeroSection = () => {
               ...prev,
               responseRate: `${configMap.response_rate.value}%`,
             }));
+            setThirdStatLabel("Internal usage aggregate");
           }
 
           // Update dashboard preview stats
@@ -130,12 +133,12 @@ const HeroSection = () => {
           transition={{ duration: 0.5 }}
           className="flex items-center gap-2 sm:gap-4"
         >
-          <Link
-            to="/#pricing"
+          <HomeSectionLink
+            sectionId="pricing"
             className="text-sm font-medium text-primary-foreground/80 hover:text-primary-foreground transition-colors hidden sm:block"
           >
             Pricing
-          </Link>
+          </HomeSectionLink>
           <Link
             to="/government-jobs"
             className="text-sm font-medium text-primary-foreground/80 hover:text-primary-foreground transition-colors hidden sm:block"
@@ -205,9 +208,9 @@ const HeroSection = () => {
               transition={{ duration: 0.6, delay: 0.4 }}
               className="text-lg md:text-xl text-primary-foreground/70 max-w-xl"
             >
-              JobSeeker is an <span className="font-semibold text-primary-foreground">AI job search platform</span> that helps you automate recruiter outreach with personalized emails.
-              Send automated job applications, track recruiter responses, and manage your entire job search pipeline in one place.
-              Boost your job search success rate with intelligent email tracking, follow-up reminders, and comprehensive application management.
+              JobSeeker is an <span className="font-semibold text-primary-foreground">AI job search platform</span> that helps you streamline recruiter outreach with personalized emails.
+              Send applications, track replies, and manage your pipeline in one place.
+              Improve and streamline your job outreach process with email tracking, follow-up reminders, and application management tools.
             </motion.p>
 
             <motion.div
@@ -236,17 +239,17 @@ const HeroSection = () => {
             >
               <div>
                 <div className="text-3xl font-bold text-accent">{landingStats.activeUsers}</div>
-                <div className="text-sm text-primary-foreground/60">Active Users</div>
+                <div className="text-sm text-primary-foreground/60">Users managing outreach</div>
               </div>
               <div className="w-px h-12 bg-primary-foreground/20" />
               <div>
                 <div className="text-3xl font-bold text-accent">{landingStats.emailsSent}</div>
-                <div className="text-sm text-primary-foreground/60">Emails Sent</div>
+                <div className="text-sm text-primary-foreground/60">Emails via the platform</div>
               </div>
               <div className="w-px h-12 bg-primary-foreground/20" />
               <div>
                 <div className="text-3xl font-bold text-accent">{landingStats.responseRate}</div>
-                <div className="text-sm text-primary-foreground/60">Response Rate</div>
+                <div className="text-sm text-primary-foreground/60">{thirdStatLabel}</div>
               </div>
             </motion.div>
           </div>
@@ -287,7 +290,7 @@ const HeroSection = () => {
                     <BarChart3 className="w-5 h-5 text-success" />
                   </div>
                   <div>
-                    <div className="text-sm font-semibold text-foreground">45% Open Rate</div>
+                    <div className="text-sm font-semibold text-foreground">Opens &amp; replies tracked</div>
                     <div className="text-xs text-muted-foreground">This week</div>
                   </div>
                 </div>

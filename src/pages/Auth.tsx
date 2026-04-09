@@ -226,7 +226,7 @@ const Auth = () => {
               <p className="text-muted-foreground">
                 {isLogin 
                   ? "Enter your credentials to access your account" 
-                  : "Start your journey to landing your dream job"
+                  : "Start organizing your outreach and applications in one place"
                 }
               </p>
             </motion.div>
@@ -404,21 +404,21 @@ const Auth = () => {
               <Mail className="w-12 h-12 text-accent" />
             </div>
             <h2 className="text-3xl font-bold text-primary-foreground mb-4">
-              Supercharge Your Job Search
+              Streamline your job outreach
             </h2>
             <p className="text-primary-foreground/70 text-lg max-w-md">
-              Join thousands of job seekers who have landed their dream roles using our AI-powered outreach platform.
+              Join thousands of job seekers who use JobSeeker to manage recruiter outreach and applications with AI-powered tools.
             </p>
             
             {/* Stats */}
             <div className="flex justify-center gap-12 mt-12">
               <div>
-                <div className="text-3xl font-bold text-accent">45%</div>
-                <div className="text-sm text-primary-foreground/60">Response Rate</div>
+                <div className="text-3xl font-bold text-accent">10k+</div>
+                <div className="text-sm text-primary-foreground/60">Users managing outreach</div>
               </div>
               <div>
-                <div className="text-3xl font-bold text-accent">10k+</div>
-                <div className="text-sm text-primary-foreground/60">Happy Users</div>
+                <div className="text-3xl font-bold text-accent">Real-time</div>
+                <div className="text-sm text-primary-foreground/60">Engagement tracking</div>
               </div>
             </div>
           </motion.div>

@@ -15,7 +15,7 @@ export const useTour = () => {
                     element: "#dashboard-welcome",
                     popover: {
                         title: "Welcome to JobSeeker! 👋",
-                        description: "Let's get you set up and ready to land your dream job. Follow this quick guide to get started.",
+                        description: "Let's get you set up to use JobSeeker's outreach and application tools. Follow this quick guide to get started.",
                         side: "bottom",
                         align: "start",
                     },

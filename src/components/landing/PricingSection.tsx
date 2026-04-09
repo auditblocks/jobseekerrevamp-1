@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { PricingContainer, PricingPlan } from "@/components/ui/pricing-container";
@@ -148,7 +148,15 @@ const PricingSection = () => {
 
   return (
     <section id="pricing" className="py-24 bg-secondary/30">
-      <div className="container mx-auto">
+      <div className="container mx-auto px-4 sm:px-6">
+        <p className="text-center text-muted-foreground text-sm max-w-2xl mx-auto mb-8 leading-relaxed">
+          All plans provide access to tools for job outreach and application management. This is a subscription-based service;
+          no job placement or interview is guaranteed. For billing cycles and refunds, see{" "}
+          <Link to="/cancellations-and-refunds" className="text-primary underline-offset-4 hover:underline">
+            Cancellations &amp; Refunds
+          </Link>
+          .
+        </p>
         <PricingContainer
           title="Choose Your Plan"
           plans={convertToPricingPlans()}

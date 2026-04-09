@@ -16,7 +16,8 @@ const DataUsageSection = () => {
     {
       icon: <CheckCircle2 className="w-6 h-6 text-green-500" />,
       title: "Tracking Replies",
-      description: "We monitor your inbox to detect recruiter responses, helping you stay on top of every potential opportunity.",
+      description:
+        "With your permission, we analyze job-related email interactions to help surface recruiter replies and support your workflow.",
       color: "bg-green-500/10",
       borderColor: "border-green-500/20"
     },

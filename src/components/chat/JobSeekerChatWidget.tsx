@@ -10,8 +10,7 @@ import { toast } from "sonner";
 
 const INTRO: ChatTurn = {
   role: "assistant",
-  content:
-    "Hi! I’m JobSeeker AI. Ask me how to use the site, where to find pricing, government jobs, settings, or contact support—or get general job-search tips.",
+  content: "Hi! I'm JobSeeker AI—ask about the site, jobs, or your search.",
 };
 
 export function JobSeekerChatWidget() {

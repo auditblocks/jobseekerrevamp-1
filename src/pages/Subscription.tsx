@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Loader2, ArrowLeft, CreditCard } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -338,7 +338,7 @@ const Subscription = () => {
     <DashboardLayout>
       <SEOHead
         title="Subscription Plans & Pricing | JobSeeker - Choose Your Plan"
-        description="Choose your subscription plan and upgrade your JobSeeker account. Free, Pro, and Pro Max plans available. Start automating your job search today."
+        description="Choose your subscription plan and upgrade your JobSeeker account. Free, Pro, and Pro Max plans for outreach and application-management tools. Subscriptions do not guarantee interviews or employment."
         keywords="jobseeker pricing, subscription plans, job search tool pricing, recruiter outreach pricing, job application automation cost"
         canonicalUrl="/subscription"
         ogImage="/icon-512.png"
@@ -369,7 +369,14 @@ const Subscription = () => {
               Choose Your Plan
             </h1>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              Select the perfect subscription plan for your job search needs. Upgrade anytime to unlock more features.
+              Select the plan that fits how you want to manage outreach and applications. Upgrade anytime to unlock more features.
+            </p>
+            <p className="text-sm text-muted-foreground/90 max-w-2xl mx-auto mt-4 leading-relaxed">
+              Plans are for software tools only—we do not provide jobs or guarantee interviews. See{" "}
+              <Link to="/cancellations-and-refunds" className="text-primary underline-offset-4 hover:underline">
+                Cancellations &amp; Refunds
+              </Link>{" "}
+              for billing and refund terms.
             </p>
           </motion.div>
         </div>

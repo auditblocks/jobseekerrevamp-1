@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { HomeSectionLink } from "@/components/landing/HomeSectionLink";
 import { Button } from "@/components/ui/button";
 import { Mail, ArrowRight } from "lucide-react";
 
@@ -14,12 +15,12 @@ const Navbar = () => {
                 </Link>
 
                 <div className="hidden md:flex items-center gap-6">
-                    <Link to="/#features" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+                    <HomeSectionLink sectionId="features" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
                         Features
-                    </Link>
-                    <Link to="/#pricing" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+                    </HomeSectionLink>
+                    <HomeSectionLink sectionId="pricing" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
                         Pricing
-                    </Link>
+                    </HomeSectionLink>
                     <Link to="/government-jobs" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
                         Govt. Jobs
                     </Link>
