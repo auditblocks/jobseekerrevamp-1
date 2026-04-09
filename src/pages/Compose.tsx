@@ -38,15 +38,17 @@ import {
   Loader2,
   Unlink,
   Ban,
-  AlertTriangle
+  AlertTriangle,
+  Lock,
 } from "lucide-react";
-import { useNavigate, useSearchParams, useLocation } from "react-router-dom";
+import { Link, useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
 import DashboardLayout from "@/components/DashboardLayout";
 import { storagePathFromResumeFileUrl } from "@/lib/resumeStoragePath";
+import { cn } from "@/lib/utils";
 
 const MAX_RESUME_INLINE_BYTES = 5 * 1024 * 1024;
 
@@ -182,6 +184,7 @@ const Compose = () => {
   const [attachments, setAttachments] = useState<File[]>([]);
   const [showTemplateDialog, setShowTemplateDialog] = useState(false);
   const [showConnectDialog, setShowConnectDialog] = useState(false);
+  const [gmailTrustModalOpen, setGmailTrustModalOpen] = useState(false);
   const [cooldowns, setCooldowns] = useState<EmailCooldown[]>([]);
   const [isLoadingCooldowns, setIsLoadingCooldowns] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -502,11 +505,13 @@ const Compose = () => {
   }, []);
 
   const handleConnectGmail = () => {
+    setGmailTrustModalOpen(false);
     if (!googleClientId) {
       toast.error("Google OAuth is not configured. Please contact support.");
       return;
     }
 
+    setIsConnectingGmail(true);
     const redirectUri = `${window.location.origin}/compose`;
     // Only request gmail.send scope to avoid CASA assessment requirement
     const scope = encodeURIComponent("https://www.googleapis.com/auth/gmail.send");
@@ -521,6 +526,14 @@ const Compose = () => {
       `&state=gmail_oauth`;
 
     window.location.href = authUrl;
+  };
+
+  const openGmailTrustThenConnect = () => {
+    setGmailTrustModalOpen(true);
+  };
+
+  const handleContinueToGoogleOAuth = () => {
+    handleConnectGmail();
   };
 
   const handleDisconnectGmail = async () => {
@@ -941,19 +954,21 @@ Best regards,
                     </div>
                     <div>
                       <h3 className="font-semibold text-foreground">Connect Gmail to Send</h3>
-                      <p className="text-sm text-muted-foreground">Link your account to start your outreach campaign.</p>
+                      <p className="text-sm text-muted-foreground">
+                        Review what we access, then connect securely with Google.
+                      </p>
                     </div>
                   </div>
                   <Button
                     variant="outline"
-                    onClick={handleConnectGmail}
+                    onClick={openGmailTrustThenConnect}
                     disabled={isConnectingGmail}
-                    className="shrink-0"
+                    className="shrink-0 min-h-11 touch-manipulation"
                   >
                     {isConnectingGmail ? (
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                     ) : (
-                      "Connect Now"
+                      "Connect Gmail"
                     )}
                   </Button>
                 </CardContent>
@@ -1335,8 +1350,11 @@ Best regards,
             <Button
               variant="hero"
               size="lg"
-              className="w-full mt-2"
-              onClick={handleConnectGmail}
+              className="w-full mt-2 min-h-12 touch-manipulation"
+              onClick={() => {
+                setShowConnectDialog(false);
+                setGmailTrustModalOpen(true);
+              }}
               disabled={isConnectingGmail}
             >
               {isConnectingGmail ? (
@@ -1351,7 +1369,121 @@ Best regards,
           </div>
         </DialogContent>
       </Dialog>
-    </DashboardLayout >
+
+      {/* Gmail trust modal — layout matches public/mock-sprint-gmail-trust.html */}
+      <Dialog open={gmailTrustModalOpen} onOpenChange={setGmailTrustModalOpen}>
+        <DialogContent
+          overlayClassName="z-[100] bg-black/60 backdrop-blur-sm"
+          closeButtonClassName="opacity-100 ring-offset-white data-[state=open]:bg-transparent data-[state=open]:text-zinc-400 hover:bg-zinc-100 hover:text-zinc-800 dark:ring-offset-zinc-950 dark:data-[state=open]:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200 rounded-lg p-1 [&_svg]:h-5 [&_svg]:w-5"
+          className={cn(
+            "z-[101] flex w-[calc(100vw-2rem)] max-w-md translate-x-[-50%] translate-y-[-50%] flex-col gap-0 rounded-2xl border border-zinc-200 bg-white p-6 shadow-2xl duration-200",
+            "max-h-[min(90dvh,640px)] overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch]",
+            "dark:border-zinc-700 dark:bg-zinc-950 dark:ring-offset-zinc-950",
+            "sm:w-full sm:rounded-2xl",
+          )}
+          onOpenAutoFocus={(e) => e.preventDefault()}
+        >
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-teal-500/15 text-teal-700 dark:bg-teal-500/20 dark:text-teal-400">
+            <Lock className="h-6 w-6" aria-hidden />
+          </div>
+          <DialogTitle
+            id="gmail-trust-title"
+            className="mt-4 text-left text-xl font-bold text-zinc-900 dark:text-zinc-50"
+          >
+            Before you connect Gmail
+          </DialogTitle>
+          <DialogDescription className="mt-2 text-left text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">
+            With your permission, we use Google’s secure sign-in. Here’s what that means in plain language:
+          </DialogDescription>
+          <ul className="mt-4 list-none space-y-3 text-sm text-zinc-700 dark:text-zinc-300">
+            <li className="flex gap-3">
+              <span
+                className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-teal-100 text-xs font-bold text-teal-700 dark:bg-teal-900/80 dark:text-teal-200"
+                aria-hidden
+              >
+                1
+              </span>
+              <span>
+                <strong className="text-zinc-900 dark:text-zinc-50">Send</strong> recruiter emails from your address so
+                replies come back to you.
+              </span>
+            </li>
+            <li className="flex gap-3">
+              <span
+                className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-teal-100 text-xs font-bold text-teal-700 dark:bg-teal-900/80 dark:text-teal-200"
+                aria-hidden
+              >
+                2
+              </span>
+              <span>
+                <strong className="text-zinc-900 dark:text-zinc-50">Read</strong> only what’s needed to match job-related
+                threads and show status in JobSeeker — not unrelated personal mail.
+              </span>
+            </li>
+            <li className="flex gap-3">
+              <span
+                className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-teal-100 text-xs font-bold text-teal-700 dark:bg-teal-900/80 dark:text-teal-200"
+                aria-hidden
+              >
+                3
+              </span>
+              <span>
+                <strong className="text-zinc-900 dark:text-zinc-50">Disconnect anytime</strong> in the app; we stop
+                using tokens from that point.
+              </span>
+            </li>
+          </ul>
+
+          <div className="mt-5 flex flex-wrap gap-3 text-sm">
+            <Link
+              to="/privacy-policy"
+              className="font-semibold text-teal-700 underline underline-offset-2 hover:text-teal-800 dark:text-teal-400 dark:hover:text-teal-300"
+              onClick={() => setGmailTrustModalOpen(false)}
+            >
+              Privacy Policy
+            </Link>
+            <span className="text-zinc-300 dark:text-zinc-600" aria-hidden>
+              ·
+            </span>
+            <Link
+              to="/terms-of-service"
+              className="font-semibold text-teal-700 underline underline-offset-2 hover:text-teal-800 dark:text-teal-400 dark:hover:text-teal-300"
+              onClick={() => setGmailTrustModalOpen(false)}
+            >
+              Terms
+            </Link>
+          </div>
+
+          <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <button
+              type="button"
+              className="min-h-11 touch-manipulation rounded-xl border border-zinc-300 px-4 py-2.5 text-sm font-semibold text-zinc-700 transition-colors hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-zinc-800 sm:min-h-0"
+              onClick={() => setGmailTrustModalOpen(false)}
+            >
+              Not now
+            </button>
+            <button
+              type="button"
+              className="min-h-11 touch-manipulation rounded-xl bg-teal-600 px-4 py-2.5 text-sm font-bold text-white shadow-md transition-colors hover:bg-teal-700 disabled:opacity-70 dark:bg-teal-600 dark:hover:bg-teal-500 sm:min-h-0"
+              onClick={handleContinueToGoogleOAuth}
+              disabled={isConnectingGmail}
+            >
+              {isConnectingGmail ? (
+                <span className="inline-flex items-center justify-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Redirecting…
+                </span>
+              ) : (
+                "Continue to Google"
+              )}
+            </button>
+          </div>
+          <p className="mt-3 text-[11px] leading-snug text-zinc-400 dark:text-zinc-500">
+            You’ll finish signing in on Google’s secure page. JobSeeker never sees your Google password.
+          </p>
+        </DialogContent>
+      </Dialog>
+    </DashboardLayout>
   );
 };
 

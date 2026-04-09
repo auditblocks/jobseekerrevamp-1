@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Mock — Sprint SKU + Gmail trust (JobSeeker style)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['"Plus Jakarta Sans"', 'system-ui', 'sans-serif'] },
+          colors: {
+            accent: { DEFAULT: '#14b8a6', dark: '#0d9488', fg: '#042f2e' },
+            card: '#ffffff',
+          },
+        },
+      },
+    };
+  </script>
+  <style>
+    body { font-family: "Plus Jakarta Sans", system-ui, sans-serif; }
+    /* subtle grid like hero */
+    .hero-grid {
+      background-image: linear-gradient(rgba(15, 23, 42, 0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(15, 23, 42, 0.04) 1px, transparent 1px);
+      background-size: 48px 48px;
+    }
+  </style>
+</head>
+<body class="min-h-screen bg-zinc-50 text-zinc-900 antialiased">
+  <div class="border-b border-zinc-200 bg-white/90 backdrop-blur sticky top-0 z-30 px-4 py-3">
+    <p class="max-w-5xl mx-auto text-sm text-zinc-600">
+      <span class="font-semibold text-zinc-900">Design mock only</span> — not wired to Razorpay or OAuth. Open this file from your dev server:
+      <code class="rounded bg-zinc-100 px-1.5 py-0.5 text-xs">/mock-sprint-gmail-trust.html</code>
+    </p>
+  </div>
+
+  <!-- ========== 1) TIME-BOXED SPRINT SKU (pricing row) ========== -->
+  <section class="relative overflow-hidden border-b border-zinc-200 bg-gradient-to-b from-zinc-100/80 to-zinc-50 hero-grid">
+    <div class="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-teal-400/15 blur-3xl" aria-hidden="true"></div>
+    <div class="container mx-auto max-w-6xl px-4 py-14 sm:py-20">
+      <div class="text-center max-w-2xl mx-auto mb-10">
+        <span class="inline-flex items-center gap-2 rounded-full border border-teal-500/25 bg-teal-500/10 px-3 py-1 text-xs font-semibold text-teal-800">
+          New · Lower commitment
+        </span>
+        <h1 class="mt-4 text-3xl sm:text-4xl font-extrabold tracking-tight text-zinc-900">
+          Sprint plans — try Pro power for <span class="text-teal-600">14 or 30 days</span>
+        </h1>
+        <p class="mt-3 text-zinc-600 text-sm sm:text-base leading-relaxed">
+          Same stack as your <code class="text-xs bg-white border rounded px-1">subscription_plans</code> table — one extra row with a fixed end date and clear caps (example numbers below).
+        </p>
+      </div>
+
+      <div class="grid gap-5 sm:grid-cols-2 lg:grid-cols-4 items-stretch">
+        <!-- Free -->
+        <article class="flex flex-col rounded-2xl border-2 border-zinc-200 bg-white p-6 shadow-sm">
+          <h2 class="text-lg font-bold text-zinc-900">Free</h2>
+          <p class="mt-1 text-sm text-zinc-500">Get started</p>
+          <p class="mt-6 text-3xl font-black text-zinc-900">₹0</p>
+          <ul class="mt-6 space-y-2 text-sm text-zinc-600 flex-1">
+            <li class="flex gap-2"><span class="text-teal-600">✓</span> Daily send cap (low)</li>
+            <li class="flex gap-2"><span class="text-teal-600">✓</span> Basic templates</li>
+          </ul>
+          <button type="button" class="mt-8 w-full rounded-xl border-2 border-zinc-900 py-3 text-sm font-bold text-zinc-900 hover:bg-zinc-50">
+            Current plan
+          </button>
+        </article>
+
+        <!-- SPRINT — the new SKU -->
+        <article class="relative flex flex-col rounded-2xl border-2 border-teal-500 bg-white p-6 shadow-[0_0_0_1px_rgba(20,184,166,0.2),0_20px_50px_-12px_rgba(20,184,166,0.25)] ring-2 ring-teal-500/20">
+          <span class="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-teal-600 px-3 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white shadow">
+            Popular trial
+          </span>
+          <h2 class="text-lg font-bold text-zinc-900">Intensive · 14 days</h2>
+          <p class="mt-1 text-sm text-teal-800 font-medium">Time-boxed Pro-style access</p>
+          <p class="mt-6 flex items-baseline gap-1">
+            <span class="text-3xl font-black text-zinc-900">₹199</span>
+            <span class="text-sm text-zinc-500">once</span>
+          </p>
+          <p class="mt-1 text-xs text-zinc-500">Renews only if you buy again — no surprise charge</p>
+          <ul class="mt-6 space-y-2 text-sm text-zinc-700 flex-1">
+            <li class="flex gap-2"><span class="text-teal-600 font-bold">✓</span> <strong>Higher daily sends</strong> (cap printed here)</li>
+            <li class="flex gap-2"><span class="text-teal-600 font-bold">✓</span> <strong>5 ATS scans</strong> included</li>
+            <li class="flex gap-2"><span class="text-teal-600 font-bold">✓</span> Expires day 14 — upgrade to annual anytime</li>
+          </ul>
+          <button type="button" class="mt-8 w-full rounded-xl bg-teal-600 py-3 text-sm font-bold text-white shadow-lg shadow-teal-600/25 hover:bg-teal-700">
+            Start 14-day sprint
+          </button>
+        </article>
+
+        <!-- 30-day variant (second row on mobile could stack) -->
+        <article class="flex flex-col rounded-2xl border-2 border-zinc-200 bg-white p-6 shadow-sm lg:col-span-1">
+          <h2 class="text-lg font-bold text-zinc-900">Momentum · 30 days</h2>
+          <p class="mt-1 text-sm text-zinc-500">More runway for active search</p>
+          <p class="mt-6 flex items-baseline gap-1">
+            <span class="text-3xl font-black text-zinc-900">₹399</span>
+            <span class="text-sm text-zinc-500">once</span>
+          </p>
+          <ul class="mt-6 space-y-2 text-sm text-zinc-600 flex-1">
+            <li class="flex gap-2"><span class="text-teal-600">✓</span> Same caps as Intensive, longer window</li>
+            <li class="flex gap-2"><span class="text-teal-600">✓</span> Email support</li>
+          </ul>
+          <button type="button" class="mt-8 w-full rounded-xl border-2 border-teal-600 py-3 text-sm font-bold text-teal-700 hover:bg-teal-50">
+            Choose 30 days
+          </button>
+        </article>
+
+        <!-- Pro annual / anchor -->
+        <article class="flex flex-col rounded-2xl border-2 border-zinc-200 bg-zinc-900 p-6 text-white shadow-sm">
+          <h2 class="text-lg font-bold">Pro · Annual</h2>
+          <p class="mt-1 text-sm text-zinc-400">Best value if you’re serious</p>
+          <p class="mt-6 text-3xl font-black">₹4,999<span class="text-lg font-semibold text-zinc-400">/yr</span></p>
+          <ul class="mt-6 space-y-2 text-sm text-zinc-300 flex-1">
+            <li class="flex gap-2"><span class="text-teal-400">✓</span> Unlimited ATS scans</li>
+            <li class="flex gap-2"><span class="text-teal-400">✓</span> Highest send limits</li>
+          </ul>
+          <button type="button" class="mt-8 w-full rounded-xl bg-white py-3 text-sm font-bold text-zinc-900 hover:bg-zinc-100">
+            Compare in app
+          </button>
+        </article>
+      </div>
+
+      <p class="mt-8 text-center text-xs text-zinc-500 max-w-xl mx-auto">
+        Disclaimer copy (match your legal): tools only; no job guarantee. Caps must match what your backend enforces.
+      </p>
+    </div>
+  </section>
+
+  <!-- ========== 2) COMPOSE + GMAIL TRUST MODAL ========== -->
+  <section class="container mx-auto max-w-5xl px-4 py-14 sm:py-20">
+    <h2 class="text-2xl font-bold text-zinc-900 sm:text-3xl">Compose — before “Connect Gmail”</h2>
+    <p class="mt-2 text-sm text-zinc-600 max-w-2xl">
+      Clicking <strong>Connect Gmail</strong> opens the trust modal first (below). User can read scope, open Privacy Policy, then continue or cancel.
+    </p>
+
+    <div class="mt-10 grid gap-8 lg:grid-cols-3">
+      <!-- Fake compose column -->
+      <div class="lg:col-span-2 space-y-4">
+        <div class="rounded-2xl border border-teal-500/25 bg-teal-500/[0.06] p-4 sm:p-5">
+          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div class="flex items-start gap-3">
+              <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-teal-500/15 text-teal-700">
+                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
+              </div>
+              <div>
+                <h3 class="font-semibold text-zinc-900">Connect Gmail to send</h3>
+                <p class="text-sm text-zinc-600 mt-0.5">We only use access you approve — see details before you connect.</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              id="btn-open-gmail-trust"
+              class="shrink-0 rounded-xl border border-zinc-300 bg-white px-4 py-2.5 text-sm font-semibold text-zinc-900 shadow-sm hover:bg-zinc-50"
+            >
+              Connect Gmail
+            </button>
+          </div>
+        </div>
+        <div class="rounded-2xl border border-zinc-200 bg-white p-5 opacity-60">
+          <p class="text-sm font-medium text-zinc-500">Email content (placeholder)</p>
+          <div class="mt-3 h-32 rounded-lg bg-zinc-100 border border-dashed border-zinc-200"></div>
+        </div>
+      </div>
+
+      <!-- Modal preview card (static + live modal) -->
+      <div class="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
+        <p class="text-xs font-bold uppercase tracking-wide text-zinc-400">Modal preview</p>
+        <p class="mt-2 text-sm text-zinc-600">
+          The real modal overlays the app (click <strong>Connect Gmail</strong> above). This panel shows the same content inline.
+        </p>
+        <div class="mt-4 rounded-xl border border-zinc-100 bg-zinc-50 p-4 text-xs text-zinc-600 leading-relaxed">
+          <strong class="text-zinc-800">What JobSeeker can access</strong><br />
+          Send on your behalf · Read threads you use for job outreach · No selling your data (see Privacy).
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Modal overlay -->
+  <div
+    id="gmail-trust-backdrop"
+    class="fixed inset-0 z-[200] hidden items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+    role="presentation"
+  >
+    <div
+      id="gmail-trust-modal"
+      class="relative w-full max-w-md rounded-2xl border border-zinc-200 bg-white p-6 shadow-2xl"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="gmail-trust-title"
+    >
+      <button
+        type="button"
+        id="btn-close-gmail-trust"
+        class="absolute right-4 top-4 rounded-lg p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-800"
+        aria-label="Close"
+      >
+        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" stroke-linecap="round" d="M6 18L18 6M6 6l12 12" /></svg>
+      </button>
+
+      <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-teal-500/15 text-teal-700">
+        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+        </svg>
+      </div>
+
+      <h2 id="gmail-trust-title" class="mt-4 text-xl font-bold text-zinc-900">Before you connect Gmail</h2>
+      <p class="mt-2 text-sm text-zinc-600 leading-relaxed">
+        With your permission, we use Google’s secure sign-in. Here’s what that means in plain language:
+      </p>
+
+      <ul class="mt-4 space-y-3 text-sm text-zinc-700">
+        <li class="flex gap-3">
+          <span class="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-teal-100 text-teal-700 text-xs font-bold">1</span>
+          <span><strong class="text-zinc-900">Send</strong> recruiter emails from your address so replies come back to you.</span>
+        </li>
+        <li class="flex gap-3">
+          <span class="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-teal-100 text-teal-700 text-xs font-bold">2</span>
+          <span><strong class="text-zinc-900">Read</strong> only what’s needed to match job-related threads and show status in JobSeeker — not unrelated personal mail.</span>
+        </li>
+        <li class="flex gap-3">
+          <span class="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-teal-100 text-teal-700 text-xs font-bold">3</span>
+          <span><strong class="text-zinc-900">Disconnect anytime</strong> in the app; we stop using tokens from that point.</span>
+        </li>
+      </ul>
+
+      <div class="mt-5 flex flex-wrap gap-3 text-sm">
+        <a href="/privacy-policy" class="font-semibold text-teal-700 underline underline-offset-2 hover:text-teal-800">Privacy Policy</a>
+        <span class="text-zinc-300">·</span>
+        <a href="/terms-of-service" class="font-semibold text-teal-700 underline underline-offset-2 hover:text-teal-800">Terms</a>
+      </div>
+
+      <div class="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+        <button
+          type="button"
+          id="btn-cancel-gmail-trust"
+          class="rounded-xl border border-zinc-300 px-4 py-2.5 text-sm font-semibold text-zinc-700 hover:bg-zinc-50"
+        >
+          Not now
+        </button>
+        <button
+          type="button"
+          class="rounded-xl bg-teal-600 px-4 py-2.5 text-sm font-bold text-white shadow-md hover:bg-teal-700"
+        >
+          Continue to Google
+        </button>
+      </div>
+      <p class="mt-3 text-[11px] text-zinc-400 leading-snug">
+        Mock only: wire this button to your real <code class="rounded bg-zinc-100 px-1">handleConnectGmail</code> after the user confirms.
+      </p>
+    </div>
+  </div>
+
+  <footer class="border-t border-zinc-200 bg-white py-8 text-center text-xs text-zinc-500">
+    JobSeeker UI mock · Sprint SKU + Gmail trust modal
+  </footer>
+
+  <script>
+    (function () {
+      var backdrop = document.getElementById("gmail-trust-backdrop");
+      var openBtn = document.getElementById("btn-open-gmail-trust");
+      var closeBtn = document.getElementById("btn-close-gmail-trust");
+      var cancelBtn = document.getElementById("btn-cancel-gmail-trust");
+      var modal = document.getElementById("gmail-trust-modal");
+
+      function openModal() {
+        backdrop.classList.remove("hidden");
+        backdrop.classList.add("flex");
+        document.body.style.overflow = "hidden";
+      }
+      function closeModal() {
+        backdrop.classList.add("hidden");
+        backdrop.classList.remove("flex");
+        document.body.style.overflow = "";
+      }
+
+      openBtn.addEventListener("click", openModal);
+      closeBtn.addEventListener("click", closeModal);
+      cancelBtn.addEventListener("click", closeModal);
+      backdrop.addEventListener("click", function (e) {
+        if (e.target === backdrop) closeModal();
+      });
+      document.addEventListener("keydown", function (e) {
+        if (e.key === "Escape" && !backdrop.classList.contains("hidden")) closeModal();
+      });
+    })();
+  </script>
+</body>
+</html>
