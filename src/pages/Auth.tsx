@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { Mail, Lock, User, ArrowRight, Loader2, Eye, EyeOff, ArrowLeft } from "lucide-react";
 import { Chrome } from "lucide-react";
 import { Helmet } from "react-helmet-async";
+import { useAuth } from "@/hooks/useAuth";
 
 /** Same-origin path only; prevents open redirects. */
 export function getSafeInternalRedirect(raw: string | null | undefined): string | null {
@@ -24,9 +25,20 @@ function readRedirectFromSearch(): string | null {
   return getSafeInternalRedirect(new URLSearchParams(window.location.search).get("redirect"));
 }
 
+/** After login, prefer `redirect`, then legacy `returnTo` (e.g. flash sale CTA). */
+export function readPostLoginRedirect(): string {
+  const q = new URLSearchParams(window.location.search);
+  return (
+    getSafeInternalRedirect(q.get("redirect")) ??
+    getSafeInternalRedirect(q.get("returnTo")) ??
+    "/dashboard"
+  );
+}
+
 const Auth = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const { user, loading: authLoading } = useAuth();
   const [isLogin, setIsLogin] = useState(searchParams.get("mode") !== "signup");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -40,80 +52,75 @@ const Auth = () => {
   /** When sign-up returns an immediate session, SIGNED_IN also fires — skip duplicate welcome toast. */
   const skipNextSignedInWelcomeRef = useRef(false);
 
+  // OAuth hash only: process tokens, then redirect (avoid racing AuthProvider /dashboard vs /auth)
   useEffect(() => {
-    // Handle OAuth callback - check for tokens in URL hash
-    const handleOAuthCallback = async () => {
-      const hashParams = new URLSearchParams(window.location.hash.substring(1));
-      const accessToken = hashParams.get('access_token');
-      const refreshToken = hashParams.get('refresh_token');
-      
-      if (accessToken) {
-        // OAuth callback detected - Supabase should handle this automatically
-        // but we'll explicitly get the session to ensure it's processed
-        setLoading(true);
-        
-        try {
-          // Get session (this will process the hash tokens)
-          const { data: { session }, error } = await supabase.auth.getSession();
-          
-          if (error) {
-            console.error("OAuth callback error:", error);
-            toast.error("Failed to complete sign in. Please try again.");
-            // Clear the hash
-            window.history.replaceState({}, document.title, window.location.pathname);
-            setLoading(false);
-            return;
-          }
-          
-          if (session) {
-            const q = window.location.search || "";
-            window.history.replaceState(null, "", `${window.location.pathname}${q}`);
-            navigate(readRedirectFromSearch() || "/dashboard");
-          }
-        } catch (error: any) {
-          console.error("OAuth callback processing error:", error);
+    const hashParams = new URLSearchParams(window.location.hash.substring(1));
+    const accessToken = hashParams.get("access_token");
+
+    if (!accessToken) return;
+
+    let cancelled = false;
+    setLoading(true);
+
+    (async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (cancelled) return;
+        if (error) {
+          console.error("OAuth callback error:", error);
           toast.error("Failed to complete sign in. Please try again.");
-          // Clear the hash
-          window.history.replaceState({}, document.title, window.location.pathname);
-        } finally {
-          setLoading(false);
+          window.history.replaceState({}, document.title, window.location.pathname + window.location.search);
+          return;
         }
+        if (session) {
+          const q = window.location.search || "";
+          window.history.replaceState(null, "", `${window.location.pathname}${q}`);
+          navigate(readPostLoginRedirect(), { replace: true });
+        }
+      } catch (e) {
+        console.error("OAuth callback processing error:", e);
+        toast.error("Failed to complete sign in. Please try again.");
+        window.history.replaceState({}, document.title, window.location.pathname + window.location.search);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [navigate]);
+
+  // When AuthProvider has finished loading and user is signed in, leave /auth once (no duplicate getSession race)
+  useEffect(() => {
+    if (authLoading) return;
+    const hashParams = new URLSearchParams(window.location.hash.substring(1));
+    if (hashParams.get("access_token")) return;
+
+    if (user) {
+      navigate(readPostLoginRedirect(), { replace: true });
+    }
+  }, [authLoading, user, navigate]);
+
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event !== "SIGNED_IN") return;
+      const skipWelcome = skipNextSignedInWelcomeRef.current;
+      if (skipWelcome) {
+        skipNextSignedInWelcomeRef.current = false;
         return;
       }
-
-      // Check for existing session (normal flow)
-      supabase.auth.getSession().then(({ data: { session } }) => {
-        if (session) {
-          navigate(readRedirectFromSearch() || "/dashboard");
-        }
-      });
-    };
-
-    handleOAuthCallback();
-
-    // Listen for auth changes (handles OAuth callbacks automatically)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_IN' && session) {
-        const skipWelcome = skipNextSignedInWelcomeRef.current;
-        if (skipWelcome) {
-          skipNextSignedInWelcomeRef.current = false;
-        }
-        if (!skipWelcome) {
-          toast.success("Welcome back!");
-        }
-        navigate(readRedirectFromSearch() || "/dashboard");
-      }
+      toast.success("Welcome back!");
     });
-
     return () => subscription.unsubscribe();
-  }, [navigate]);
+  }, []);
 
   const handleGoogleSignIn = async () => {
     setLoading(true);
     try {
       // Use production URL from env, or fall back to current origin
       const siteUrl = import.meta.env.VITE_SITE_URL || window.location.origin;
-      const next = readRedirectFromSearch();
+      const next = readRedirectFromSearch() ?? getSafeInternalRedirect(new URLSearchParams(window.location.search).get("returnTo"));
       const redirectUrl = next
         ? `${siteUrl}/auth?redirect=${encodeURIComponent(next)}`
         : `${siteUrl}/dashboard`;

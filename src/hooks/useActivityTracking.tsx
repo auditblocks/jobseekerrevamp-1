@@ -30,6 +30,14 @@ const generateSessionToken = (): string => {
   return `${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
 };
 
+/** Must match Supabase JWT: authenticated inserts require user_id = auth.uid(); null only for true anon. */
+async function resolveTrackingUserId(): Promise<string | null> {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  return session?.user?.id ?? null;
+}
+
 export function useActivityTracking() {
   const { user } = useAuth();
   const location = useLocation();
@@ -43,6 +51,8 @@ export function useActivityTracking() {
   // Create or get active session
   const createOrGetSession = async (): Promise<string | null> => {
     try {
+      const authUserId = await resolveTrackingUserId();
+
       // Use persistent guest_id for anonymous users
       let persistentGuestId = localStorage.getItem("tracking_guest_id");
       if (!persistentGuestId) {
@@ -56,8 +66,8 @@ export function useActivityTracking() {
         .select("id, session_token")
         .eq("is_active", true);
 
-      if (user?.id) {
-        queryBuilder = queryBuilder.eq("user_id", user.id);
+      if (authUserId) {
+        queryBuilder = queryBuilder.eq("user_id", authUserId);
       } else if (persistentGuestId) {
         queryBuilder = queryBuilder.eq("guest_id", persistentGuestId).is("user_id", null);
       } else {
@@ -84,8 +94,8 @@ export function useActivityTracking() {
       const { data: newSession, error } = await supabase
         .from("user_sessions")
         .insert({
-          user_id: user?.id || null,
-          guest_id: user?.id ? null : persistentGuestId,
+          user_id: authUserId,
+          guest_id: authUserId ? null : persistentGuestId,
           session_token: sessionToken,
           device_type: deviceType,
           browser: browser,
@@ -104,7 +114,7 @@ export function useActivityTracking() {
       }
 
       if (newSession) {
-        console.log("Successfully created new session:", newSession.id, user?.id ? "for user" : "for guest");
+        console.log("Successfully created new session:", newSession.id, authUserId ? "for user" : "for guest");
         setSessionId(newSession.id);
         return newSession.id;
       }
@@ -130,9 +140,9 @@ export function useActivityTracking() {
         })
         .eq("id", sessionId);
 
-      // Create page view event
+      const trackingUserId = await resolveTrackingUserId();
       await supabase.from("user_activity_events").insert({
-        user_id: user?.id || null, // Allow null for guests
+        user_id: trackingUserId,
         session_id: sessionId,
         event_type: "page_view",
         page_path: pagePath,
@@ -153,8 +163,9 @@ export function useActivityTracking() {
     if (!sessionId) return;
 
     try {
+      const trackingUserId = await resolveTrackingUserId();
       await supabase.from("user_activity_events").insert({
-        user_id: user?.id || null,
+        user_id: trackingUserId,
         session_id: sessionId,
         event_type: "button_click",
         page_path: location.pathname,
@@ -178,8 +189,9 @@ export function useActivityTracking() {
     if (!sessionId) return;
 
     try {
+      const trackingUserId = await resolveTrackingUserId();
       await supabase.from("user_activity_events").insert({
-        user_id: user?.id || null,
+        user_id: trackingUserId,
         session_id: sessionId,
         event_type: "form_submit",
         page_path: location.pathname,
@@ -399,9 +411,6 @@ export function useActivityTracking() {
 
     return () => {
       window.removeEventListener("beforeunload", handleBeforeUnload);
-      if (sessionId) {
-        endSession("close");
-      }
     };
   }, [sessionId]);
 

@@ -177,11 +177,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
-    setUser(null);
-    setSession(null);
-    setProfile(null);
-    setIsSuperadmin(false);
+    try {
+      // `scope: global` can 403 on some projects; local clears this client and stops RLS/session mismatch.
+      await supabase.auth.signOut({ scope: "local" });
+    } catch (e) {
+      console.warn("signOut:", e);
+    } finally {
+      setUser(null);
+      setSession(null);
+      setProfile(null);
+      setIsSuperadmin(false);
+    }
   };
 
   // Public function to refresh profile (e.g., after subscription upgrade)

@@ -135,7 +135,7 @@ export function FlashSalePopup() {
     if (!user) {
       setIsVisible(false);
       setShowDetails(false);
-      navigate("/auth?returnTo=/");
+      navigate("/auth?redirect=" + encodeURIComponent("/"));
       return;
     }
 
