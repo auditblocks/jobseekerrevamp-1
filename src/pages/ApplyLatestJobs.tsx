@@ -20,6 +20,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Select,
@@ -39,10 +49,18 @@ import {
   Sparkles,
   X,
   FileText,
+  CheckCircle2,
+  ArrowUpCircle,
 } from "lucide-react";
 import { format } from "date-fns";
 import { useChatListingContext } from "@/contexts/ChatListingContext";
 import { toast } from "sonner";
+import {
+  PrivateApplySlots,
+  isUnlimitedApply,
+  fetchPrivateApplySlots,
+  fetchAppliedJobIds,
+} from "@/lib/privateApplyPolicy";
 
 interface NaukriJobRow {
   id: string;
@@ -217,6 +235,10 @@ const ApplyLatestJobs = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState<number>(DEFAULT_PAGE_SIZE);
   const [detailRawLoading, setDetailRawLoading] = useState(false);
+  const [applySlots, setApplySlots] = useState<PrivateApplySlots | null>(null);
+  const [appliedJobIds, setAppliedJobIds] = useState<Set<string>>(new Set());
+  const [applyingJobId, setApplyingJobId] = useState<string | null>(null);
+  const [showUpgradePopup, setShowUpgradePopup] = useState(false);
   const filtersDigest = useMemo(
     () =>
       [
@@ -241,6 +263,21 @@ const ApplyLatestJobs = () => {
     ],
   );
   const prevFiltersDigestRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    (async () => {
+      const [slots, applied] = await Promise.all([
+        fetchPrivateApplySlots(),
+        fetchAppliedJobIds(user.id),
+      ]);
+      if (cancelled) return;
+      setApplySlots(slots);
+      setAppliedJobIds(applied);
+    })();
+    return () => { cancelled = true; };
+  }, [user]);
 
   useEffect(() => {
     const t = setTimeout(() => setSearchForFetch(searchQuery.trim()), 320);
@@ -481,6 +518,46 @@ const ApplyLatestJobs = () => {
     return name.slice(0, 2).toUpperCase();
   };
 
+  const handleApply = async (job: NaukriJobRow) => {
+    if (!user) return;
+    if (appliedJobIds.has(job.id)) {
+      window.open(job.apply_url, "_blank", "noopener,noreferrer");
+      return;
+    }
+    setApplyingJobId(job.id);
+    try {
+      const { error } = await supabase
+        .from("private_job_applies" as any)
+        .insert({ user_id: user.id, naukri_job_id: job.id } as any);
+      if (error) {
+        if (error.code === "23505") {
+          // duplicate — already applied, just open
+          setAppliedJobIds((prev) => new Set(prev).add(job.id));
+          window.open(job.apply_url, "_blank", "noopener,noreferrer");
+          return;
+        }
+        if (error.message?.includes("Daily apply limit reached")) {
+          setShowUpgradePopup(true);
+          return;
+        }
+        throw error;
+      }
+      setAppliedJobIds((prev) => new Set(prev).add(job.id));
+      setApplySlots((prev) =>
+        prev && !isUnlimitedApply(prev)
+          ? { ...prev, used_today: prev.used_today + 1, remaining: Math.max(0, prev.remaining - 1) }
+          : prev,
+      );
+      window.open(job.apply_url, "_blank", "noopener,noreferrer");
+      toast.success("Application tracked!");
+    } catch (e: any) {
+      console.error("Apply error:", e);
+      toast.error(e.message || "Could not apply");
+    } finally {
+      setApplyingJobId(null);
+    }
+  };
+
   const pageBody = (
     <>
       <Helmet>
@@ -696,6 +773,37 @@ const ApplyLatestJobs = () => {
             </p>
           </motion.div>
 
+          {/* Daily apply counter */}
+          {user && applySlots && !isUnlimitedApply(applySlots) ? (
+            <div className="mb-4 flex items-center gap-2">
+              <Badge
+                variant="outline"
+                className={cn(
+                  "gap-1.5 px-3 py-1.5 text-sm font-medium",
+                  applySlots.remaining > 0
+                    ? "border-teal-500/40 bg-teal-500/10 text-teal-800 dark:text-teal-200"
+                    : "border-red-500/40 bg-red-500/10 text-red-800 dark:text-red-200",
+                )}
+              >
+                {applySlots.remaining > 0
+                  ? `${applySlots.remaining} applies left today`
+                  : "Daily apply limit reached"}
+              </Badge>
+              {applySlots.remaining <= 0 ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-8 gap-1 rounded-lg border-teal-500/40 text-teal-700 hover:bg-teal-50 dark:text-teal-300 dark:hover:bg-teal-950/40"
+                  onClick={() => navigate("/dashboard/subscription")}
+                >
+                  <ArrowUpCircle className="h-3.5 w-3.5" />
+                  Upgrade
+                </Button>
+              ) : null}
+            </div>
+          ) : null}
+
           {/* Results count */}
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <div className="space-y-1">
@@ -890,15 +998,31 @@ const ApplyLatestJobs = () => {
                               Details
                             </Button>
                             {user ? (
-                              <Button
-                                className="h-11 w-full rounded-xl bg-gradient-to-r from-slate-900 to-slate-800 px-6 font-semibold shadow-lg transition-all hover:from-teal-700 hover:to-teal-800 hover:shadow-teal-500/20 dark:from-slate-100 dark:to-white dark:text-slate-900 dark:hover:from-teal-200 dark:hover:to-teal-100 sm:w-auto sm:min-w-[9rem]"
-                                asChild
-                              >
-                                <a href={job.apply_url} target="_blank" rel="noopener noreferrer">
+                              appliedJobIds.has(job.id) ? (
+                                <Button
+                                  type="button"
+                                  className="h-11 w-full rounded-xl border-green-500/40 bg-green-500/10 px-6 font-semibold text-green-800 hover:bg-green-500/20 dark:text-green-200 sm:w-auto sm:min-w-[9rem]"
+                                  variant="outline"
+                                  onClick={() => window.open(job.apply_url, "_blank", "noopener,noreferrer")}
+                                >
+                                  <CheckCircle2 className="mr-2 h-4 w-4" />
+                                  Applied
+                                </Button>
+                              ) : (
+                                <Button
+                                  type="button"
+                                  className="h-11 w-full rounded-xl bg-gradient-to-r from-slate-900 to-slate-800 px-6 font-semibold shadow-lg transition-all hover:from-teal-700 hover:to-teal-800 hover:shadow-teal-500/20 dark:from-slate-100 dark:to-white dark:text-slate-900 dark:hover:from-teal-200 dark:hover:to-teal-100 sm:w-auto sm:min-w-[9rem]"
+                                  disabled={applyingJobId === job.id}
+                                  onClick={() => handleApply(job)}
+                                >
+                                  {applyingJobId === job.id ? (
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                  ) : (
+                                    <ExternalLink className="mr-2 h-4 w-4" />
+                                  )}
                                   Apply
-                                  <ExternalLink className="ml-2 h-4 w-4" />
-                                </a>
-                              </Button>
+                                </Button>
+                              )
                             ) : (
                               <Button
                                 type="button"
@@ -1036,12 +1160,29 @@ const ApplyLatestJobs = () => {
                   Close
                 </Button>
                 {user ? (
-                  <Button className="rounded-xl" asChild>
-                    <a href={detailJob.apply_url} target="_blank" rel="noopener noreferrer">
+                  appliedJobIds.has(detailJob.id) ? (
+                    <Button
+                      className="rounded-xl border-green-500/40 bg-green-500/10 text-green-800 hover:bg-green-500/20 dark:text-green-200"
+                      variant="outline"
+                      onClick={() => window.open(detailJob.apply_url, "_blank", "noopener,noreferrer")}
+                    >
+                      <CheckCircle2 className="mr-2 h-4 w-4" />
+                      Applied — {jobSource(detailJob) === "linkedin" ? "view on LinkedIn" : "view on Naukri"}
+                    </Button>
+                  ) : (
+                    <Button
+                      className="rounded-xl"
+                      disabled={applyingJobId === detailJob.id}
+                      onClick={() => handleApply(detailJob)}
+                    >
+                      {applyingJobId === detailJob.id ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        <ExternalLink className="mr-2 h-4 w-4" />
+                      )}
                       {jobSource(detailJob) === "linkedin" ? "Apply on LinkedIn" : "Apply on Naukri"}
-                      <ExternalLink className="ml-2 h-4 w-4" />
-                    </a>
-                  </Button>
+                    </Button>
+                  )
                 ) : (
                   <Button className="rounded-xl" onClick={() => navigate(signUpApplyHref)}>
                     Sign up to apply
@@ -1053,6 +1194,32 @@ const ApplyLatestJobs = () => {
           ) : null}
         </DialogContent>
       </Dialog>
+
+      {/* Upgrade popup — secondary modal on top of everything */}
+      <AlertDialog open={showUpgradePopup} onOpenChange={setShowUpgradePopup}>
+        <AlertDialogContent className="sm:rounded-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <ArrowUpCircle className="h-5 w-5 text-teal-600" />
+              Daily apply limit reached
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {applySlots
+                ? `You've used all ${applySlots.max} of your ${applySlots.tier} daily applies. Upgrade your plan for more applies — limits reset at midnight IST.`
+                : "You've reached your daily apply limit. Upgrade your plan for more applies."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Close</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-teal-600 text-white hover:bg-teal-700"
+              onClick={() => navigate("/dashboard/subscription")}
+            >
+              Upgrade plan
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 

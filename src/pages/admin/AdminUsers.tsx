@@ -28,9 +28,19 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
-import { Search, RefreshCw, User, Mail, Calendar, Crown, Activity } from "lucide-react";
+import { Search, RefreshCw, User, Mail, Calendar, Crown, Activity, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { useAuth } from "@/hooks/useAuth";
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface UserData {
   id: string;
@@ -40,11 +50,15 @@ interface UserData {
   status: string;
   subscription_tier: string;
   is_elite_member: boolean;
+  suspended_until: string | null;
   created_at: string;
   last_sign_in_at: string | null;
 }
 
+const SUSPENSION_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+
 export default function AdminUsers() {
+  const { user: currentUser } = useAuth();
   const [users, setUsers] = useState<UserData[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -55,6 +69,8 @@ export default function AdminUsers() {
   const [userSessions, setUserSessions] = useState<any[]>([]);
   const [loadingActivity, setLoadingActivity] = useState(false);
   const [isActivityDialogOpen, setIsActivityDialogOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<UserData | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     fetchUsers();
@@ -76,16 +92,54 @@ export default function AdminUsers() {
 
   const updateUserStatus = async (userId: string, status: string) => {
     try {
-      const { error } = await supabase
-        .from("profiles")
-        .update({ status })
-        .eq("id", userId);
+      const now = new Date();
+      const updatePayload: Record<string, unknown> = {
+        status,
+        updated_at: now.toISOString(),
+      };
+      if (status === "suspended") {
+        updatePayload.suspended_until = new Date(now.getTime() + SUSPENSION_DAYS_MS).toISOString();
+      } else {
+        updatePayload.suspended_until = null;
+      }
+
+      const { error } = await supabase.from("profiles").update(updatePayload).eq("id", userId);
 
       if (error) throw error;
       toast.success(`User status updated to ${status}`);
       fetchUsers();
     } catch (error: any) {
       toast.error("Failed to update user status");
+    }
+  };
+
+  const confirmDeleteUser = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("admin-delete-user", {
+        body: { user_id: deleteTarget.id },
+      });
+      const payload = data as { success?: boolean; message?: string } | null | undefined;
+      if (payload && payload.success === false && typeof payload.message === "string") {
+        throw new Error(payload.message);
+      }
+      if (error) {
+        const fromBody =
+          payload && typeof payload.message === "string" ? payload.message : null;
+        throw new Error(fromBody || error.message || "Failed to delete user");
+      }
+      if (!payload?.success) {
+        throw new Error(payload?.message || "Delete failed");
+      }
+      toast.success("User removed from the database");
+      setDeleteTarget(null);
+      fetchUsers();
+    } catch (error: any) {
+      console.error("Delete user:", error);
+      toast.error(error?.message || "Failed to delete user");
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -322,9 +376,16 @@ export default function AdminUsers() {
                           </div>
                         </TableCell>
                         <TableCell>
-                          <Badge variant="outline" className={getStatusColor(user.status)}>
-                            {user.status}
-                          </Badge>
+                          <div>
+                            <Badge variant="outline" className={getStatusColor(user.status)}>
+                              {user.status}
+                            </Badge>
+                            {user.status === "suspended" && user.suspended_until && (
+                              <div className="text-xs text-muted-foreground mt-1">
+                                Until {format(new Date(user.suspended_until), "MMM d, yyyy h:mm a")}
+                              </div>
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell>
                           <Badge variant="outline" className={getTierColor(user.subscription_tier)}>
@@ -398,6 +459,20 @@ export default function AdminUsers() {
                                 <SelectItem value="banned">Ban</SelectItem>
                               </SelectContent>
                             </Select>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 text-destructive hover:text-destructive"
+                              disabled={currentUser?.id === user.id}
+                              title={
+                                currentUser?.id === user.id
+                                  ? "You cannot delete your own account"
+                                  : "Delete user"
+                              }
+                              onClick={() => setDeleteTarget(user)}
+                            >
+                              <Trash2 className="h-3 w-3 sm:h-4 sm:w-4" />
+                            </Button>
                           </div>
                         </TableCell>
                       </TableRow>
@@ -531,6 +606,35 @@ export default function AdminUsers() {
             )}
           </DialogContent>
         </Dialog>
+
+        <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete user permanently?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This removes the account from authentication and deletes related profile data per your database rules.
+                {deleteTarget && (
+                  <>
+                    {" "}
+                    <span className="font-medium text-foreground">
+                      {deleteTarget.name} ({deleteTarget.email})
+                    </span>
+                  </>
+                )}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+              <Button
+                variant="destructive"
+                disabled={deleting}
+                onClick={() => void confirmDeleteUser()}
+              >
+                {deleting ? "Deleting…" : "Delete user"}
+              </Button>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </AdminLayout>
   );

@@ -1,6 +1,8 @@
 import { useState, useEffect, createContext, useContext, ReactNode } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { getAccountAccessDenialMessage } from "@/lib/accountAccess";
 
 interface AuthContextType {
   user: User | null;
@@ -69,8 +71,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Defer profile fetch
         if (session?.user) {
           setTimeout(async () => {
-            await fetchProfile(session.user.id);
-            await checkSuperadmin(session.user.id);
+            const allowed = await fetchProfile(session.user.id);
+            if (allowed !== false) {
+              await checkSuperadmin(session.user.id);
+            }
           }, 100); // Small delay to ensure database is ready
         } else {
           setProfile(null);
@@ -85,8 +89,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(session?.user ?? null);
       
       if (session?.user) {
-        fetchProfile(session.user.id);
-        checkSuperadmin(session.user.id);
+        void fetchProfile(session.user.id).then((allowed) => {
+          if (allowed !== false) {
+            void checkSuperadmin(session.user.id);
+          }
+        });
       }
       setLoading(false);
     });
@@ -94,7 +101,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
-  const fetchProfile = async (userId: string) => {
+  const fetchProfile = async (userId: string): Promise<boolean> => {
+    const { error: clearSuspErr } = await supabase.rpc("clear_expired_user_suspension", {
+      p_user_id: userId,
+    });
+    if (clearSuspErr) {
+      console.warn("clear_expired_user_suspension:", clearSuspErr);
+    }
+
     const { data } = await supabase
       .from("profiles")
       .select("*")
@@ -141,8 +155,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       }
     }
-    
+
+    const denial = getAccountAccessDenialMessage(data);
+    if (denial) {
+      try {
+        await supabase.auth.signOut({ scope: "local" });
+      } catch (e) {
+        console.warn("signOut after access denial:", e);
+      }
+      toast.error(denial);
+      setProfile(null);
+      setUser(null);
+      setSession(null);
+      setIsSuperadmin(false);
+      return false;
+    }
+
     setProfile(data);
+    return true;
   };
 
   const checkSuperadmin = async (userId: string) => {

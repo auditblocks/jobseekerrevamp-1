@@ -10,6 +10,7 @@ import { Mail, Lock, User, ArrowRight, Loader2, Eye, EyeOff, ArrowLeft } from "l
 import { Chrome } from "lucide-react";
 import { Helmet } from "react-helmet-async";
 import { useAuth } from "@/hooks/useAuth";
+import { getAccountAccessDenialMessage } from "@/lib/accountAccess";
 
 /** Same-origin path only; prevents open redirects. */
 export function getSafeInternalRedirect(raw: string | null | undefined): string | null {
@@ -164,6 +165,25 @@ const Auth = () => {
 
         if (error) throw error;
         if (signInData.session) {
+          const uid = signInData.session.user.id;
+          const { error: clearSuspErr } = await supabase.rpc("clear_expired_user_suspension", {
+            p_user_id: uid,
+          });
+          if (clearSuspErr) {
+            console.warn("clear_expired_user_suspension:", clearSuspErr);
+          }
+          const { data: prof, error: profErr } = await supabase
+            .from("profiles")
+            .select("status, suspended_until")
+            .eq("id", uid)
+            .single();
+          if (profErr) throw profErr;
+          const denial = getAccountAccessDenialMessage(prof);
+          if (denial) {
+            await supabase.auth.signOut({ scope: "local" });
+            toast.error(denial);
+            return;
+          }
           navigate(readPostLoginRedirect(), { replace: true });
         }
       } else {

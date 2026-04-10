@@ -806,6 +806,42 @@ export type Database = {
         }
         Relationships: []
       }
+      private_job_applies: {
+        Row: {
+          id: string
+          user_id: string
+          naukri_job_id: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          naukri_job_id: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          naukri_job_id?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "private_job_applies_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "private_job_applies_naukri_job_id_fkey"
+            columns: ["naukri_job_id"]
+            isOneToOne: false
+            referencedRelation: "naukri_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           bio: string | null
@@ -1720,6 +1756,14 @@ export type Database = {
       }
       govt_practice_slots_remaining: {
         Args: never
+        Returns: Json
+      }
+      ist_today_start: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
+      private_apply_slots_remaining: {
+        Args: Record<PropertyKey, never>
         Returns: Json
       }
       is_superadmin: { Args: never; Returns: boolean }

@@ -129,10 +129,22 @@ function toastSyncStats(d: {
   }
 }
 
+const APPLY_LIMIT_KEYS = [
+  "private_apply_free_max",
+  "private_apply_pro_max",
+  "private_apply_promax_max",
+] as const;
+
 const AdminNaukriJobs = () => {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+
+  const [applyFreeMax, setApplyFreeMax] = useState(15);
+  const [applyProMax, setApplyProMax] = useState(50);
+  const [applyPromaxMax, setApplyPromaxMax] = useState(-1);
+  const [limitsLoading, setLimitsLoading] = useState(true);
+  const [limitsSaving, setLimitsSaving] = useState(false);
   const [savingLinkedIn, setSavingLinkedIn] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [syncingNaukriImport, setSyncingNaukriImport] = useState(false);
@@ -247,7 +259,48 @@ const AdminNaukriJobs = () => {
   useEffect(() => {
     loadSecrets();
     loadLogs();
+    (async () => {
+      try {
+        const { data } = await supabase
+          .from("dashboard_config" as never)
+          .select("config_key, config_value")
+          .in("config_key", [...APPLY_LIMIT_KEYS]);
+        if (data) {
+          for (const row of data as any[]) {
+            const val = (row.config_value as any)?.max;
+            if (row.config_key === "private_apply_free_max" && typeof val === "number") setApplyFreeMax(val);
+            if (row.config_key === "private_apply_pro_max" && typeof val === "number") setApplyProMax(val);
+            if (row.config_key === "private_apply_promax_max" && typeof val === "number") setApplyPromaxMax(val);
+          }
+        }
+      } finally {
+        setLimitsLoading(false);
+      }
+    })();
   }, []);
+
+  const handleSaveApplyLimits = async () => {
+    setLimitsSaving(true);
+    try {
+      const upserts = [
+        { config_key: "private_apply_free_max",   config_value: { max: applyFreeMax },   display_order: 92, is_active: true },
+        { config_key: "private_apply_pro_max",    config_value: { max: applyProMax },    display_order: 93, is_active: true },
+        { config_key: "private_apply_promax_max", config_value: { max: applyPromaxMax }, display_order: 94, is_active: true },
+      ];
+      for (const row of upserts) {
+        const { error } = await supabase
+          .from("dashboard_config" as never)
+          .upsert(row as any, { onConflict: "config_key" });
+        if (error) throw error;
+      }
+      toast.success("Daily apply limits saved");
+    } catch (err) {
+      console.error("Error saving apply limits:", err);
+      toast.error("Failed to save apply limits");
+    } finally {
+      setLimitsSaving(false);
+    }
+  };
 
   const upsertSecret = async (key: string, value: string) => {
     const { error } = await supabase.from("admin_integration_secrets" as never).upsert(
@@ -441,6 +494,62 @@ const AdminNaukriJobs = () => {
               separate token and actor; the LinkedIn actor still needs saved search URLs (or a dataset ID) before you
               run a full sync.
             </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Daily Apply Limits</CardTitle>
+            <CardDescription>
+              Configure how many private jobs each tier can apply to per day.
+              Use <strong>-1</strong> for unlimited. Changes apply immediately. Limits reset at midnight IST.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {limitsLoading ? (
+              <div className="flex justify-center py-6">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="apply-free-max">FREE daily max</Label>
+                    <Input
+                      id="apply-free-max"
+                      type="number"
+                      min={0}
+                      value={applyFreeMax}
+                      onChange={(e) => setApplyFreeMax(Number(e.target.value))}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="apply-pro-max">PRO daily max</Label>
+                    <Input
+                      id="apply-pro-max"
+                      type="number"
+                      min={0}
+                      value={applyProMax}
+                      onChange={(e) => setApplyProMax(Number(e.target.value))}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="apply-promax-max">PRO MAX daily max</Label>
+                    <Input
+                      id="apply-promax-max"
+                      type="number"
+                      min={-1}
+                      value={applyPromaxMax}
+                      onChange={(e) => setApplyPromaxMax(Number(e.target.value))}
+                    />
+                  </div>
+                </div>
+                <Button onClick={handleSaveApplyLimits} disabled={limitsSaving}>
+                  {limitsSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
+                  Save daily apply limits
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
 
