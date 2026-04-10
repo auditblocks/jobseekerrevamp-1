@@ -18,7 +18,8 @@ import {
     Clock,
     AlertCircle,
     MoreVertical,
-    Briefcase
+    Briefcase,
+    BookOpen,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -26,6 +27,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { format, parseISO, isValid } from "date-fns";
 import { trackerOrganizationLabel, type GovtJobCategoryInput } from "@/lib/govtJobCategory";
+import { canDeleteTrackerRow } from "@/lib/govtPracticePolicy";
 import {
     Dialog,
     DialogContent,
@@ -115,7 +117,8 @@ function examDateToInputValue(iso: string | null): string {
 
 const GovtJobTracker = () => {
     const navigate = useNavigate();
-    const { user } = useAuth();
+    const { user, profile } = useAuth();
+    const userCanDelete = canDeleteTrackerRow(profile?.subscription_tier);
     const [trackedJobs, setTrackedJobs] = useState<TrackedJob[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState("");
@@ -367,6 +370,7 @@ const GovtJobTracker = () => {
                                             <th className="p-4 font-semibold text-sm">Payment</th>
                                             <th className="p-4 font-semibold text-sm">Admit Card</th>
                                             <th className="p-4 font-semibold text-sm">Exam Date</th>
+                                            <th className="p-4 font-semibold text-sm">Practice</th>
                                             <th className="p-4 font-semibold text-sm">Actions</th>
                                         </tr>
                                     </thead>
@@ -425,6 +429,21 @@ const GovtJobTracker = () => {
                                                         {job.exam_date ? format(new Date(job.exam_date), 'MMM dd, yyyy') : '--'}
                                                     </td>
                                                     <td className="p-4">
+                                                        {job.job_id ? (
+                                                            <Button
+                                                                variant="outline"
+                                                                size="sm"
+                                                                className="h-8 gap-1 text-xs font-bold text-accent border-accent/20 hover:bg-accent hover:text-white"
+                                                                onClick={() => navigate(`/govt-jobs/exam/${job.job_id}`)}
+                                                            >
+                                                                <BookOpen className="h-3.5 w-3.5" />
+                                                                Practice
+                                                            </Button>
+                                                        ) : (
+                                                            <span className="text-xs text-muted-foreground">--</span>
+                                                        )}
+                                                    </td>
+                                                    <td className="p-4">
                                                         <div className="flex gap-2">
                                                             <Button
                                                                 variant="ghost"
@@ -437,14 +456,16 @@ const GovtJobTracker = () => {
                                                             >
                                                                 <Edit2 className="h-4 w-4" />
                                                             </Button>
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="icon"
-                                                                className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                                                                onClick={() => handleDelete(job.id)}
-                                                            >
-                                                                <Trash2 className="h-4 w-4" />
-                                                            </Button>
+                                                            {userCanDelete && (
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="icon"
+                                                                    className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                                                                    onClick={() => handleDelete(job.id)}
+                                                                >
+                                                                    <Trash2 className="h-4 w-4" />
+                                                                </Button>
+                                                            )}
                                                         </div>
                                                     </td>
                                                 </motion.tr>

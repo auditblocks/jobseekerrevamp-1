@@ -831,6 +831,7 @@ export type Database = {
           resume_url: string | null
           role: string
           status: string
+          suspended_until: string | null
           subscription_expires_at: string | null
           subscription_tier: string
           successful_emails: number
@@ -861,6 +862,7 @@ export type Database = {
           resume_url?: string | null
           role?: string
           status?: string
+          suspended_until?: string | null
           subscription_expires_at?: string | null
           subscription_tier?: string
           successful_emails?: number
@@ -891,6 +893,7 @@ export type Database = {
           resume_url?: string | null
           role?: string
           status?: string
+          suspended_until?: string | null
           subscription_expires_at?: string | null
           subscription_tier?: string
           successful_emails?: number
@@ -1666,7 +1669,12 @@ export type Database = {
           role: string
           status: string
           subscription_tier: string
+          suspended_until: string | null
         }[]
+      }
+      clear_expired_user_suspension: {
+        Args: { p_user_id: string }
+        Returns: undefined
       }
       admin_get_dashboard_stats: { Args: never; Returns: Json }
       admin_get_subscription_distribution: {
@@ -1705,6 +1713,14 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      govt_practice_entitled: {
+        Args: { p_job_id: string }
+        Returns: boolean
+      }
+      govt_practice_slots_remaining: {
+        Args: never
+        Returns: Json
       }
       is_superadmin: { Args: never; Returns: boolean }
     }

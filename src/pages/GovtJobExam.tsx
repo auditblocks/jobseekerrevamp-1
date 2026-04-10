@@ -18,7 +18,9 @@ import {
     XCircle,
     Sparkles,
     LogOut,
+    ShieldAlert,
 } from "lucide-react";
+import { isProMax as checkProMax } from "@/lib/govtPracticePolicy";
 import {
     AlertDialog,
     AlertDialogAction,
@@ -46,8 +48,10 @@ const PRACTICE_MOCK_QUESTION_COUNT = 90;
 const GovtJobExam = () => {
     const { jobId } = useParams();
     const navigate = useNavigate();
-    const { user } = useAuth();
+    const { user, profile } = useAuth();
+    const userIsProMax = checkProMax(profile?.subscription_tier);
     const [loading, setLoading] = useState(true);
+    const [entitled, setEntitled] = useState<boolean | null>(null);
     const [questions, setQuestions] = useState<Question[]>([]);
     const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
     const [answers, setAnswers] = useState<Record<string, string>>({});
@@ -87,6 +91,27 @@ const GovtJobExam = () => {
     const fetchJobAndQuestions = async () => {
         try {
             setLoading(true);
+
+            const { data: slotsData } = await supabase.rpc("govt_practice_slots_remaining" as any);
+            const slots = slotsData as any;
+            const isEntitled =
+                slots?.tier === "PRO_MAX" ||
+                (user && await supabase
+                    .from("job_tracker" as any)
+                    .select("id")
+                    .eq("user_id", user.id)
+                    .eq("job_id", jobId)
+                    .maybeSingle()
+                    .then((r) => !!r.data));
+
+            setEntitled(!!isEntitled);
+            if (!isEntitled) {
+                const jobRes = await supabase.from("govt_jobs" as any).select("*").eq("id", jobId).single();
+                if (!jobRes.error) setJob(jobRes.data);
+                setLoading(false);
+                return;
+            }
+
             const [jobRes, questionsRes] = await Promise.all([
                 supabase.from("govt_jobs" as any).select("*").eq("id", jobId).single(),
                 supabase.from("exam_questions" as any).select("*").eq("job_id", jobId)
@@ -98,7 +123,6 @@ const GovtJobExam = () => {
             setJob(jobRes.data);
             setQuestions((questionsRes.data as any) || []);
 
-            // Set timer based on number of questions (1 min per question)
             if (questionsRes.data?.length) {
                 setTimeLeft(questionsRes.data.length * 60);
             }
@@ -223,6 +247,27 @@ const GovtJobExam = () => {
         );
     }
 
+    if (entitled === false) {
+        return (
+            <div className="flex flex-col items-center justify-center min-h-screen space-y-4 p-4 text-center">
+                <ShieldAlert className="h-16 w-16 text-warning opacity-50" />
+                <h1 className="text-2xl font-bold">Practice test locked</h1>
+                <p className="text-muted-foreground max-w-md">
+                    {job
+                        ? `Add "${job.post_name}" to your Job Tracker to unlock its practice test, or upgrade to Pro Max for unlimited access.`
+                        : "Add this job to your tracker to unlock practice, or upgrade to Pro Max."}
+                </p>
+                <div className="flex flex-col md:flex-row gap-3 pt-4">
+                    <Button variant="outline" onClick={() => navigate("/govt-jobs/tracker")}>Open Tracker</Button>
+                    <Button onClick={() => navigate("/dashboard/subscription")} className="bg-accent hover:bg-accent/90">
+                        Upgrade
+                    </Button>
+                    <Button variant="ghost" onClick={() => navigate("/government-jobs")}>Back to Jobs</Button>
+                </div>
+            </div>
+        );
+    }
+
     if (questions.length === 0) {
         return (
             <div className="flex flex-col items-center justify-center min-h-screen space-y-4 p-4 text-center">
@@ -230,20 +275,24 @@ const GovtJobExam = () => {
                 <h1 className="text-2xl font-bold">No questions available</h1>
                 <p className="text-muted-foreground">This job doesn't have any practice questions assigned yet.</p>
                 <div className="flex flex-col md:flex-row gap-3 pt-4">
-                    <Button
-                        onClick={handleAIGenerate}
-                        disabled={isSubmitting}
-                        className="bg-accent hover:bg-accent/90 gap-2"
-                    >
-                        {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-                        Generate Practice Test with AI
-                    </Button>
+                    {userIsProMax && (
+                        <Button
+                            onClick={handleAIGenerate}
+                            disabled={isSubmitting}
+                            className="bg-accent hover:bg-accent/90 gap-2"
+                        >
+                            {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                            Generate Practice Test with AI
+                        </Button>
+                    )}
                     <Button variant="outline" onClick={() => navigate("/government-jobs")}>Back to Jobs</Button>
                 </div>
-                <p className="text-[10px] text-muted-foreground max-w-sm mt-4">
-                    Generates a full {PRACTICE_MOCK_QUESTION_COUNT}-question mock aligned to this exam (~90 minutes at about one
-                    minute per question).
-                </p>
+                {userIsProMax && (
+                    <p className="text-[10px] text-muted-foreground max-w-sm mt-4">
+                        Generates a full {PRACTICE_MOCK_QUESTION_COUNT}-question mock aligned to this exam (~90 minutes at about one
+                        minute per question).
+                    </p>
+                )}
             </div>
         );
     }

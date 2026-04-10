@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Card, CardContent } from "@/components/ui/card";
 import {
     Table,
     TableBody,
@@ -12,7 +13,8 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Edit, Trash2, Plus, Search, Building2, Calendar, FileQuestion, RefreshCw, Clock } from "lucide-react";
+import { Label } from "@/components/ui/label";
+import { Edit, Trash2, Plus, Search, Building2, Calendar, FileQuestion, RefreshCw, Clock, Save, Loader2 } from "lucide-react";
 import {
     Select,
     SelectContent,
@@ -38,6 +40,53 @@ const AdminGovtJobs = () => {
     const [scrapeSource, setScrapeSource] = useState<string>("all");
     /** full = ingest many listings; quick = small batch + AI exam generation */
     const [scrapeMode, setScrapeMode] = useState<string>("full");
+
+    const [freeMax, setFreeMax] = useState<number>(2);
+    const [proMax, setProMax] = useState<number>(5);
+    const [limitsLoading, setLimitsLoading] = useState(true);
+    const [limitsSaving, setLimitsSaving] = useState(false);
+
+    useEffect(() => {
+        (async () => {
+            try {
+                const { data } = await supabase
+                    .from("dashboard_config" as any)
+                    .select("config_key, config_value")
+                    .in("config_key", ["govt_practice_free_max", "govt_practice_pro_max"]);
+                if (data) {
+                    for (const row of data as any[]) {
+                        const val = (row.config_value as any)?.max;
+                        if (row.config_key === "govt_practice_free_max" && typeof val === "number") setFreeMax(val);
+                        if (row.config_key === "govt_practice_pro_max" && typeof val === "number") setProMax(val);
+                    }
+                }
+            } finally {
+                setLimitsLoading(false);
+            }
+        })();
+    }, []);
+
+    const handleSaveLimits = async () => {
+        setLimitsSaving(true);
+        try {
+            const upserts = [
+                { config_key: "govt_practice_free_max", config_value: { max: freeMax }, display_order: 90, is_active: true },
+                { config_key: "govt_practice_pro_max",  config_value: { max: proMax },  display_order: 91, is_active: true },
+            ];
+            for (const row of upserts) {
+                const { error } = await supabase
+                    .from("dashboard_config" as any)
+                    .upsert(row as any, { onConflict: "config_key" });
+                if (error) throw error;
+            }
+            toast.success("Practice tracker limits saved");
+        } catch (err) {
+            console.error("Error saving limits:", err);
+            toast.error("Failed to save limits");
+        } finally {
+            setLimitsSaving(false);
+        }
+    };
 
     useEffect(() => {
         const id = setTimeout(() => setDebouncedSearch(searchTerm.trim()), 400);
@@ -201,6 +250,51 @@ const AdminGovtJobs = () => {
                         </Link>
                     </div>
                 </div>
+
+                {/* Practice / Tracker Limits */}
+                <Card className="border-border shadow-sm">
+                    <CardContent className="p-6">
+                        <h3 className="font-bold text-sm mb-4">Practice / Tracker Limits</h3>
+                        {limitsLoading ? (
+                            <p className="text-sm text-muted-foreground">Loading...</p>
+                        ) : (
+                            <div className="flex flex-wrap items-end gap-6">
+                                <div className="space-y-1.5">
+                                    <Label className="text-xs text-muted-foreground">Free tier max tracker slots</Label>
+                                    <Input
+                                        type="number"
+                                        min={0}
+                                        value={freeMax}
+                                        onChange={(e) => setFreeMax(Number(e.target.value))}
+                                        className="w-24 h-9"
+                                    />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <Label className="text-xs text-muted-foreground">Pro tier max tracker slots</Label>
+                                    <Input
+                                        type="number"
+                                        min={0}
+                                        value={proMax}
+                                        onChange={(e) => setProMax(Number(e.target.value))}
+                                        className="w-24 h-9"
+                                    />
+                                </div>
+                                <Button
+                                    size="sm"
+                                    className="gap-1.5 h-9"
+                                    onClick={handleSaveLimits}
+                                    disabled={limitsSaving}
+                                >
+                                    {limitsSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                                    Save
+                                </Button>
+                                <p className="text-[10px] text-muted-foreground max-w-xs">
+                                    Pro Max users always have unlimited access. Changes apply immediately for new tracker adds.
+                                </p>
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
 
                 <div className="bg-white rounded-xl shadow-sm border border-border p-6 overflow-hidden">
                     <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-6">

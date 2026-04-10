@@ -1,5 +1,5 @@
 import { Helmet } from "react-helmet-async";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -36,6 +36,13 @@ import Navbar from "@/components/landing/Navbar";
 import FooterSection from "@/components/landing/FooterSection";
 import DashboardLayout from "@/components/DashboardLayout";
 import { buildSmartTagsForDisplay, getGovtJobCategoryBadges, trackerOrganizationLabel } from "@/lib/govtJobCategory";
+import {
+    type PracticeSlots,
+    isUnlimited,
+    isProMax,
+    fetchPracticeSlots,
+    fetchTrackedJobIds,
+} from "@/lib/govtPracticePolicy";
 
 interface GovtJob {
     id: string;
@@ -69,12 +76,22 @@ const GovtJobDetail = () => {
     const [job, setJob] = useState<GovtJob | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [isAddingToTracker, setIsAddingToTracker] = useState(false);
+    const [practiceSlots, setPracticeSlots] = useState<PracticeSlots | null>(null);
+    const [trackedJobIds, setTrackedJobIds] = useState<Set<string>>(new Set());
 
-    const isPaidUser = profile?.subscription_tier === "PRO" || profile?.subscription_tier === "PRO_MAX";
+    const tier = profile?.subscription_tier ?? "FREE";
+    const isPaidUser = tier === "PRO" || tier === "PRO_MAX";
+    const userIsProMax = isProMax(tier);
 
     useEffect(() => {
         if (slug) fetchJobDetail();
     }, [slug]);
+
+    useEffect(() => {
+        if (!user) return;
+        fetchPracticeSlots().then(setPracticeSlots);
+        fetchTrackedJobIds(user.id).then(setTrackedJobIds);
+    }, [user]);
 
     const fetchJobDetail = async () => {
         try {
@@ -112,6 +129,8 @@ const GovtJobDetail = () => {
         }
     };
 
+    const isJobTracked = job ? trackedJobIds.has(job.id) : false;
+
     const handleAddToTracker = async () => {
         if (!user) {
             toast.error("Please sign in to track jobs");
@@ -119,7 +138,12 @@ const GovtJobDetail = () => {
             return;
         }
 
-        if (!job) return;
+        if (!job || isJobTracked) return;
+
+        if (practiceSlots && !isUnlimited(practiceSlots) && practiceSlots.remaining <= 0) {
+            toast.error("You've used all your practice slots. Upgrade to track more jobs.");
+            return;
+        }
 
         try {
             setIsAddingToTracker(true);
@@ -143,10 +167,24 @@ const GovtJobDetail = () => {
             });
 
             if (error) throw error;
-            toast.success("Added to your Job Tracker!");
-        } catch (error) {
-            console.error("Error adding to tracker:", error);
-            toast.error("Failed to add to tracker");
+            setTrackedJobIds((prev) => new Set(prev).add(job.id));
+            setPracticeSlots((prev) =>
+                prev && !isUnlimited(prev)
+                    ? { ...prev, used: prev.used + 1, remaining: Math.max(0, prev.remaining - 1) }
+                    : prev,
+            );
+            toast.success("Added to your tracker — practice test unlocked!");
+        } catch (err: any) {
+            console.error("Error adding to tracker:", err);
+            const msg = err?.message || "";
+            if (msg.includes("Tracker limit reached")) {
+                toast.error("Tracker limit reached. Upgrade your plan to track more jobs.");
+            } else if (msg.includes("duplicate") || msg.includes("unique")) {
+                setTrackedJobIds((prev) => new Set(prev).add(job.id));
+                toast.info("This job is already in your tracker.");
+            } else {
+                toast.error("Failed to add to tracker");
+            }
         } finally {
             setIsAddingToTracker(false);
         }
@@ -437,19 +475,36 @@ const GovtJobDetail = () => {
 
                                 <div className="space-y-4 pt-1">
                                     {renderApplyButton()}
-                                    <Button
-                                        variant="outline"
-                                        className="w-full gap-2 border-accent/20 hover:bg-accent/5 text-accent font-bold"
-                                        onClick={handleAddToTracker}
-                                        disabled={isAddingToTracker}
-                                    >
-                                        {isAddingToTracker ? (
-                                            <Loader2 className="h-4 w-4 animate-spin" />
-                                        ) : (
-                                            <Plus className="h-4 w-4" />
-                                        )}
-                                        Add to Tracker
-                                    </Button>
+                                    {user && (userIsProMax || isJobTracked) ? (
+                                        <Button
+                                            variant="outline"
+                                            className="w-full gap-2 border-accent/20 hover:bg-accent hover:text-white text-accent font-bold"
+                                            onClick={() => navigate(`/govt-jobs/exam/${job.id}`)}
+                                        >
+                                            Practice Test
+                                        </Button>
+                                    ) : isJobTracked ? null : (
+                                        <Button
+                                            variant="outline"
+                                            className="w-full gap-2 border-accent/20 hover:bg-accent/5 text-accent font-bold"
+                                            onClick={handleAddToTracker}
+                                            disabled={isAddingToTracker}
+                                        >
+                                            {isAddingToTracker ? (
+                                                <Loader2 className="h-4 w-4 animate-spin" />
+                                            ) : (
+                                                <Plus className="h-4 w-4" />
+                                            )}
+                                            Add to Tracker
+                                        </Button>
+                                    )}
+                                    {user && practiceSlots && !isUnlimited(practiceSlots) && (
+                                        <p className="text-[10px] text-center text-muted-foreground">
+                                            {practiceSlots.remaining > 0
+                                                ? `${practiceSlots.remaining} practice set${practiceSlots.remaining === 1 ? "" : "s"} left`
+                                                : "No practice sets left — upgrade for more"}
+                                        </p>
+                                    )}
                                 </div>
 
                                 <div className="space-y-4 pt-6 border-t font-medium text-sm">

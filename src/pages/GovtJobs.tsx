@@ -1,5 +1,5 @@
 import { Helmet } from "react-helmet-async";
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,6 +16,9 @@ import {
     AlertCircle,
     Info,
     Clock,
+    Plus,
+    CheckCircle2,
+    ShieldAlert,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -39,8 +42,15 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { buildSmartTagsForDisplay, getGovtJobCategoryBadges } from "@/lib/govtJobCategory";
+import { buildSmartTagsForDisplay, getGovtJobCategoryBadges, trackerOrganizationLabel } from "@/lib/govtJobCategory";
 import { JobListPagination } from "@/components/JobListPagination";
+import {
+    type PracticeSlots,
+    isUnlimited,
+    isProMax,
+    fetchPracticeSlots,
+    fetchTrackedJobIds,
+} from "@/lib/govtPracticePolicy";
 
 const PAGE_SIZE_OPTIONS = [12, 24, 48] as const;
 const DEFAULT_PAGE_SIZE = 12;
@@ -91,11 +101,72 @@ const GovtJobs = () => {
     const [currentPage, setCurrentPage] = useState(1);
     const [pageSize, setPageSize] = useState<number>(DEFAULT_PAGE_SIZE);
 
-    const isPaidUser = profile?.subscription_tier === "PRO" || profile?.subscription_tier === "PRO_MAX";
+    const tier = profile?.subscription_tier ?? "FREE";
+    const userIsProMax = isProMax(tier);
+    const [practiceSlots, setPracticeSlots] = useState<PracticeSlots | null>(null);
+    const [trackedJobIds, setTrackedJobIds] = useState<Set<string>>(new Set());
+    const [addingJobId, setAddingJobId] = useState<string | null>(null);
 
     useEffect(() => {
         fetchJobs();
     }, []);
+
+    useEffect(() => {
+        if (!user) return;
+        fetchPracticeSlots().then(setPracticeSlots);
+        fetchTrackedJobIds(user.id).then(setTrackedJobIds);
+    }, [user]);
+
+    const handleAddToTracker = useCallback(async (e: React.MouseEvent, job: GovtJob) => {
+        e.stopPropagation();
+        if (!user) {
+            navigate("/auth?mode=signup&redirect=" + encodeURIComponent("/government-jobs"));
+            return;
+        }
+        if (trackedJobIds.has(job.id)) return;
+        if (practiceSlots && !isUnlimited(practiceSlots) && practiceSlots.remaining <= 0) {
+            toast.error("You've used all your practice slots. Upgrade to track more jobs.");
+            return;
+        }
+        try {
+            setAddingJobId(job.id);
+            const { error } = await supabase.from("job_tracker" as any).insert({
+                user_id: user.id,
+                job_id: job.id,
+                organization: trackerOrganizationLabel({
+                    post_name: job.post_name,
+                    organization: job.organization,
+                    source_key: job.source_key ?? null,
+                }),
+                post_name: job.post_name,
+                exam_name: job.exam_name,
+                application_end_date: job.application_end_date,
+                mode_of_apply: job.mode_of_apply,
+                application_status: "Not Applied",
+            });
+            if (error) throw error;
+            setTrackedJobIds((prev) => new Set(prev).add(job.id));
+            setPracticeSlots((prev) =>
+                prev && !isUnlimited(prev)
+                    ? { ...prev, used: prev.used + 1, remaining: Math.max(0, prev.remaining - 1) }
+                    : prev,
+            );
+            toast.success("Added to your tracker — practice test unlocked!");
+        } catch (err: any) {
+            console.error("Error adding to tracker:", err);
+            const msg = err?.message || "";
+            if (msg.includes("Tracker limit reached")) {
+                toast.error("Tracker limit reached. Upgrade your plan to track more jobs.");
+            } else if (msg.includes("duplicate") || msg.includes("unique")) {
+                setTrackedJobIds((prev) => new Set(prev).add(job.id));
+                toast.info("This job is already in your tracker.");
+            } else {
+                toast.error("Failed to add to tracker");
+            }
+        } finally {
+            setAddingJobId(null);
+        }
+    }, [user, trackedJobIds, practiceSlots, navigate]);
 
     const fetchJobs = async () => {
         try {
@@ -255,7 +326,29 @@ const GovtJobs = () => {
         <main className={`flex-1 container mx-auto px-4 py-8 ${user ? 'max-w-7xl' : ''}`}>
             <div className="max-w-6xl mx-auto space-y-12">
                 {/* Header Section */}
-                <div className="text-center space-y-4">
+                <div className="text-center space-y-4 relative">
+                    {user && practiceSlots && !isUnlimited(practiceSlots) && (
+                        <div className="absolute right-0 top-0">
+                            <Badge
+                                variant={practiceSlots.remaining > 0 ? "outline" : "destructive"}
+                                className="text-xs font-bold px-3 py-1.5"
+                            >
+                                {practiceSlots.remaining > 0
+                                    ? `${practiceSlots.remaining} practice set${practiceSlots.remaining === 1 ? "" : "s"} left`
+                                    : "0 practice sets left"}
+                            </Badge>
+                            {practiceSlots.remaining <= 0 && (
+                                <Button
+                                    variant="link"
+                                    size="sm"
+                                    className="text-[10px] text-accent p-0 h-auto mt-1 block mx-auto"
+                                    onClick={() => navigate("/dashboard/subscription")}
+                                >
+                                    Upgrade
+                                </Button>
+                            )}
+                        </div>
+                    )}
                     <h1 className="text-3xl md:text-5xl font-bold tracking-tight text-foreground">
                         Latest Government Jobs in India
                     </h1>
@@ -448,20 +541,42 @@ const GovtJobs = () => {
                                         </div>
 
                                         <div className="grid grid-cols-2 gap-3 mt-4">
-                                            <Button
-                                                variant="outline"
-                                                className="w-full bg-accent/5 hover:bg-accent hover:text-white transition-all duration-300 font-bold"
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    if (!user) {
-                                                        navigate("/auth?mode=signup&redirect=" + encodeURIComponent(`/govt-jobs/exam/${job.id}`));
-                                                    } else {
+                                            {userIsProMax ? (
+                                                <Button
+                                                    variant="outline"
+                                                    className="w-full bg-accent/5 hover:bg-accent hover:text-white transition-all duration-300 font-bold"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
                                                         navigate(`/govt-jobs/exam/${job.id}`);
-                                                    }
-                                                }}
-                                            >
-                                                Practice Test
-                                            </Button>
+                                                    }}
+                                                >
+                                                    Practice Test
+                                                </Button>
+                                            ) : trackedJobIds.has(job.id) ? (
+                                                <Button
+                                                    variant="outline"
+                                                    className="w-full bg-success/10 text-success border-success/20 font-bold cursor-default"
+                                                    onClick={(e) => e.stopPropagation()}
+                                                    disabled
+                                                >
+                                                    <CheckCircle2 className="h-4 w-4 mr-1" />
+                                                    Added
+                                                </Button>
+                                            ) : (
+                                                <Button
+                                                    variant="outline"
+                                                    className="w-full bg-accent/5 hover:bg-accent hover:text-white transition-all duration-300 font-bold"
+                                                    disabled={addingJobId === job.id}
+                                                    onClick={(e) => handleAddToTracker(e, job)}
+                                                >
+                                                    {addingJobId === job.id ? (
+                                                        <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                                                    ) : (
+                                                        <Plus className="h-4 w-4 mr-1" />
+                                                    )}
+                                                    Add to Tracker
+                                                </Button>
+                                            )}
                                             <Button
                                                 variant="secondary"
                                                 className="w-full bg-muted/50 group-hover:bg-accent group-hover:text-accent-foreground transition-all duration-300 font-bold"

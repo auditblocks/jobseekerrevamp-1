@@ -217,8 +217,7 @@ const GovtJobAnalytics = () => {
                                             <div className="space-y-2">
                                                 <h3 className="font-bold text-lg">No exams yet</h3>
                                                 <p className="text-muted-foreground max-w-md mx-auto text-sm">
-                                                    Open a government job and start a practice test. Your attempts will
-                                                    show up here.
+                                                    Add a government job to your tracker to unlock its practice test, or upgrade to Pro Max for unlimited access. Your attempts will show up here.
                                                 </p>
                                             </div>
                                             <Link to="/government-jobs">

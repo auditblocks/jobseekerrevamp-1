@@ -53,11 +53,51 @@ serve(async (req) => {
         const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
         const openRouterApiKey = Deno.env.get("OPENROUTER_API_KEY");
 
+        // --- Auth: verify JWT and load profile ---
         const authHeader = req.headers.get("Authorization");
-        if (!authHeader) throw new Error("No authorization header");
+        if (!authHeader) {
+            return new Response(
+                JSON.stringify({ error: "Missing authorization header" }),
+                { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+        }
+
+        const token = authHeader.replace("Bearer ", "");
+        const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+        if (authError || !user) {
+            return new Response(
+                JSON.stringify({ error: "Invalid or expired token" }),
+                { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+        }
 
         const body: GenerateRequest = await req.json();
         const { jobId, examName, postName, organization, count, masterExamId } = body;
+
+        // --- Tier + entitlement gate ---
+        const { data: profile } = await supabase
+            .from("profiles")
+            .select("subscription_tier")
+            .eq("id", user.id)
+            .single();
+
+        const tier = profile?.subscription_tier ?? "FREE";
+
+        if (tier !== "PRO_MAX") {
+            const { data: trackerRow } = await supabase
+                .from("job_tracker")
+                .select("id")
+                .eq("user_id", user.id)
+                .eq("job_id", jobId)
+                .maybeSingle();
+
+            if (!trackerRow) {
+                return new Response(
+                    JSON.stringify({ error: "AI practice-set generation requires PRO_MAX, or the job must be in your tracker." }),
+                    { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+                );
+            }
+        }
 
         // 1. Fetch exam configuration from master_exams
         let config = null;
