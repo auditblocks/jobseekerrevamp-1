@@ -42,6 +42,7 @@ import {
   normalizeRazorpayHandlerResponse,
   parseSupabaseFunctionInvokeError,
 } from "@/lib/razorpay-verify";
+import { format } from "date-fns";
 
 declare global {
   interface Window {
@@ -65,6 +66,8 @@ interface SubscriptionPlan {
   button_disabled_text: string | null;
   sort_order: number;
   daily_limit: number;
+  discount_percentage: number | null;
+  yearly_price: number | null;
 }
 
 interface NotificationPreferences {
@@ -102,6 +105,7 @@ const Settings = () => {
     portfolioUrl: "",
     subscriptionTier: "FREE",
     profilePhotoUrl: "",
+    subscriptionExpiresAt: null as string | null,
   });
 
   const [notifications, setNotifications] = useState<NotificationPreferences>({
@@ -122,6 +126,7 @@ const Settings = () => {
   const [savingNotifications, setSavingNotifications] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [processingPayment, setProcessingPayment] = useState<string | null>(null);
+  const [isYearly, setIsYearly] = useState(false);
 
   // Load Razorpay script
   useEffect(() => {
@@ -180,6 +185,7 @@ const Settings = () => {
           portfolioUrl: data.portfolio_url || "",
           subscriptionTier: data.subscription_tier || "FREE",
           profilePhotoUrl: data.profile_photo_url || "",
+          subscriptionExpiresAt: data.subscription_expires_at ?? null,
         });
         setSignature(`Best regards,\n${data.name || "Your Name"}\n${data.professional_title || ""}\n${data.email || ""}`);
 
@@ -467,24 +473,22 @@ const Settings = () => {
     }
   };
 
-  const handleUpgradePlan = async (plan: SubscriptionPlan) => {
+  const handleUpgradePlan = async (plan: SubscriptionPlan, billingCycle: "monthly" | "yearly") => {
     if (!user?.id || plan.price === 0) return;
 
     setProcessingPayment(plan.id);
     try {
-      // Get Supabase session for auth
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) {
         throw new Error("Please log in to continue");
       }
 
-      // Create Razorpay order via edge function
       const { data: orderData, error: orderError } = await supabase.functions.invoke(
         "create-razorpay-order",
         {
           body: {
             plan_id: plan.id,
-            amount: plan.price,
+            billing_cycle: billingCycle,
           },
         }
       );
@@ -581,22 +585,20 @@ const Settings = () => {
     return colors[index % colors.length];
   };
 
-  // Convert subscription plans to pricing plans format for Settings
   const convertToPricingPlans = (): PricingPlan[] => {
     return plans.map((plan, index) => {
       const monthlyPrice = plan.price;
-      // Calculate yearly price (assuming 30 days = 1 month, so 12 months = 360 days)
-      // If duration is 0 (forever) or price is 0, keep it as 0
       const yearlyPrice = (plan.price === 0 || plan.duration_days === 0)
         ? 0
-        : (plan.duration_days === 30 ? monthlyPrice * 12 : monthlyPrice * 12);
+        : (plan.yearly_price ?? Math.round(monthlyPrice * 12 * 0.8));
       const isCurrent = profile.subscriptionTier === plan.id;
 
       return {
         id: plan.id,
         name: plan.display_name || plan.name,
         monthlyPrice: monthlyPrice,
-        yearlyPrice: yearlyPrice > 0 ? Math.round(yearlyPrice * 0.8) : 0, // 20% discount for yearly
+        yearlyPrice: yearlyPrice,
+        discountPercentage: plan.discount_percentage ?? undefined,
         features: plan.features || [],
         isPopular: plan.is_recommended || false,
         accent: getAccentColor(plan.name, index),
@@ -606,7 +608,7 @@ const Settings = () => {
           : (plan.button_text || "Upgrade"),
         onButtonClick: () => {
           if (!isCurrent && plan.price > 0) {
-            handleUpgradePlan(plan);
+            handleUpgradePlan(plan, isYearly ? "yearly" : "monthly");
           }
         },
         disabled: isCurrent || processingPayment === plan.id || plan.price === 0,
@@ -1005,19 +1007,38 @@ const Settings = () => {
                           {isElite ? "Elite Membership" : profile.subscriptionTier.replace("_", " ")}
                         </span>
                       </div>
-                      <Badge variant="outline" className={isElite ? "border-[#C5A059] text-[#C5A059]" : "border-accent text-accent"}>
-                        ACTIVE
+                      <Badge variant="outline" className={
+                        isElite ? "border-[#C5A059] text-[#C5A059]"
+                        : profile.subscriptionExpiresAt && new Date(profile.subscriptionExpiresAt) < new Date()
+                          ? "border-destructive text-destructive"
+                          : "border-accent text-accent"
+                      }>
+                        {profile.subscriptionExpiresAt && new Date(profile.subscriptionExpiresAt) < new Date()
+                          ? "EXPIRED"
+                          : "ACTIVE"}
                       </Badge>
                     </div>
-                    <p className="text-sm text-muted-foreground mb-4">
+                    <p className="text-sm text-muted-foreground mb-1">
                       {isElite 
-                        ? "You have full 5-year PRO MAX access with Elite status." 
+                        ? "You have full PRO MAX access with Elite status." 
                         : `Your current ${profile.subscriptionTier} plan is active.`}
                     </p>
+                    {!isElite && profile.subscriptionTier !== "FREE" && profile.subscriptionExpiresAt && (
+                      <p className="text-sm text-muted-foreground mb-3">
+                        {new Date(profile.subscriptionExpiresAt) > new Date()
+                          ? `Active until ${format(new Date(profile.subscriptionExpiresAt), "dd MMM yyyy")}`
+                          : `Expired on ${format(new Date(profile.subscriptionExpiresAt), "dd MMM yyyy")}`}
+                      </p>
+                    )}
+                    {isElite && profile.subscriptionExpiresAt && (
+                      <p className="text-sm text-muted-foreground mb-3">
+                        Active until {format(new Date(profile.subscriptionExpiresAt), "dd MMM yyyy")}
+                      </p>
+                    )}
                     <Button 
                       variant="outline" 
                       size="sm" 
-                      className="w-full"
+                      className="w-full mt-2"
                       onClick={() => navigate("/dashboard/subscription")}
                     >
                       View Plan Details
@@ -1030,6 +1051,8 @@ const Settings = () => {
                       plans={convertToPricingPlans()}
                       className="bg-transparent min-h-0"
                       showYearlyToggle={true}
+                      isYearly={isYearly}
+                      onYearlyChange={setIsYearly}
                     />
                   </div>
 

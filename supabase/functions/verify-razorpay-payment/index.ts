@@ -65,6 +65,7 @@ serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const razorpayKeyId = Deno.env.get("RAZORPAY_KEY_ID")!;
     const razorpayKeySecret = Deno.env.get("RAZORPAY_KEY_SECRET")!;
 
     const authHeader = req.headers.get("Authorization");
@@ -170,20 +171,42 @@ serve(async (req) => {
     const isFlashSale = subscription.plan_id === 'flash_sale';
     const plan = subscription.subscription_plans;
 
+    // Fetch billing_cycle from Razorpay order notes (set during order creation)
+    let billingCycle = 'monthly';
+    try {
+      const credentials = btoa(`${razorpayKeyId}:${razorpayKeySecret}`);
+      const orderRes = await fetch(`https://api.razorpay.com/v1/orders/${razorpay_order_id}`, {
+        headers: { "Authorization": `Basic ${credentials}` },
+      });
+      if (orderRes.ok) {
+        const orderData = await orderRes.json();
+        billingCycle = orderData?.notes?.billing_cycle || 'monthly';
+      }
+    } catch (e) {
+      console.warn("Could not fetch Razorpay order notes, falling back to amount matching:", e);
+    }
+
     let daysToAdd: number;
     let subscriptionTier: string;
 
     if (isFlashSale) {
-      // Flash sale = 5 Years of PRO_MAX
-      daysToAdd = 1825;
+      const { data: saleConfig } = await supabase
+        .from("flash_sale_config")
+        .select("duration_days")
+        .limit(1)
+        .single();
+      daysToAdd = saleConfig?.duration_days ?? 730;
       subscriptionTier = 'PRO_MAX';
     } else {
-      // Regular plan - determine duration from amount paid vs plan prices
       daysToAdd = plan?.duration_days || 30;
-      if (subscription.amount === plan?.yearly_price || subscription.amount === Math.round(plan.price * 12 * 0.8)) {
-        daysToAdd = 365; // 1 year
+      if (
+        billingCycle === 'yearly' ||
+        subscription.amount === plan?.yearly_price ||
+        subscription.amount === Math.round(plan.price * 12 * 0.8)
+      ) {
+        daysToAdd = 365;
       }
-      subscriptionTier = plan?.name?.toUpperCase() || 'PRO';
+      subscriptionTier = subscription.plan_id?.toUpperCase() || plan?.id?.toUpperCase() || 'PRO';
     }
     
     const expiresAt = new Date();
@@ -242,7 +265,7 @@ serve(async (req) => {
         payment_id: razorpay_payment_id,
         purchase_date: new Date().toISOString(),
         expiry_date: expiresAt.toISOString(),
-        duration_days: plan?.duration_days || 30,
+        duration_days: daysToAdd,
       }),
     }).catch(err => {
       console.error("Failed to send receipt email:", err);

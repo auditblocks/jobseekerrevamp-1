@@ -116,7 +116,7 @@ serve(async (req) => {
         notes: {
           plan_id: planNameForHistory,
           user_id: user.id,
-          billing_cycle: plan_id === 'flash_sale' ? 'five_years_flash_sale' : billing_cycle,
+          billing_cycle: plan_id === 'flash_sale' ? 'elite_flash_sale' : billing_cycle,
         },
       }),
     });

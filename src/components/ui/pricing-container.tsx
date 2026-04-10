@@ -7,6 +7,7 @@ export interface PricingPlan {
     name: string;
     monthlyPrice: number;
     yearlyPrice: number;
+    discountPercentage?: number;
     features: string[];
     isPopular?: boolean;
     accent: string;
@@ -71,7 +72,7 @@ const PricingHeader = ({ title }: { title: string }) => (
 );
 
 // Toggle Component
-const PricingToggle = ({ isYearly, onToggle }: { isYearly: boolean; onToggle: () => void }) => (
+const PricingToggle = ({ isYearly, onToggle, discountLabel }: { isYearly: boolean; onToggle: () => void; discountLabel?: string }) => (
     <div className="flex justify-center items-center gap-4 mb-8 relative z-10">
         <span className={`text-gray-600 font-medium ${!isYearly ? 'text-black' : ''}`}>Monthly</span>
         <motion.button
@@ -84,13 +85,13 @@ const PricingToggle = ({ isYearly, onToggle }: { isYearly: boolean; onToggle: ()
             />
         </motion.button>
         <span className={`text-gray-600 font-medium ${isYearly ? 'text-black' : ''}`}>Yearly</span>
-        {isYearly && (
+        {isYearly && discountLabel && (
             <motion.span
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 className="text-green-500 font-medium text-sm"
             >
-                Save 20%
+                {discountLabel}
             </motion.span>
         )}
     </div>
@@ -324,11 +325,14 @@ export const PricingContainer = ({
         }
     };
 
+    const maxDiscount = Math.max(0, ...plans.map(p => p.discountPercentage ?? 0));
+    const discountLabel = maxDiscount > 0 ? `Save ${maxDiscount}%` : undefined;
+
     return (
         <div className={`min-h-screen bg-[#f0f0f0] p-4 sm:p-6 lg:p-8 relative overflow-hidden rounded-[12px] ${className}`}>
             <PricingHeader title={title} />
             {showYearlyToggle && (
-                <PricingToggle isYearly={isYearly} onToggle={handleToggle} />
+                <PricingToggle isYearly={isYearly} onToggle={handleToggle} discountLabel={discountLabel} />
             )}
             <BackgroundEffects />
 

@@ -287,25 +287,36 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
 
                     <div className="flex items-center gap-2 sm:gap-4">
                         <NotificationBell />
-                        {profile?.subscription_tier !== "PRO_MAX" ? (
-                            <Button
-                                variant="accent"
-                                size="sm"
-                                className="text-xs sm:text-sm h-8 sm:h-10"
-                                onClick={() => navigate("/dashboard/subscription")}
-                            >
-                                <Sparkles className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
-                                <span className="hidden sm:inline">
-                                    {profile?.subscription_tier === "PRO" ? "Upgrade to Pro Max" : "Upgrade to Pro"}
-                                </span>
-                                <span className="sm:hidden">Upgrade</span>
-                            </Button>
-                        ) : isElite ? (
-                            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#C5A059]/10 border border-[#C5A059]/30 text-[#C5A059] shadow-[0_0_15px_rgba(197,160,89,0.2)]">
-                                <Crown size={16} className="text-[#C5A059]" />
-                                <span className="text-sm font-bold tracking-tight hidden sm:inline">Elite Member</span>
-                            </div>
-                        ) : null}
+                        {(() => {
+                            const tier = (profile?.subscription_tier || "").toUpperCase();
+                            const isProMax = tier === "PRO_MAX" || tier === "PROMAX";
+                            const isPro = tier === "PRO";
+
+                            if (isElite) {
+                                return (
+                                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#C5A059]/10 border border-[#C5A059]/30 text-[#C5A059] shadow-[0_0_15px_rgba(197,160,89,0.2)]">
+                                        <Crown size={16} className="text-[#C5A059]" />
+                                        <span className="text-sm font-bold tracking-tight hidden sm:inline">Elite Member</span>
+                                    </div>
+                                );
+                            }
+                            if (isProMax) return null;
+                            if (!profile?.subscription_tier) return null;
+                            return (
+                                <Button
+                                    variant="accent"
+                                    size="sm"
+                                    className="text-xs sm:text-sm h-8 sm:h-10"
+                                    onClick={() => navigate("/dashboard/subscription")}
+                                >
+                                    <Sparkles className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                                    <span className="hidden sm:inline">
+                                        {isPro ? "Upgrade to Pro Max" : "Upgrade to Pro"}
+                                    </span>
+                                    <span className="sm:hidden">Upgrade</span>
+                                </Button>
+                            );
+                        })()}
                     </div>
                 </header>
 

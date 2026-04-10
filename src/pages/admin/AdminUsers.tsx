@@ -51,6 +51,7 @@ interface UserData {
   subscription_tier: string;
   is_elite_member: boolean;
   suspended_until: string | null;
+  subscription_expires_at: string | null;
   created_at: string;
   last_sign_in_at: string | null;
 }
@@ -334,6 +335,7 @@ export default function AdminUsers() {
                     <TableHead className="min-w-[200px]">User</TableHead>
                     <TableHead className="min-w-[100px]">Status</TableHead>
                     <TableHead className="min-w-[120px]">Subscription</TableHead>
+                    <TableHead className="min-w-[120px]">Plan Expires</TableHead>
                     <TableHead className="min-w-[100px]">Elite</TableHead>
                     <TableHead className="min-w-[120px]">Joined</TableHead>
                     <TableHead className="min-w-[120px]">Last Active</TableHead>
@@ -343,13 +345,13 @@ export default function AdminUsers() {
                 <TableBody>
                   {loading ? (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center py-8">
+                      <TableCell colSpan={8} className="text-center py-8">
                         <RefreshCw className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
                       </TableCell>
                     </TableRow>
                   ) : filteredUsers.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                      <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                         No users found
                       </TableCell>
                     </TableRow>
@@ -391,6 +393,15 @@ export default function AdminUsers() {
                           <Badge variant="outline" className={getTierColor(user.subscription_tier)}>
                             {user.subscription_tier}
                           </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {user.subscription_tier !== "FREE" && user.subscription_expires_at ? (
+                            <span className={`text-sm ${new Date(user.subscription_expires_at) < new Date() ? "text-destructive" : "text-muted-foreground"}`}>
+                              {format(new Date(user.subscription_expires_at), "MMM d, yyyy")}
+                            </span>
+                          ) : (
+                            <span className="text-sm text-muted-foreground">---</span>
+                          )}
                         </TableCell>
                         <TableCell>
                           {user.is_elite_member ? (

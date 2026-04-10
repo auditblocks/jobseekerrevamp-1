@@ -19,6 +19,8 @@ interface SubscriptionPlan {
   is_recommended: boolean;
   button_text: string | null;
   sort_order: number;
+  discount_percentage: number | null;
+  yearly_price: number | null;
 }
 
 const PricingSection = () => {
@@ -106,11 +108,9 @@ const PricingSection = () => {
   const convertToPricingPlans = (): PricingPlan[] => {
     return plans.map((plan, index) => {
       const monthlyPrice = plan.price;
-      // Calculate yearly price (assuming 30 days = 1 month, so 12 months = 360 days)
-      // If duration is 0 (forever) or price is 0, keep it as 0
       const yearlyPrice = (plan.price === 0 || plan.duration_days === 0)
         ? 0
-        : (plan.duration_days === 30 ? monthlyPrice * 12 : monthlyPrice * 12);
+        : (plan.yearly_price ?? Math.round(monthlyPrice * 12 * 0.8));
 
       const disabled = isDisabled(plan.name);
 
@@ -118,7 +118,8 @@ const PricingSection = () => {
         id: plan.id,
         name: plan.display_name || plan.name,
         monthlyPrice: monthlyPrice,
-        yearlyPrice: yearlyPrice > 0 ? Math.round(yearlyPrice * 0.8) : 0, // 20% discount for yearly
+        yearlyPrice: yearlyPrice,
+        discountPercentage: plan.discount_percentage ?? undefined,
         features: plan.features || [],
         isPopular: plan.is_recommended || false,
         accent: getAccentColor(plan.name, index),

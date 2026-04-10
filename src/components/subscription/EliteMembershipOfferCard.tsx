@@ -13,6 +13,14 @@ import { parseSupabaseFunctionInvokeError } from "@/lib/razorpay-verify";
 
 type FlashSaleConfig = Database["public"]["Tables"]["flash_sale_config"]["Row"];
 
+function formatDurationLabel(days: number): string {
+  const years = Math.floor(days / 365);
+  const months = Math.round((days % 365) / 30);
+  if (years > 0 && months > 0) return `${years}-Year ${months}-Month`;
+  if (years > 0) return `${years}-Year`;
+  return `${months}-Month`;
+}
+
 function isOfferWindowOpen(config: FlashSaleConfig): boolean {
   if (!config.is_active) return false;
   return new Date(config.end_time) > new Date();
@@ -127,7 +135,7 @@ export function EliteMembershipOfferCard({
         amount: od.amount,
         currency: od.currency,
         name: "StartWorking.in",
-        description: `Elite — ${config?.offer_text ?? "5-Year PRO MAX"}`,
+        description: `Elite — ${config?.offer_text ?? `${formatDurationLabel(config?.duration_days ?? 730)} PRO MAX`}`,
         order_id: od.order_id,
         handler: async (response: {
           razorpay_order_id: string;
@@ -151,7 +159,7 @@ export function EliteMembershipOfferCard({
             }
             const vd = verifyData as { success?: boolean } | null;
             if (vd?.success) {
-              toast.success("You're now Elite — 5 years of PRO MAX. Thank you!", { duration: 6000 });
+              toast.success(`You're now Elite — ${formatDurationLabel(config?.duration_days ?? 730)} of PRO MAX. Thank you!`, { duration: 6000 });
               await refreshProfile();
               navigate("/dashboard");
             }
@@ -308,7 +316,7 @@ export function EliteMembershipOfferCard({
               id={variant === "hero" ? "elite-features-heading" : undefined}
               className="mb-2 text-xs font-bold uppercase tracking-wide text-[#C5A059] sm:text-sm"
             >
-              {config.features_section_label?.trim() || "5-Year Benefits / Features"}
+              {config.features_section_label?.trim() || `${formatDurationLabel(config.duration_days ?? 730)} Benefits / Features`}
             </p>
             <ul
               className={cn(
@@ -354,7 +362,7 @@ export function EliteMembershipOfferCard({
             )}
           </Button>
           <p className="text-center text-xs text-gray-500 sm:text-left">
-            Non-renewable 5-year access · Secure checkout
+            Non-renewable {formatDurationLabel(config.duration_days ?? 730).toLowerCase()} access · Secure checkout
           </p>
         </div>
       </div>

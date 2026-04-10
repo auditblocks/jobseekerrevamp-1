@@ -15,6 +15,14 @@ import {
 
 type FlashSaleConfig = Database['public']['Tables']['flash_sale_config']['Row'];
 
+function formatDurationLabel(days: number): string {
+  const years = Math.floor(days / 365);
+  const months = Math.round((days % 365) / 30);
+  if (years > 0 && months > 0) return `${years}-Year ${months}-Month`;
+  if (years > 0) return `${years}-Year`;
+  return `${months}-Month`;
+}
+
 declare global {
   interface Window {
     Razorpay: any;
@@ -173,7 +181,7 @@ export function FlashSalePopup() {
         amount: orderData.amount,
         currency: orderData.currency,
         name: "StartWorking.in",
-        description: `Flash Sale — 5 Years PRO MAX`,
+        description: `Flash Sale — ${formatDurationLabel(config?.duration_days ?? 730)} PRO MAX`,
         order_id: orderData.order_id,
         handler: async (response: Record<string, unknown>) => {
           try {
@@ -193,7 +201,7 @@ export function FlashSalePopup() {
             }
 
             if (verifyData && typeof verifyData === "object" && "success" in verifyData && verifyData.success) {
-              toast.success("🎉 You're now PRO MAX for 5 years! Thank you!", { duration: 6000 });
+              toast.success(`🎉 You're now PRO MAX for ${formatDurationLabel(config?.duration_days ?? 730).toLowerCase()}! Thank you!`, { duration: 6000 });
               sessionStorage.setItem("flashSaleDismissed", "true");
               setIsVisible(false);
               setShowDetails(false);
@@ -364,14 +372,14 @@ export function FlashSalePopup() {
                   </h2>
                   <p className="text-xs text-gray-400 sm:text-sm md:text-base">
                     {config.modal_subheadline?.trim() ||
-                      "Excellence Unlocked: The Ultimate 5-Year Experience"}
+                      `Excellence Unlocked: The Ultimate ${formatDurationLabel(config.duration_days ?? 730)} Experience`}
                   </p>
                 </div>
 
                 <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 sm:px-6 [-webkit-overflow-scrolling:touch]">
                   {config.features && config.features.filter(Boolean).length > 0 ? (
                     <h3 className="mb-3 text-left text-xs font-bold uppercase tracking-widest text-[#C5A059] sm:mb-4 sm:text-sm">
-                      {config.features_section_label?.trim() || "5-Year Benefits / Features"}
+                      {config.features_section_label?.trim() || `${formatDurationLabel(config.duration_days ?? 730)} Benefits / Features`}
                     </h3>
                   ) : null}
                   <div className="grid gap-2 pb-2 sm:gap-2.5">
@@ -406,7 +414,7 @@ export function FlashSalePopup() {
                         ) : null}
                       </div>
                       <p className="text-[10px] font-bold uppercase tracking-wide text-[#C5A059] sm:text-xs">
-                        {config.price_tagline?.trim() || "Limited Time 5-Year Access • Non-Renewable"}
+                        {config.price_tagline?.trim() || `Limited Time ${formatDurationLabel(config.duration_days ?? 730)} Access • Non-Renewable`}
                       </p>
                     </div>
 
@@ -421,7 +429,7 @@ export function FlashSalePopup() {
                         <Loader2 size={22} className="animate-spin sm:h-6 sm:w-6" />
                       ) : (
                         <>
-                          {config.modal_cta_text?.trim() || "SECURE MY 5-YEAR PLAN"}{" "}
+                          {config.modal_cta_text?.trim() || `SECURE MY ${formatDurationLabel(config.duration_days ?? 730).toUpperCase()} PLAN`}{" "}
                           <Crown size={20} className="sm:h-6 sm:w-6" />
                         </>
                       )}

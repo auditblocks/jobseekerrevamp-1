@@ -18,18 +18,18 @@ const DEFAULT_FEATURE_LINES = [
   "Exclusive Beta Access",
   "Premium Support & Insights",
   "Legacy License Status",
-  "5 Years of Continuous Value",
+  "Continuous Value for the Full Duration",
 ] as const;
 
-const DEFAULT_FEATURES_SECTION_LABEL = "5-Year Benefits / Features";
+const DEFAULT_FEATURES_SECTION_LABEL = "Elite Benefits / Features";
 
-const DEFAULT_PRICE_TAGLINE = "Limited Time 5-Year Access • Non-Renewable";
+const DEFAULT_PRICE_TAGLINE = "Limited Time Access • Non-Renewable";
 
 const DEFAULT_MODAL_HEADLINE_PREFIX = "Unleash Your";
 const DEFAULT_MODAL_HEADLINE_ACCENT = "Full Potential";
-const DEFAULT_MODAL_SUBHEADLINE = "Excellence Unlocked: The Ultimate 5-Year Experience";
+const DEFAULT_MODAL_SUBHEADLINE = "Excellence Unlocked: The Ultimate Elite Experience";
 
-const DEFAULT_MODAL_CTA_TEXT = "SECURE MY 5-YEAR PLAN";
+const DEFAULT_MODAL_CTA_TEXT = "SECURE MY ELITE PLAN";
 
 type FeatureRow = { id: string; text: string };
 
@@ -42,6 +42,14 @@ function newFeatureRowId(): string {
 
 function featureRowsFromStrings(lines: string[]): FeatureRow[] {
   return lines.map((text) => ({ id: newFeatureRowId(), text }));
+}
+
+function formatDurationLabel(days: number): string {
+  const years = Math.floor(days / 365);
+  const months = Math.round((days % 365) / 30);
+  if (years > 0 && months > 0) return `${years} Year${years > 1 ? 's' : ''} ${months} Month${months > 1 ? 's' : ''}`;
+  if (years > 0) return `${years} Year${years > 1 ? 's' : ''}`;
+  return `${months} Month${months > 1 ? 's' : ''}`;
 }
 
 export default function AdminFlashSale() {
@@ -70,6 +78,7 @@ export default function AdminFlashSale() {
     modal_headline_accent: DEFAULT_MODAL_HEADLINE_ACCENT,
     modal_subheadline: DEFAULT_MODAL_SUBHEADLINE,
     modal_cta_text: DEFAULT_MODAL_CTA_TEXT,
+    duration_days: 730,
     featureRows: featureRowsFromStrings([...DEFAULT_FEATURE_LINES]),
   });
 
@@ -112,6 +121,7 @@ export default function AdminFlashSale() {
           modal_headline_accent: data.modal_headline_accent?.trim() || DEFAULT_MODAL_HEADLINE_ACCENT,
           modal_subheadline: data.modal_subheadline?.trim() || DEFAULT_MODAL_SUBHEADLINE,
           modal_cta_text: data.modal_cta_text?.trim() || DEFAULT_MODAL_CTA_TEXT,
+          duration_days: data.duration_days ?? 730,
           featureRows: featureRowsFromStrings(lines),
         });
       }
@@ -147,6 +157,7 @@ export default function AdminFlashSale() {
         modal_headline_accent: formData.modal_headline_accent.trim() || DEFAULT_MODAL_HEADLINE_ACCENT,
         modal_subheadline: formData.modal_subheadline.trim() || DEFAULT_MODAL_SUBHEADLINE,
         modal_cta_text: formData.modal_cta_text.trim() || DEFAULT_MODAL_CTA_TEXT,
+        duration_days: formData.duration_days,
       };
 
       if (config?.id) {
@@ -328,6 +339,26 @@ export default function AdminFlashSale() {
                       }
                       className="max-w-[160px] text-lg"
                     />
+                  </div>
+                </div>
+                <div className="space-y-2 pt-2 border-t border-green-200/60 dark:border-green-800/60">
+                  <Label className="text-base font-semibold text-green-700 dark:text-green-400">
+                    Plan Duration (days)
+                  </Label>
+                  <p className="text-sm text-muted-foreground">
+                    How long the Elite membership lasts for new purchases. Changing this does not affect existing members.
+                  </p>
+                  <div className="flex items-center gap-3">
+                    <Input
+                      type="number"
+                      min="30"
+                      value={formData.duration_days}
+                      onChange={(e) => setFormData({ ...formData, duration_days: Math.max(30, parseInt(e.target.value) || 730) })}
+                      className="max-w-[160px] text-lg font-bold"
+                    />
+                    <span className="text-sm font-medium text-muted-foreground">
+                      = {formatDurationLabel(formData.duration_days)}
+                    </span>
                   </div>
                 </div>
                 <div className="space-y-2 pt-2 border-t border-green-200/60 dark:border-green-800/60">

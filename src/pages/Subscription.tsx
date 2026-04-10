@@ -1,7 +1,17 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { Loader2, ArrowLeft, CreditCard } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Loader2, ArrowLeft, CreditCard, Calendar, Receipt, Zap, CheckCircle2, Clock, XCircle } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -16,6 +26,7 @@ import {
   normalizeRazorpayHandlerResponse,
   parseSupabaseFunctionInvokeError,
 } from "@/lib/razorpay-verify";
+import { format } from "date-fns";
 
 declare global {
   interface Window {
@@ -39,6 +50,8 @@ interface SubscriptionPlan {
   button_disabled_text: string | null;
   sort_order: number;
   daily_limit: number;
+  discount_percentage: number | null;
+  yearly_price: number | null;
 }
 
 // Plan hierarchy for upgrade/downgrade logic (higher index = higher tier)
@@ -71,7 +84,21 @@ const Subscription = () => {
   const [isYearly, setIsYearly] = useState(false);
   const [profile, setProfile] = useState({
     subscriptionTier: "FREE",
+    subscriptionExpiresAt: null as string | null,
   });
+
+  interface OrderRow {
+    id: string;
+    plan_name: string;
+    amount: number;
+    currency: string;
+    payment_id: string | null;
+    status: string;
+    created_at: string;
+    expires_at: string | null;
+  }
+  const [orders, setOrders] = useState<OrderRow[]>([]);
+  const [ordersLoading, setOrdersLoading] = useState(false);
 
   // Load Razorpay script
   useEffect(() => {
@@ -94,6 +121,7 @@ const Subscription = () => {
     fetchPlans();
     if (user?.id) {
       fetchProfile();
+      fetchOrders();
     }
   }, [user?.id]);
 
@@ -138,10 +166,34 @@ const Subscription = () => {
 
       if (error) throw error;
       if (data) {
-        setProfile({ subscriptionTier: data.subscription_tier || "FREE" });
+        setProfile({
+          subscriptionTier: data.subscription_tier || "FREE",
+          subscriptionExpiresAt: data.subscription_expires_at ?? null,
+        });
       }
     } catch (error: any) {
       console.error("Failed to fetch profile:", error);
+    }
+  };
+
+  const fetchOrders = async () => {
+    if (!user?.id) return;
+    setOrdersLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("orders")
+        .select("id, plan_name, amount, currency, payment_id, status, created_at, expires_at")
+        .eq("user_id", user.id)
+        .eq("status", "completed")
+        .order("created_at", { ascending: false })
+        .limit(10);
+
+      if (error) throw error;
+      setOrders(data || []);
+    } catch (error: any) {
+      console.error("Failed to fetch orders:", error);
+    } finally {
+      setOrdersLoading(false);
     }
   };
 
@@ -150,13 +202,12 @@ const Subscription = () => {
 
     setProcessingPayment(plan.id);
     try {
-      // Create Razorpay order with the correct price (monthly or yearly)
       const { data: orderData, error: orderError } = await supabase.functions.invoke(
         "create-razorpay-order",
         {
           body: {
             plan_id: plan.id,
-            amount: priceToCharge,
+            billing_cycle: isYearly ? "yearly" : "monthly",
           },
         }
       );
@@ -206,6 +257,7 @@ const Subscription = () => {
 
             // Refresh both local and global profile to get updated subscription tier
             await fetchProfile();
+            await fetchOrders();
             await refreshGlobalProfile();
 
             // Navigate to dashboard
@@ -280,7 +332,7 @@ const Subscription = () => {
       const monthlyPrice = plan.price;
       const yearlyPrice = (plan.price === 0 || plan.duration_days === 0)
         ? 0
-        : Math.round(monthlyPrice * 12 * 0.8); // 20% discount for yearly
+        : (plan.yearly_price ?? Math.round(monthlyPrice * 12 * 0.8));
 
       // Get this plan's tier level
       const planLevel = getPlanLevel(plan.name);
@@ -316,6 +368,7 @@ const Subscription = () => {
         name: plan.display_name || plan.name,
         monthlyPrice: monthlyPrice,
         yearlyPrice: yearlyPrice,
+        discountPercentage: plan.discount_percentage ?? undefined,
         features: plan.features || [],
         isPopular: plan.is_recommended || false,
         accent: getAccentColor(plan.name, index),
@@ -332,6 +385,128 @@ const Subscription = () => {
         loading: processingPayment === plan.id,
       };
     });
+  };
+
+  const getExpiryStatus = () => {
+    if (profile.subscriptionTier === "FREE" || !profile.subscriptionExpiresAt) {
+      return null;
+    }
+    const expiresAt = new Date(profile.subscriptionExpiresAt);
+    const now = new Date();
+    const daysLeft = Math.ceil((expiresAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+
+    if (daysLeft < 0) return { label: "Expired", variant: "destructive" as const, text: `Expired on ${format(expiresAt, "dd MMM yyyy")}` };
+    if (daysLeft <= 7) return { label: "Expires Soon", variant: "secondary" as const, text: `Active until ${format(expiresAt, "dd MMM yyyy")}` };
+    return { label: "Active", variant: "default" as const, text: `Active until ${format(expiresAt, "dd MMM yyyy")}` };
+  };
+
+  const expiryStatus = getExpiryStatus();
+
+  const CurrentPlanCard = () => {
+    if (!user) return null;
+    const tierName = profile.subscriptionTier === "FREE" ? "Free" : profile.subscriptionTier === "PRO" ? "Pro" : "Pro Max";
+    return (
+      <Card className="mb-6">
+        <CardContent className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pt-6">
+          <div className="flex items-center gap-3">
+            <div className="rounded-full bg-accent/10 p-2.5">
+              <Zap className="h-5 w-5 text-accent" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="font-semibold text-lg">{tierName} Plan</h3>
+                {expiryStatus && (
+                  <Badge variant={expiryStatus.variant === "default" ? "default" : expiryStatus.variant === "destructive" ? "destructive" : "secondary"}>
+                    {expiryStatus.label}
+                  </Badge>
+                )}
+              </div>
+              <p className="text-sm text-muted-foreground">
+                {expiryStatus ? expiryStatus.text : profile.subscriptionTier === "FREE" ? "No expiration" : "No expiration date set"}
+              </p>
+            </div>
+          </div>
+          {profile.subscriptionTier !== "FREE" && (
+            <Link to="/order-history">
+              <Button variant="outline" size="sm" className="gap-2">
+                <Receipt className="h-4 w-4" /> Order History
+              </Button>
+            </Link>
+          )}
+        </CardContent>
+      </Card>
+    );
+  };
+
+  const OrderHistorySection = () => {
+    if (!user || orders.length === 0 && !ordersLoading) {
+      if (!user) return null;
+      return (
+        <Card className="mt-8">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <Receipt className="h-5 w-5" /> Recent Orders
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground text-center py-4">No orders yet</p>
+          </CardContent>
+        </Card>
+      );
+    }
+
+    return (
+      <Card className="mt-8">
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <Receipt className="h-5 w-5" /> Recent Orders
+          </CardTitle>
+          <Link to="/order-history">
+            <Button variant="ghost" size="sm" className="text-xs text-muted-foreground hover:text-foreground">
+              View full order history →
+            </Button>
+          </Link>
+        </CardHeader>
+        <CardContent>
+          {ordersLoading ? (
+            <div className="flex justify-center py-6">
+              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Plan</TableHead>
+                    <TableHead>Amount</TableHead>
+                    <TableHead className="hidden sm:table-cell">Date</TableHead>
+                    <TableHead className="hidden md:table-cell">Expiry</TableHead>
+                    <TableHead className="hidden lg:table-cell">Payment ID</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {orders.map((order) => (
+                    <TableRow key={order.id}>
+                      <TableCell className="font-medium">{order.plan_name}</TableCell>
+                      <TableCell>₹{order.amount?.toLocaleString("en-IN")}</TableCell>
+                      <TableCell className="hidden sm:table-cell">
+                        {format(new Date(order.created_at), "dd MMM yyyy")}
+                      </TableCell>
+                      <TableCell className="hidden md:table-cell">
+                        {order.expires_at ? format(new Date(order.expires_at), "dd MMM yyyy") : "---"}
+                      </TableCell>
+                      <TableCell className="hidden lg:table-cell text-xs text-muted-foreground font-mono">
+                        {order.payment_id || "---"}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    );
   };
 
   return (
@@ -388,6 +563,8 @@ const Subscription = () => {
           transition={{ duration: 0.5, delay: 0.2 }}
           className="min-w-0"
         >
+          <CurrentPlanCard />
+
           {!isElite && (
             <div className="mb-8 sm:mb-10">
               <EliteMembershipOfferCard variant="hero" className="mx-auto max-w-5xl" />
@@ -418,14 +595,21 @@ const Subscription = () => {
                   </h2>
 
                   <p className="mb-10 max-w-xl text-lg text-gray-300">
-                    Welcome to the highest tier of JobSeeker. You have secured full PRO MAX access for 5 years.
+                    Welcome to the highest tier of JobSeeker. You have secured full PRO MAX access
+                    {profile.subscriptionExpiresAt
+                      ? ` until ${format(new Date(profile.subscriptionExpiresAt), "dd MMM yyyy")}`
+                      : ""}.
                     Your legacy account is active and protected.
                   </p>
 
                   <div className="mb-10 grid gap-4 sm:grid-cols-2">
                     <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
                       <p className="mb-1 text-xs font-bold uppercase tracking-widest text-gray-500">Plan Duration</p>
-                      <p className="text-xl font-bold text-white">5 Year Membership</p>
+                      <p className="text-xl font-bold text-white">
+                        {profile.subscriptionExpiresAt
+                          ? `Active until ${format(new Date(profile.subscriptionExpiresAt), "dd MMM yyyy")}`
+                          : "Lifetime Membership"}
+                      </p>
                     </div>
                     <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
                       <p className="mb-1 text-xs font-bold uppercase tracking-widest text-gray-500">Current Tier</p>
@@ -469,6 +653,8 @@ const Subscription = () => {
               </div>
             </div>
           )}
+
+          <OrderHistorySection />
         </motion.div>
       </div>
     </DashboardLayout>

@@ -33,6 +33,7 @@ export type Database = {
           modal_headline_accent: string
           modal_subheadline: string
           modal_cta_text: string
+          duration_days: number
           created_at: string | null
           updated_at: string | null
         }
@@ -54,6 +55,7 @@ export type Database = {
           modal_headline_accent?: string
           modal_subheadline?: string
           modal_cta_text?: string
+          duration_days?: number
           created_at?: string | null
           updated_at?: string | null
         }
@@ -75,6 +77,7 @@ export type Database = {
           modal_headline_accent?: string
           modal_subheadline?: string
           modal_cta_text?: string
+          duration_days?: number
           created_at?: string | null
           updated_at?: string | null
         }

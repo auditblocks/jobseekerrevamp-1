@@ -58,6 +58,8 @@ interface SubscriptionPlan {
   sort_order: number;
   billing_cycle_display: string | null;
   button_text: string | null;
+  discount_percentage: number | null;
+  yearly_price: number | null;
 }
 
 const defaultPlan: Partial<SubscriptionPlan> = {
@@ -75,6 +77,8 @@ const defaultPlan: Partial<SubscriptionPlan> = {
   sort_order: 0,
   billing_cycle_display: "/month",
   button_text: "Get Started",
+  discount_percentage: 0,
+  yearly_price: 0,
 };
 
 export default function AdminSubscriptions() {
@@ -223,9 +227,15 @@ export default function AdminSubscriptions() {
     setIsSaving(true);
     try {
       const features = featuresText.split("\n").filter(f => f.trim());
+      const discount = editingPlan.discount_percentage || 0;
+      const computedYearly = editingPlan.price > 0
+        ? Math.round(editingPlan.price * 12 * (1 - discount / 100))
+        : 0;
       const planData = {
         ...editingPlan,
         features,
+        yearly_price: computedYearly,
+        discount_percentage: discount,
       };
 
       // Check if plan exists
@@ -694,6 +704,37 @@ export default function AdminSubscriptions() {
                 </div>
               </div>
               
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="discount-pct">Discount % (yearly)</Label>
+                  <Input
+                    id="discount-pct"
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={editingPlan.discount_percentage ?? 0}
+                    onChange={(e) => setEditingPlan({ ...editingPlan, discount_percentage: parseInt(e.target.value) || 0 })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="yearly-price">Yearly Price (₹) — auto</Label>
+                  <Input
+                    id="yearly-price"
+                    type="number"
+                    readOnly
+                    className="bg-muted"
+                    value={
+                      editingPlan.price > 0
+                        ? Math.round(editingPlan.price * 12 * (1 - (editingPlan.discount_percentage || 0) / 100))
+                        : 0
+                    }
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Computed: monthly × 12 minus {editingPlan.discount_percentage || 0}% discount
+                  </p>
+                </div>
+              </div>
+
               <div className="grid grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="daily-limit">Daily Email Limit</Label>
