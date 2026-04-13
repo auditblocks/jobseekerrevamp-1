@@ -47,7 +47,7 @@ interface NavSection {
     items: NavItem[];
 }
 
-type TierBadgeKind = "ELITE" | "PRO_MAX" | "PRO" | null;
+type TierBadgeKind = "PRO_MAX" | "PRO" | null;
 
 function isNavItemActive(item: NavItem, pathname: string): boolean {
     if (item.matchPrefix) {
@@ -66,8 +66,7 @@ function resolveSubscriptionTier(rawTier?: string | null): "FREE" | "PRO" | "PRO
     return "FREE";
 }
 
-function getTierBadgeKind(rawTier?: string | null, isElite?: boolean): TierBadgeKind {
-    if (isElite) return "ELITE";
+function getTierBadgeKind(rawTier?: string | null): TierBadgeKind {
     const tier = resolveSubscriptionTier(rawTier);
     if (tier === "PRO_MAX") return "PRO_MAX";
     if (tier === "PRO") return "PRO";
@@ -90,7 +89,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
 
     const normalizedTier = resolveSubscriptionTier(profile?.subscription_tier);
     const isProUser = normalizedTier === "PRO" || normalizedTier === "PRO_MAX";
-    const tierBadgeKind = getTierBadgeKind(profile?.subscription_tier, isElite);
+    const tierBadgeKind = getTierBadgeKind(profile?.subscription_tier);
 
     const handleSignOut = async () => {
         await signOut();
@@ -243,12 +242,12 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                                     <div className="text-sm font-medium text-sidebar-foreground truncate">
                                         {user?.user_metadata?.name || "User"}
                                     </div>
-                                    {tierBadgeKind === "ELITE" && (
+                                    {isElite && (
                                         <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-[#C5A059]/20 border border-[#C5A059]/30 text-[#C5A059] text-[9px] font-bold tracking-tighter uppercase shadow-[0_0_10px_rgba(197,160,89,0.3)]">
                                             <Crown size={8} /> Elite
                                         </div>
                                     )}
-                                    {tierBadgeKind === "PRO_MAX" && (
+                                    {tierBadgeKind === "PRO_MAX" && !isElite && (
                                         <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-violet-500/20 border border-violet-400/30 text-violet-300 text-[9px] font-bold tracking-tighter uppercase">
                                             <Rocket size={8} /> Pro Max
                                         </div>
@@ -316,13 +315,13 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
 
                     <div className="flex items-center gap-2 sm:gap-4">
                         <NotificationBell />
-                        {tierBadgeKind === "ELITE" && (
+                        {isElite && (
                             <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#C5A059]/10 border border-[#C5A059]/30 text-[#C5A059] shadow-[0_0_15px_rgba(197,160,89,0.2)]">
                                 <Crown size={16} className="text-[#C5A059]" />
                                 <span className="text-sm font-bold tracking-tight hidden sm:inline">Elite Member</span>
                             </div>
                         )}
-                        {tierBadgeKind === "PRO_MAX" && (
+                        {tierBadgeKind === "PRO_MAX" && !isElite && (
                             <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-violet-500/10 border border-violet-400/30 text-violet-300">
                                 <Rocket size={16} className="text-violet-300" />
                                 <span className="text-sm font-bold tracking-tight hidden sm:inline">Pro Max</span>
