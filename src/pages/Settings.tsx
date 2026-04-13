@@ -13,7 +13,6 @@ import {
   ArrowLeft,
   User,
   Bell,
-  CreditCard,
   Mail,
   FileText,
   Upload,
@@ -658,10 +657,6 @@ const Settings = () => {
             <TabsTrigger value="notifications" className="data-[state=active]:bg-accent data-[state=active]:text-accent-foreground">
               <Bell className="h-4 w-4 mr-2" />
               Notifications
-            </TabsTrigger>
-            <TabsTrigger value="subscription" className="data-[state=active]:bg-accent data-[state=active]:text-accent-foreground">
-              <CreditCard className="h-4 w-4 mr-2" />
-              Subscription
             </TabsTrigger>
             <TabsTrigger value="contact" className="data-[state=active]:bg-accent data-[state=active]:text-accent-foreground">
               <Mail className="h-4 w-4 mr-2" />
