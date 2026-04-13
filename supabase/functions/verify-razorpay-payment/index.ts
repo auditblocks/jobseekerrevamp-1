@@ -13,6 +13,17 @@ interface PaymentVerification {
   razorpay_signature: string;
 }
 
+function resolveSubscriptionTier(rawPlanId?: string | null, rawPlanName?: string | null): "FREE" | "PRO" | "PRO_MAX" {
+  const candidates = [rawPlanId, rawPlanName].filter((v): v is string => typeof v === "string" && v.trim().length > 0);
+  for (const candidate of candidates) {
+    const normalized = candidate.toUpperCase().replace(/[\s-]/g, "_");
+    if (normalized.includes("PRO_MAX") || normalized.includes("PROMAX")) return "PRO_MAX";
+    if (normalized.includes("PRO")) return "PRO";
+    if (normalized.includes("FREE")) return "FREE";
+  }
+  return "PRO";
+}
+
 function normalizeVerifyPayload(raw: Record<string, unknown>): PaymentVerification {
   const order =
     (typeof raw.razorpay_order_id === "string" && raw.razorpay_order_id) ||
@@ -132,7 +143,9 @@ serve(async (req) => {
     if (idempotentRow) {
       const isFlash = idempotentRow.plan_id === "flash_sale";
       const plan = idempotentRow.subscription_plans as { name?: string; duration_days?: number } | null;
-      const subscriptionTier = isFlash ? "PRO_MAX" : (plan?.name?.toUpperCase() || "PRO");
+      const subscriptionTier = isFlash
+        ? "PRO_MAX"
+        : resolveSubscriptionTier(idempotentRow.plan_id, plan?.name);
       const expiresAt =
         idempotentRow.expires_at || new Date().toISOString();
       return new Response(
@@ -206,7 +219,7 @@ serve(async (req) => {
       ) {
         daysToAdd = 365;
       }
-      subscriptionTier = subscription.plan_id?.toUpperCase() || plan?.id?.toUpperCase() || 'PRO';
+      subscriptionTier = resolveSubscriptionTier(subscription.plan_id, plan?.name);
     }
     
     const expiresAt = new Date();
@@ -238,6 +251,7 @@ serve(async (req) => {
 
     if (profileError) {
       console.error("Failed to update profile:", profileError);
+      throw new Error(profileError.message || "Could not update subscription profile");
     }
 
     // Fetch user profile for receipt email
