@@ -7,7 +7,9 @@ const corsHeaders = {
 };
 
 interface BulkImportRequest {
-  sheet_url: string;
+  sheet_url?: string;
+  csv_data?: string;
+  file_name?: string;
   skip_duplicates?: boolean;
 }
 
@@ -77,42 +79,50 @@ serve(async (req) => {
       );
     }
 
-    const { sheet_url, skip_duplicates = true }: BulkImportRequest = await req.json();
+    const { sheet_url, csv_data, file_name, skip_duplicates = true }: BulkImportRequest = await req.json();
 
-    if (!sheet_url) {
+    if (!sheet_url && !csv_data) {
       return new Response(
-        JSON.stringify({ error: "sheet_url is required" }),
+        JSON.stringify({ error: "Either sheet_url or csv_data is required" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Extract sheet ID from Google Sheets URL
-    // Supports formats:
-    // https://docs.google.com/spreadsheets/d/{SHEET_ID}/edit
-    // https://docs.google.com/spreadsheets/d/{SHEET_ID}/edit#gid=0
-    const sheetIdMatch = sheet_url.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
-    if (!sheetIdMatch) {
-      return new Response(
-        JSON.stringify({ error: "Invalid Google Sheets URL format" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    const isCsvUpload = !!csv_data;
+    let csvText = "";
+    if (isCsvUpload) {
+      csvText = csv_data || "";
+      console.log(`Processing uploaded CSV${file_name ? ` (${file_name})` : ""}`);
+    } else {
+      // Extract sheet ID from Google Sheets URL
+      // Supports formats:
+      // https://docs.google.com/spreadsheets/d/{SHEET_ID}/edit
+      // https://docs.google.com/spreadsheets/d/{SHEET_ID}/edit#gid=0
+      const sheetIdMatch = sheet_url!.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+      if (!sheetIdMatch) {
+        return new Response(
+          JSON.stringify({ error: "Invalid Google Sheets URL format" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const sheetId = sheetIdMatch[1];
+      // Try to get all rows - Google Sheets CSV export might have limits
+      // Use gid=0 to get the first sheet, or you can specify a specific sheet
+      const csvUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=0`;
+
+      // Fetch CSV data
+      const csvResponse = await fetch(csvUrl);
+      if (!csvResponse.ok) {
+        return new Response(
+          JSON.stringify({ error: `Failed to fetch sheet: ${csvResponse.statusText}. Make sure the sheet is publicly accessible.` }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      csvText = await csvResponse.text();
     }
 
-    const sheetId = sheetIdMatch[1];
-    // Try to get all rows - Google Sheets CSV export might have limits
-    // Use gid=0 to get the first sheet, or you can specify a specific sheet
-    const csvUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=0`;
-
-    // Fetch CSV data
-    const csvResponse = await fetch(csvUrl);
-    if (!csvResponse.ok) {
-      return new Response(
-        JSON.stringify({ error: `Failed to fetch sheet: ${csvResponse.statusText}. Make sure the sheet is publicly accessible.` }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    const csvText = await csvResponse.text();
+    csvText = csvText.replace(/^\uFEFF/, "");
     const csvSize = csvText.length;
     console.log(`Fetched CSV: ${csvSize} bytes`);
     
@@ -124,7 +134,7 @@ serve(async (req) => {
     console.log(`Parsed ${rows.length} rows from CSV (excluding header)`);
     
     // Warn if CSV seems truncated (Google Sheets limits CSV export to ~1000 rows)
-    if (rows.length >= 1000) {
+    if (!isCsvUpload && rows.length >= 1000) {
       console.warn(`⚠️ CSV export may be truncated. Google Sheets CSV export is limited to approximately 1000 rows.`);
       console.warn(`If your sheet has more than 1000 rows, only the first 1000 will be imported.`);
     }
@@ -412,7 +422,7 @@ serve(async (req) => {
     const skippedRows = errors.length; // Rows skipped during validation
     
     let warningMessage = "";
-    if (rows.length >= 1000) {
+    if (!isCsvUpload && rows.length >= 1000) {
       warningMessage = " ⚠️ Note: Google Sheets CSV export is limited to ~1000 rows. If your sheet has more rows, split it into multiple sheets.";
     } else if (skippedRows > 0) {
       warningMessage = ` ⚠️ Note: ${skippedRows} row${skippedRows !== 1 ? 's' : ''} were skipped due to missing email or invalid format.`;
@@ -438,7 +448,7 @@ serve(async (req) => {
               message: totalErrors > 100 ? `Showing first 100 of ${totalErrors} errors. ${skippedRows} rows were skipped due to missing/invalid fields.` : `${skippedRows} rows were skipped due to missing/invalid fields.`
             }
           : undefined,
-        warning: rows.length >= 1000 
+        warning: (!isCsvUpload && rows.length >= 1000)
           ? "Google Sheets CSV export is limited to approximately 1000 rows. Only the first 1000 rows were imported."
           : skippedRows > 0
           ? `${skippedRows} row${skippedRows !== 1 ? 's' : ''} were skipped due to missing email or invalid format. Valid rows were imported successfully.`

@@ -15,6 +15,18 @@ interface RecruiterData {
   source_platform: string;
 }
 
+type FirecrawlSearchResult = {
+  title?: string;
+  description?: string;
+  url?: string;
+  markdown?: string | null;
+  html?: string | null;
+  rawHtml?: string | null;
+  content?: string | null;
+  snippet?: string | null;
+  metadata?: Record<string, unknown> | null;
+};
+
 // Available tiers for random assignment
 const TIERS = ['FREE', 'PRO', 'PRO_MAX'];
 
@@ -202,6 +214,65 @@ function extractCompany(email: string, text: string): string {
   return domain.split('.')[0].replace(/\b\w/g, c => c.toUpperCase());
 }
 
+function toSearchResults(payload: Record<string, unknown>): FirecrawlSearchResult[] {
+  const direct = payload.data;
+  if (Array.isArray(direct)) return direct as FirecrawlSearchResult[];
+  if (direct && typeof direct === "object") {
+    const maybeWeb = (direct as Record<string, unknown>).web;
+    if (Array.isArray(maybeWeb)) return maybeWeb as FirecrawlSearchResult[];
+  }
+  const maybeWebAtRoot = payload.web;
+  if (Array.isArray(maybeWebAtRoot)) return maybeWebAtRoot as FirecrawlSearchResult[];
+  return [];
+}
+
+function getSearchResultText(result: FirecrawlSearchResult): string {
+  const metadata = result.metadata && typeof result.metadata === "object"
+    ? result.metadata as Record<string, unknown>
+    : {};
+  const pieces = [
+    result.markdown || "",
+    result.content || "",
+    result.snippet || "",
+    result.description || "",
+    result.title || "",
+    typeof metadata["description"] === "string" ? metadata["description"] : "",
+    typeof metadata["title"] === "string" ? metadata["title"] : "",
+  ];
+  return pieces.join(" ").trim();
+}
+
+async function scrapeResultUrlContent(
+  url: string,
+  firecrawlApiKey: string,
+): Promise<string> {
+  const response = await fetch("https://api.firecrawl.dev/v1/scrape", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${firecrawlApiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      url,
+      formats: ["markdown"],
+      onlyMainContent: true,
+    }),
+  });
+
+  if (!response.ok) {
+    return "";
+  }
+
+  const data = await response.json().catch(() => ({}));
+  const record = data?.data && typeof data.data === "object" ? data.data : {};
+  const markdown = typeof record?.markdown === "string" ? record.markdown : "";
+  const metadataDescription =
+    record?.metadata && typeof record.metadata === "object" && typeof record.metadata.description === "string"
+      ? record.metadata.description
+      : "";
+  return `${markdown} ${metadataDescription}`.trim();
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -258,6 +329,17 @@ Deno.serve(async (req) => {
     const foundRecruiters: RecruiterData[] = [];
     const errors: string[] = [];
     let totalRecordsFound = 0;
+    let stopRequested = false;
+
+    const isStopRequested = async (): Promise<boolean> => {
+      if (!logId) return false;
+      const { data } = await supabase
+        .from("scraping_logs")
+        .select("status")
+        .eq("id", logId)
+        .single();
+      return data?.status === "stopped";
+    };
 
     // Progress update helper
     const updateProgress = async (percent: number, phase: string, estimatedSeconds?: number) => {
@@ -290,9 +372,14 @@ Deno.serve(async (req) => {
 
     // Process queries in concurrent batches
     const CONCURRENT_REQUESTS = 5;
+    const SCRAPE_FALLBACK_PER_QUERY = 20;
 
     const processQuery = async (query: string): Promise<void> => {
       try {
+        if (await isStopRequested()) {
+          stopRequested = true;
+          return;
+        }
         console.log('Searching:', query);
 
         const response = await fetch('https://api.firecrawl.dev/v1/search', {
@@ -318,12 +405,28 @@ Deno.serve(async (req) => {
           return;
         }
 
-        const searchData = await response.json();
+        const searchData = await response.json().catch(() => ({}));
+        const results = toSearchResults(searchData || {});
 
-        if (searchData.success && searchData.data) {
-          for (const result of searchData.data) {
-            const content = (result.markdown || '') + ' ' + (result.description || '') + ' ' + (result.title || '');
-            const emails = extractEmails(content);
+        if (searchData.success && results.length > 0) {
+          let scrapeFallbackUsed = 0;
+          for (const result of results) {
+            let content = getSearchResultText(result);
+            let emails = extractEmails(content);
+
+            if (
+              emails.length === 0 &&
+              result.url &&
+              typeof result.url === "string" &&
+              scrapeFallbackUsed < SCRAPE_FALLBACK_PER_QUERY
+            ) {
+              const scrapedContent = await scrapeResultUrlContent(result.url, firecrawlApiKey);
+              if (scrapedContent) {
+                content = `${content} ${scrapedContent}`.trim();
+                emails = extractEmails(content);
+              }
+              scrapeFallbackUsed += 1;
+            }
 
             for (const email of emails) {
               totalRecordsFound++;
@@ -355,6 +458,10 @@ Deno.serve(async (req) => {
 
     // Process in batches
     for (let i = 0; i < queriesToRun.length; i += CONCURRENT_REQUESTS) {
+      if (await isStopRequested()) {
+        stopRequested = true;
+        break;
+      }
       const batch = queriesToRun.slice(i, i + CONCURRENT_REQUESTS);
       await Promise.all(batch.map(processQuery));
 
@@ -409,6 +516,10 @@ Deno.serve(async (req) => {
     const totalBatches = Math.ceil(newRecruiters.length / BATCH_SIZE);
 
     for (let i = 0; i < newRecruiters.length; i += BATCH_SIZE) {
+      if (await isStopRequested()) {
+        stopRequested = true;
+        break;
+      }
       const batchNumber = Math.floor(i / BATCH_SIZE) + 1;
       const batch = newRecruiters.slice(i, i + BATCH_SIZE);
       const batchData = batch.map(recruiter => ({
@@ -447,18 +558,31 @@ Deno.serve(async (req) => {
       await supabase
         .from('scraping_logs')
         .update({
-          status: errors.length > uniqueRecruiters.length / 2 ? 'partial' : 'completed',
+          status: stopRequested
+            ? 'stopped'
+            : errors.length > uniqueRecruiters.length / 2
+              ? 'partial'
+              : 'completed',
           completed_at: new Date().toISOString(),
           records_found: totalRecordsFound,
           records_added: insertedCount,
           records_skipped: skippedCount,
           errors: errors.length > 0 ? errors : null,
           progress_percent: 100,
-          current_phase: 'Completed',
+          current_phase: stopRequested ? 'Stopped by admin' : 'Completed',
           estimated_completion_at: null,
           metadata: {
             countries: targetCountries,
             queries: customQueries,
+            max_results: maxResults,
+            scraped_recruiters: uniqueRecruiters.slice(0, 1000).map(r => ({
+              name: r.name,
+              email: r.email,
+              company: r.company,
+              domain: r.domain,
+              tier: r.tier,
+              quality_score: r.quality_score,
+            })),
             recruiters: uniqueRecruiters.slice(0, 1000).map(r => ({
               name: r.name,
               email: r.email,
@@ -486,8 +610,10 @@ Deno.serve(async (req) => {
 
     return new Response(
       JSON.stringify({
-        success: true,
-        message: `Scraping completed: ${insertedCount} new recruiters added, ${skippedCount} duplicates skipped`,
+        success: !stopRequested,
+        message: stopRequested
+          ? `Scraping stopped: ${insertedCount} new recruiters added before stop`
+          : `Scraping completed: ${insertedCount} new recruiters added, ${skippedCount} duplicates skipped`,
         data: {
           records_found: totalRecordsFound,
           records_added: insertedCount,

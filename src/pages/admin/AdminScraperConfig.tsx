@@ -36,6 +36,7 @@ import { supabase } from "@/integrations/supabase/client";
 import {
   Globe,
   Play,
+  Square,
   RefreshCw,
   Settings2,
   Clock,
@@ -44,7 +45,8 @@ import {
   XCircle,
   Plus,
   Trash2,
-  Search
+  Search,
+  Download,
 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -84,14 +86,28 @@ interface ScrapingLog {
       domain: string | null;
       tier: string;
       quality_score: number;
-      source_url: string | null;
+      source_url?: string | null;
       source_platform?: string;
-      added: boolean;
+      added?: boolean;
+    }>;
+    recruiters?: Array<{
+      name: string;
+      email: string;
+      company: string | null;
+      domain: string | null;
+      tier: string;
+      quality_score: number;
+      source_url?: string | null;
+      source_platform?: string;
+      added?: boolean;
     }>;
     countries?: string[];
     queries?: string[];
     max_results?: number;
   };
+  progress_percent?: number;
+  current_phase?: string | null;
+  estimated_completion_at?: string | null;
 }
 
 const COUNTRY_OPTIONS = [
@@ -114,9 +130,35 @@ export default function AdminScraperConfig() {
   const [selectedCountry, setSelectedCountry] = useState("");
   const [selectedLog, setSelectedLog] = useState<ScrapingLog | null>(null);
   const [reportDialogOpen, setReportDialogOpen] = useState(false);
+  const [stoppingLogId, setStoppingLogId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchData();
+  }, []);
+
+  useEffect(() => {
+    const channel = supabase
+      .channel("scraping-progress-admin")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "scraping_logs" },
+        (payload) => {
+          const next = payload.new as ScrapingLog;
+          if (!next?.id) return;
+          setLogs((prev) => {
+            const idx = prev.findIndex((l) => l.id === next.id);
+            if (idx === -1) return [next, ...prev].slice(0, 20);
+            const updated = [...prev];
+            updated[idx] = { ...updated[idx], ...next };
+            return updated;
+          });
+        },
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
   }, []);
 
   const fetchData = async () => {
@@ -241,6 +283,86 @@ export default function AdminScraperConfig() {
     }
   };
 
+  const stopScrape = async (logId: string) => {
+    try {
+      setStoppingLogId(logId);
+      const { error } = await supabase
+        .from("scraping_logs")
+        .update({
+          status: "stopped",
+          completed_at: new Date().toISOString(),
+          current_phase: "Stopping requested by admin",
+        })
+        .eq("id", logId)
+        .eq("status", "running");
+
+      if (error) throw error;
+      toast.success("Stop requested. Scraper will halt shortly.");
+    } catch (error: any) {
+      console.error("Failed to stop scraper:", error);
+      toast.error(error.message || "Failed to stop scraper");
+    } finally {
+      setStoppingLogId(null);
+    }
+  };
+
+  const deleteLog = async (logId: string) => {
+    try {
+      const { error } = await supabase.from("scraping_logs").delete().eq("id", logId);
+      if (error) throw error;
+      setLogs((prev) => prev.filter((l) => l.id !== logId));
+      toast.success("Log deleted");
+    } catch (error: any) {
+      console.error("Failed to delete log:", error);
+      toast.error(error.message || "Failed to delete log");
+    }
+  };
+
+  const getLogRecruiters = (log: ScrapingLog) =>
+    log.metadata?.scraped_recruiters || log.metadata?.recruiters || [];
+
+  const exportReportCsv = (log: ScrapingLog) => {
+    const recruiters = getLogRecruiters(log);
+    if (recruiters.length === 0) {
+      toast.error("No recruiter data available in this log");
+      return;
+    }
+    const header = [
+      "name",
+      "email",
+      "company",
+      "domain",
+      "tier",
+      "quality_score",
+      "source_platform",
+      "source_url",
+      "added",
+    ];
+    const rows = recruiters.map((r) => [
+      r.name ?? "",
+      r.email ?? "",
+      r.company ?? "",
+      r.domain ?? "",
+      r.tier ?? "",
+      String(r.quality_score ?? ""),
+      r.source_platform ?? "",
+      r.source_url ?? "",
+      String(r.added ?? ""),
+    ]);
+
+    const toCsvCell = (value: string) => `"${value.replace(/"/g, '""')}"`;
+    const csv = [header, ...rows].map((row) => row.map(toCsvCell).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `scraping-report-${log.id}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const runningLog = logs.find((l) => l.status === "running");
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'completed':
@@ -294,6 +416,37 @@ export default function AdminScraperConfig() {
           </TabsList>
 
           <TabsContent value="config" className="space-y-4">
+            {runningLog && (
+              <Card className="border-blue-500/30 bg-blue-500/5">
+                <CardHeader>
+                  <CardTitle className="text-base flex items-center justify-between">
+                    <span>Scrape in Progress</span>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => stopScrape(runningLog.id)}
+                      disabled={stoppingLogId === runningLog.id}
+                    >
+                      <Square className="h-4 w-4 mr-2" />
+                      {stoppingLogId === runningLog.id ? "Stopping..." : "Stop"}
+                    </Button>
+                  </CardTitle>
+                  <CardDescription>{runningLog.current_phase || "Running..."}</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="w-full h-2 rounded-full bg-muted overflow-hidden">
+                    <div
+                      className="h-full bg-blue-500 transition-all duration-300"
+                      style={{ width: `${Math.min(100, Math.max(0, runningLog.progress_percent || 0))}%` }}
+                    />
+                  </div>
+                  <div className="mt-2 text-xs text-muted-foreground">
+                    {runningLog.progress_percent || 0}% • Found {runningLog.records_found || 0} • Added{" "}
+                    {runningLog.records_added || 0}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
             {loading ? (
               <div className="flex items-center justify-center py-12">
                 <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -599,20 +752,35 @@ export default function AdminScraperConfig() {
                               : '-'}
                           </TableCell>
                           <TableCell>
-                            {log.metadata?.scraped_recruiters && log.metadata.scraped_recruiters.length > 0 ? (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => {
-                                  setSelectedLog(log);
-                                  setReportDialogOpen(true);
-                                }}
-                              >
-                                View Report
+                            <div className="flex items-center gap-2">
+                              {getLogRecruiters(log).length > 0 ? (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => {
+                                    setSelectedLog(log);
+                                    setReportDialogOpen(true);
+                                  }}
+                                >
+                                  View Report
+                                </Button>
+                              ) : (
+                                <span className="text-muted-foreground text-sm">No data</span>
+                              )}
+                              {log.status === "running" ? (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => stopScrape(log.id)}
+                                  disabled={stoppingLogId === log.id}
+                                >
+                                  Stop
+                                </Button>
+                              ) : null}
+                              <Button variant="ghost" size="icon" onClick={() => deleteLog(log.id)}>
+                                <Trash2 className="h-4 w-4" />
                               </Button>
-                            ) : (
-                              <span className="text-muted-foreground text-sm">No data</span>
-                            )}
+                            </div>
                           </TableCell>
                         </TableRow>
                       ))
@@ -636,8 +804,14 @@ export default function AdminScraperConfig() {
               </DialogDescription>
             </DialogHeader>
 
-            {selectedLog?.metadata?.scraped_recruiters ? (
+            {selectedLog && getLogRecruiters(selectedLog).length > 0 ? (
               <div className="space-y-4">
+                <div className="flex justify-end">
+                  <Button variant="outline" onClick={() => selectedLog && exportReportCsv(selectedLog)}>
+                    <Download className="h-4 w-4 mr-2" />
+                    Export CSV
+                  </Button>
+                </div>
                 <div className="grid grid-cols-4 gap-4 p-4 bg-muted/50 rounded-lg">
                   <div>
                     <p className="text-sm text-muted-foreground">Total Found</p>
@@ -674,7 +848,7 @@ export default function AdminScraperConfig() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {selectedLog.metadata.scraped_recruiters.map((recruiter, idx) => (
+                      {getLogRecruiters(selectedLog).map((recruiter, idx) => (
                         <TableRow key={idx}>
                           <TableCell className="font-medium">{recruiter.name}</TableCell>
                           <TableCell>{recruiter.email}</TableCell>

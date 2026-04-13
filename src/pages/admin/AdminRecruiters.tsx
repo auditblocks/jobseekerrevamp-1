@@ -77,7 +77,10 @@ export default function AdminRecruiters() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isBulkImportDialogOpen, setIsBulkImportDialogOpen] = useState(false);
   const [bulkImportLoading, setBulkImportLoading] = useState(false);
+  const [bulkImportMode, setBulkImportMode] = useState<"sheet" | "csv">("sheet");
   const [bulkImportSheetUrl, setBulkImportSheetUrl] = useState("");
+  const [bulkImportCsvData, setBulkImportCsvData] = useState("");
+  const [bulkImportCsvFileName, setBulkImportCsvFileName] = useState("");
   const [bulkImportSkipDuplicates, setBulkImportSkipDuplicates] = useState(true);
   const [newRecruiter, setNewRecruiter] = useState({
     name: "",
@@ -321,8 +324,12 @@ export default function AdminRecruiters() {
   };
 
   const handleBulkImport = async () => {
-    if (!bulkImportSheetUrl.trim()) {
+    if (bulkImportMode === "sheet" && !bulkImportSheetUrl.trim()) {
       toast.error("Please enter a Google Sheets URL");
+      return;
+    }
+    if (bulkImportMode === "csv" && !bulkImportCsvData.trim()) {
+      toast.error("Please upload a CSV file");
       return;
     }
 
@@ -335,7 +342,9 @@ export default function AdminRecruiters() {
 
       const { data, error } = await supabase.functions.invoke("bulk-import-recruiters", {
         body: {
-          sheet_url: bulkImportSheetUrl.trim(),
+          sheet_url: bulkImportMode === "sheet" ? bulkImportSheetUrl.trim() : undefined,
+          csv_data: bulkImportMode === "csv" ? bulkImportCsvData : undefined,
+          file_name: bulkImportMode === "csv" ? bulkImportCsvFileName : undefined,
           skip_duplicates: bulkImportSkipDuplicates,
         },
         headers: {
@@ -450,6 +459,9 @@ export default function AdminRecruiters() {
 
           setIsBulkImportDialogOpen(false);
           setBulkImportSheetUrl("");
+          setBulkImportCsvData("");
+          setBulkImportCsvFileName("");
+          setBulkImportMode("sheet");
           fetchRecruiters();
         } else {
           toast.error(data.message || "Import failed");
@@ -468,6 +480,27 @@ export default function AdminRecruiters() {
       toast.error(errorMessage);
     } finally {
       setBulkImportLoading(false);
+    }
+  };
+
+  const handleCsvFileUpload = async (file?: File) => {
+    if (!file) return;
+    if (!file.name.toLowerCase().endsWith(".csv")) {
+      toast.error("Please upload a .csv file");
+      return;
+    }
+    try {
+      const text = await file.text();
+      if (!text.trim()) {
+        toast.error("Uploaded CSV is empty");
+        return;
+      }
+      setBulkImportCsvData(text);
+      setBulkImportCsvFileName(file.name);
+      toast.success(`CSV loaded: ${file.name}`);
+    } catch (error: any) {
+      console.error("Failed to read CSV:", error);
+      toast.error("Failed to read CSV file");
     }
   };
 
@@ -632,9 +665,31 @@ export default function AdminRecruiters() {
               </DialogTrigger>
               <DialogContent className="max-w-2xl">
                 <DialogHeader>
-                  <DialogTitle>Bulk Import Recruiters from Google Sheets</DialogTitle>
+                  <DialogTitle>Bulk Import Recruiters</DialogTitle>
                 </DialogHeader>
                 <div className="space-y-4 py-4">
+                  <div className="space-y-2">
+                    <Label>Import Source</Label>
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        variant={bulkImportMode === "sheet" ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setBulkImportMode("sheet")}
+                      >
+                        Google Sheet URL
+                      </Button>
+                      <Button
+                        type="button"
+                        variant={bulkImportMode === "csv" ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setBulkImportMode("csv")}
+                      >
+                        CSV Upload
+                      </Button>
+                    </div>
+                  </div>
+                  {bulkImportMode === "sheet" ? (
                   <div className="space-y-2">
                     <Label>Google Sheets URL *</Label>
                     <Input
@@ -646,6 +701,24 @@ export default function AdminRecruiters() {
                       Make sure the sheet is publicly accessible or shared with view permissions
                     </p>
                   </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <Label>CSV File *</Label>
+                      <Input
+                        type="file"
+                        accept=".csv,text/csv"
+                        onChange={(e) => void handleCsvFileUpload(e.target.files?.[0])}
+                      />
+                      <p className="text-sm text-muted-foreground">
+                        Upload a CSV file from your computer. Supports 1000+ recruiters in one upload.
+                      </p>
+                      {bulkImportCsvFileName ? (
+                        <p className="text-xs text-muted-foreground">
+                          Selected: {bulkImportCsvFileName}
+                        </p>
+                      ) : null}
+                    </div>
+                  )}
                   <div className="flex items-center justify-between space-x-2">
                     <div className="space-y-0.5">
                       <Label>Skip Duplicates</Label>
@@ -674,7 +747,11 @@ export default function AdminRecruiters() {
                   </div>
                   <Button
                     onClick={handleBulkImport}
-                    disabled={!bulkImportSheetUrl.trim() || bulkImportLoading}
+                    disabled={
+                      bulkImportLoading ||
+                      (bulkImportMode === "sheet" && !bulkImportSheetUrl.trim()) ||
+                      (bulkImportMode === "csv" && !bulkImportCsvData.trim())
+                    }
                     className="w-full"
                   >
                     {bulkImportLoading ? (
