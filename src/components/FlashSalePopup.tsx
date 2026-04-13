@@ -248,6 +248,9 @@ export function FlashSalePopup() {
   if (!isVisible || !config || !isAllowedRoute) return null;
 
   const soldOut = purchasedCount >= maxPurchases;
+  const claimedProgress = maxPurchases > 0
+    ? Math.min(100, Math.max(0, (purchasedCount / maxPurchases) * 100))
+    : 0;
 
   return (
     <>
@@ -297,12 +300,12 @@ export function FlashSalePopup() {
                   <motion.div 
                     className="absolute top-0 left-0 h-full rounded-full"
                     style={{ 
-                      width: `${config.progress_percentage}%`,
+                      width: `${claimedProgress}%`,
                       background: 'linear-gradient(90deg, #8E6E37 0%, #C5A059 100%)',
                       boxShadow: '0 0 10px rgba(197,160,89,0.5)'
                     }}
                     initial={{ width: 0 }}
-                    animate={{ width: `${config.progress_percentage}%` }}
+                    animate={{ width: `${claimedProgress}%` }}
                     transition={{ duration: 1 }}
                   />
                 </div>

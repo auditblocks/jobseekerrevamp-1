@@ -35,6 +35,7 @@ export type Database = {
           modal_cta_text: string
           duration_days: number
           max_purchases: number
+          manual_claimed_count: number
           created_at: string | null
           updated_at: string | null
         }
@@ -58,6 +59,7 @@ export type Database = {
           modal_cta_text?: string
           duration_days?: number
           max_purchases?: number
+          manual_claimed_count?: number
           created_at?: string | null
           updated_at?: string | null
         }
@@ -81,6 +83,7 @@ export type Database = {
           modal_cta_text?: string
           duration_days?: number
           max_purchases?: number
+          manual_claimed_count?: number
           created_at?: string | null
           updated_at?: string | null
         }
@@ -1748,6 +1751,8 @@ export type Database = {
           max_purchases: number
           purchased_count: number
           remaining_count: number
+          actual_purchased_count: number
+          manual_claimed_count: number
         }[]
       }
       get_tier_limits: {

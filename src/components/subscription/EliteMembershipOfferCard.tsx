@@ -209,6 +209,9 @@ export function EliteMembershipOfferCard({
   /** Checkout only when admin enabled the offer and end time is in the future (matches flash popup rules). */
   const offerLive = isOfferWindowOpen(config);
   const soldOut = purchasedCount >= maxPurchases;
+  const claimedProgress = maxPurchases > 0
+    ? Math.min(100, Math.max(0, (purchasedCount / maxPurchases) * 100))
+    : 0;
   const endTimePassed = new Date(config.end_time) <= new Date();
   /** Short copy for subscribers only — no internal / admin instructions. */
   const offerStatusLabel = soldOut
@@ -321,7 +324,7 @@ export function EliteMembershipOfferCard({
           <div
             className="h-full rounded-full transition-[width] duration-700"
             style={{
-              width: `${Math.min(100, Math.max(0, config.progress_percentage))}%`,
+              width: `${claimedProgress}%`,
               background: "linear-gradient(90deg, #8E6E37 0%, #C5A059 100%)",
             }}
           />

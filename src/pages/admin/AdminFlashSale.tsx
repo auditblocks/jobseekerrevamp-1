@@ -61,6 +61,7 @@ export default function AdminFlashSale() {
 
   const [config, setConfig] = useState<FlashSaleConfig | null>(null);
   const [purchasedCount, setPurchasedCount] = useState(0);
+  const [actualPurchasedCount, setActualPurchasedCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState({
@@ -81,6 +82,7 @@ export default function AdminFlashSale() {
     modal_cta_text: DEFAULT_MODAL_CTA_TEXT,
     duration_days: 730,
     max_purchases: 100,
+    manual_claimed_count: 0,
     featureRows: featureRowsFromStrings([...DEFAULT_FEATURE_LINES]),
   });
 
@@ -127,6 +129,7 @@ export default function AdminFlashSale() {
           modal_cta_text: data.modal_cta_text?.trim() || DEFAULT_MODAL_CTA_TEXT,
           duration_days: data.duration_days ?? 730,
           max_purchases: data.max_purchases ?? 100,
+          manual_claimed_count: data.manual_claimed_count ?? 0,
           featureRows: featureRowsFromStrings(lines),
         });
       }
@@ -146,6 +149,7 @@ export default function AdminFlashSale() {
     }
     const stats = Array.isArray(data) ? data[0] : data;
     setPurchasedCount(Number(stats?.purchased_count ?? 0));
+    setActualPurchasedCount(Number(stats?.actual_purchased_count ?? 0));
   };
 
   const handleSave = async () => {
@@ -174,6 +178,7 @@ export default function AdminFlashSale() {
         modal_cta_text: formData.modal_cta_text.trim() || DEFAULT_MODAL_CTA_TEXT,
         duration_days: formData.duration_days,
         max_purchases: formData.max_purchases,
+        manual_claimed_count: formData.manual_claimed_count,
       };
 
       if (config?.id) {
@@ -379,6 +384,29 @@ export default function AdminFlashSale() {
                 </div>
                 <div className="space-y-2 pt-2 border-t border-green-200/60 dark:border-green-800/60">
                   <Label className="text-base font-semibold text-green-700 dark:text-green-400">
+                    Claimed Count (Manual)
+                  </Label>
+                  <p className="text-sm text-muted-foreground">
+                    Set claimed users manually for scarcity display. Effective claimed count always uses the higher
+                    of manual count and real completed purchases.
+                  </p>
+                  <div className="flex items-center gap-3">
+                    <Input
+                      type="number"
+                      min="0"
+                      value={formData.manual_claimed_count}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          manual_claimed_count: Math.max(0, parseInt(e.target.value, 10) || 0),
+                        })
+                      }
+                      className="max-w-[160px] text-lg font-bold"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2 pt-2 border-t border-green-200/60 dark:border-green-800/60">
+                  <Label className="text-base font-semibold text-green-700 dark:text-green-400">
                     Flash Sale Purchase Cap
                   </Label>
                   <p className="text-sm text-muted-foreground">
@@ -398,10 +426,13 @@ export default function AdminFlashSale() {
                       className="max-w-[160px] text-lg font-bold"
                     />
                     <span className="text-sm font-medium text-muted-foreground">
-                      Purchased: {purchasedCount} / {formData.max_purchases} (
+                      Claimed (effective): {purchasedCount} / {formData.max_purchases} (
                       {Math.max(formData.max_purchases - purchasedCount, 0)} left)
                     </span>
                   </div>
+                  <p className="text-xs text-muted-foreground">
+                    Actual successful purchases: {actualPurchasedCount}
+                  </p>
                 </div>
                 <div className="space-y-2 pt-2 border-t border-green-200/60 dark:border-green-800/60">
                   <Label htmlFor="price-tagline" className="text-base font-semibold text-green-700 dark:text-green-400">
