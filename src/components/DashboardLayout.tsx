@@ -47,6 +47,8 @@ interface NavSection {
     items: NavItem[];
 }
 
+type TierBadgeKind = "ELITE" | "PRO_MAX" | "PRO" | null;
+
 function isNavItemActive(item: NavItem, pathname: string): boolean {
     if (item.matchPrefix) {
         if (item.path === "/government-jobs") {
@@ -55,6 +57,21 @@ function isNavItemActive(item: NavItem, pathname: string): boolean {
         return pathname === item.path || pathname.startsWith(`${item.path}/`);
     }
     return pathname === item.path;
+}
+
+function resolveSubscriptionTier(rawTier?: string | null): "FREE" | "PRO" | "PRO_MAX" {
+    const normalized = (rawTier || "").toUpperCase().replace(/[\s-]/g, "_");
+    if (normalized.includes("PRO_MAX") || normalized.includes("PROMAX")) return "PRO_MAX";
+    if (normalized.includes("PRO")) return "PRO";
+    return "FREE";
+}
+
+function getTierBadgeKind(rawTier?: string | null, isElite?: boolean): TierBadgeKind {
+    if (isElite) return "ELITE";
+    const tier = resolveSubscriptionTier(rawTier);
+    if (tier === "PRO_MAX") return "PRO_MAX";
+    if (tier === "PRO") return "PRO";
+    return null;
 }
 
 const DashboardLayout = ({ children }: DashboardLayoutProps) => {
@@ -71,7 +88,9 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
         return false;
     });
 
-    const isProUser = profile?.subscription_tier === "PRO" || profile?.subscription_tier === "PRO_MAX";
+    const normalizedTier = resolveSubscriptionTier(profile?.subscription_tier);
+    const isProUser = normalizedTier === "PRO" || normalizedTier === "PRO_MAX";
+    const tierBadgeKind = getTierBadgeKind(profile?.subscription_tier, isElite);
 
     const handleSignOut = async () => {
         await signOut();
@@ -224,9 +243,19 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                                     <div className="text-sm font-medium text-sidebar-foreground truncate">
                                         {user?.user_metadata?.name || "User"}
                                     </div>
-                                    {isElite && (
+                                    {tierBadgeKind === "ELITE" && (
                                         <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-[#C5A059]/20 border border-[#C5A059]/30 text-[#C5A059] text-[9px] font-bold tracking-tighter uppercase shadow-[0_0_10px_rgba(197,160,89,0.3)]">
                                             <Crown size={8} /> Elite
+                                        </div>
+                                    )}
+                                    {tierBadgeKind === "PRO_MAX" && (
+                                        <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-violet-500/20 border border-violet-400/30 text-violet-300 text-[9px] font-bold tracking-tighter uppercase">
+                                            <Rocket size={8} /> Pro Max
+                                        </div>
+                                    )}
+                                    {tierBadgeKind === "PRO" && (
+                                        <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-sky-500/20 border border-sky-400/30 text-sky-300 text-[9px] font-bold tracking-tighter uppercase">
+                                            <Sparkles size={8} /> Pro
                                         </div>
                                     )}
                                 </div>
@@ -287,19 +316,28 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
 
                     <div className="flex items-center gap-2 sm:gap-4">
                         <NotificationBell />
+                        {tierBadgeKind === "ELITE" && (
+                            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#C5A059]/10 border border-[#C5A059]/30 text-[#C5A059] shadow-[0_0_15px_rgba(197,160,89,0.2)]">
+                                <Crown size={16} className="text-[#C5A059]" />
+                                <span className="text-sm font-bold tracking-tight hidden sm:inline">Elite Member</span>
+                            </div>
+                        )}
+                        {tierBadgeKind === "PRO_MAX" && (
+                            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-violet-500/10 border border-violet-400/30 text-violet-300">
+                                <Rocket size={16} className="text-violet-300" />
+                                <span className="text-sm font-bold tracking-tight hidden sm:inline">Pro Max</span>
+                            </div>
+                        )}
+                        {tierBadgeKind === "PRO" && (
+                            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-sky-500/10 border border-sky-400/30 text-sky-300">
+                                <Sparkles size={16} className="text-sky-300" />
+                                <span className="text-sm font-bold tracking-tight hidden sm:inline">Pro</span>
+                            </div>
+                        )}
                         {(() => {
-                            const tier = (profile?.subscription_tier || "").toUpperCase();
-                            const isProMax = tier === "PRO_MAX" || tier === "PROMAX";
-                            const isPro = tier === "PRO";
-
-                            if (isElite) {
-                                return (
-                                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#C5A059]/10 border border-[#C5A059]/30 text-[#C5A059] shadow-[0_0_15px_rgba(197,160,89,0.2)]">
-                                        <Crown size={16} className="text-[#C5A059]" />
-                                        <span className="text-sm font-bold tracking-tight hidden sm:inline">Elite Member</span>
-                                    </div>
-                                );
-                            }
+                            const isProMax = normalizedTier === "PRO_MAX";
+                            const isPro = normalizedTier === "PRO";
+                            if (isElite) return null;
                             if (isProMax) return null;
                             if (!profile?.subscription_tier) return null;
                             return (
