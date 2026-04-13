@@ -31,6 +31,8 @@ declare global {
 
 export function FlashSalePopup() {
   const [config, setConfig] = useState<FlashSaleConfig | null>(null);
+  const [purchasedCount, setPurchasedCount] = useState(0);
+  const [maxPurchases, setMaxPurchases] = useState(100);
   const [isVisible, setIsVisible] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
   const [timeLeftStr, setTimeLeftStr] = useState("");
@@ -76,6 +78,13 @@ export function FlashSalePopup() {
       if (error && error.code !== "PGRST116") {
         console.error("Error fetching flash sale config:", error);
         return;
+      }
+
+      const { data: statsData, error: statsError } = await supabase.rpc("get_flash_sale_purchase_stats");
+      if (!statsError) {
+        const stats = Array.isArray(statsData) ? statsData[0] : statsData;
+        setPurchasedCount(Number(stats?.purchased_count ?? 0));
+        setMaxPurchases(Number(stats?.max_purchases ?? data?.max_purchases ?? 100));
       }
 
       if (data && data.is_active) {
@@ -148,6 +157,11 @@ export function FlashSalePopup() {
   };
 
   const handleClaim = async () => {
+    if (purchasedCount >= maxPurchases) {
+      toast.error("This flash sale is sold out");
+      return;
+    }
+
     const { data: sessionData } = await supabase.auth.getSession();
     if (!sessionData.session?.user) {
       navigateToSignupForOffer();
@@ -233,6 +247,8 @@ export function FlashSalePopup() {
 
   if (!isVisible || !config || !isAllowedRoute) return null;
 
+  const soldOut = purchasedCount >= maxPurchases;
+
   return (
     <>
       {/* Mini Bubble Popup */}
@@ -274,7 +290,7 @@ export function FlashSalePopup() {
               <div className="w-full mb-6">
                 <div className="flex justify-between items-center text-gray-400 text-sm mb-2 px-1">
                   <span className="flex items-center gap-1.5"><Hourglass size={14} className="text-[#C5A059]" /> {timeLeftStr}</span>
-                  <span className="text-[#C5A059] font-bold">{config.progress_percentage}% Sold</span>
+                  <span className="text-[#C5A059] font-bold">{purchasedCount}/{maxPurchases} Claimed</span>
                 </div>
                 
                 <div className="relative h-1.5 w-full bg-gray-800/50 rounded-full overflow-hidden">
@@ -295,11 +311,11 @@ export function FlashSalePopup() {
               <div className="flex flex-col w-full gap-2">
                 <button
                   onClick={handleClaim}
-                  disabled={processingPayment}
+                  disabled={processingPayment || soldOut}
                   className="w-full py-3 rounded-xl font-bold text-black border-none cursor-pointer transition-all hover:brightness-110 active:scale-[0.98] disabled:opacity-70 flex items-center justify-center gap-2"
                   style={{ background: 'linear-gradient(135deg, #C5A059 0%, #8E6E37 100%)' }}
                 >
-                  {processingPayment ? <Loader2 size={16} className="animate-spin" /> : "Secure Elite Access"}
+                  {processingPayment ? <Loader2 size={16} className="animate-spin" /> : soldOut ? "Sold Out" : "Secure Elite Access"}
                 </button>
                 <button
                   onClick={() => setShowDetails(true)}

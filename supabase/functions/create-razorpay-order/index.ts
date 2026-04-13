@@ -69,7 +69,7 @@ serve(async (req) => {
     if (plan_id === 'flash_sale') {
       const { data: saleConfig, error: saleError } = await supabase
         .from("flash_sale_config")
-        .select("price, is_active")
+        .select("price, is_active, max_purchases")
         .single();
 
       if (saleError || !saleConfig) {
@@ -77,6 +77,20 @@ serve(async (req) => {
       }
       if (!saleConfig.is_active) {
         throw new Error("Flash sale is no longer active");
+      }
+
+      const { data: saleStats, error: statsError } = await supabase
+        .rpc("get_flash_sale_purchase_stats");
+      if (statsError) {
+        console.error("Failed to fetch flash sale stats:", statsError);
+        throw new Error("Could not validate flash sale availability. Please try again.");
+      }
+
+      const stats = Array.isArray(saleStats) ? saleStats[0] : saleStats;
+      const purchasedCount = Number(stats?.purchased_count ?? 0);
+      const maxPurchases = Number(stats?.max_purchases ?? saleConfig.max_purchases ?? 100);
+      if (maxPurchases > 0 && purchasedCount >= maxPurchases) {
+        throw new Error("Flash sale is sold out");
       }
 
       amount = saleConfig.price ?? 1999;

@@ -34,6 +34,7 @@ export type Database = {
           modal_subheadline: string
           modal_cta_text: string
           duration_days: number
+          max_purchases: number
           created_at: string | null
           updated_at: string | null
         }
@@ -56,6 +57,7 @@ export type Database = {
           modal_subheadline?: string
           modal_cta_text?: string
           duration_days?: number
+          max_purchases?: number
           created_at?: string | null
           updated_at?: string | null
         }
@@ -78,6 +80,7 @@ export type Database = {
           modal_subheadline?: string
           modal_cta_text?: string
           duration_days?: number
+          max_purchases?: number
           created_at?: string | null
           updated_at?: string | null
         }
@@ -1737,6 +1740,14 @@ export type Database = {
           domain_name: string
           subdomain_id: string
           tier: string
+        }[]
+      }
+      get_flash_sale_purchase_stats: {
+        Args: never
+        Returns: {
+          max_purchases: number
+          purchased_count: number
+          remaining_count: number
         }[]
       }
       get_tier_limits: {

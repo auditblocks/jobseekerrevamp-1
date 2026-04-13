@@ -40,6 +40,8 @@ export function EliteMembershipOfferCard({
   const { user, profile, isElite, refreshProfile } = useAuth();
   const navigate = useNavigate();
   const [config, setConfig] = useState<FlashSaleConfig | null>(null);
+  const [purchasedCount, setPurchasedCount] = useState(0);
+  const [maxPurchases, setMaxPurchases] = useState(100);
   const [loading, setLoading] = useState(true);
   const [timeLeftStr, setTimeLeftStr] = useState("");
   const [processingPayment, setProcessingPayment] = useState(false);
@@ -56,6 +58,13 @@ export function EliteMembershipOfferCard({
 
         if (error && error.code !== "PGRST116") {
           console.error("flash_sale_config:", error);
+        }
+
+        const { data: statsData, error: statsError } = await supabase.rpc("get_flash_sale_purchase_stats");
+        if (!statsError) {
+          const stats = Array.isArray(statsData) ? statsData[0] : statsData;
+          setPurchasedCount(Number(stats?.purchased_count ?? 0));
+          setMaxPurchases(Number(stats?.max_purchases ?? data?.max_purchases ?? 100));
         }
         setConfig(data ?? null);
       } catch (e) {
@@ -98,6 +107,11 @@ export function EliteMembershipOfferCard({
   }, [config]);
 
   const handleCheckout = useCallback(async () => {
+    if (purchasedCount >= maxPurchases) {
+      toast.error("This flash sale is sold out");
+      return;
+    }
+
     if (!user) {
       navigate("/auth?redirect=" + encodeURIComponent("/dashboard/subscription"));
       return;
@@ -186,7 +200,7 @@ export function EliteMembershipOfferCard({
       toast.error(err instanceof Error ? err.message : "Failed to start checkout");
       setProcessingPayment(false);
     }
-  }, [user, profile?.name, config?.offer_text, navigate, refreshProfile]);
+  }, [user, profile?.name, config?.offer_text, navigate, refreshProfile, purchasedCount, maxPurchases]);
 
   // All signed-in users except Elite (FREE, PRO, PRO_MAX, etc.) see the same admin-configured offer.
   if (loading || !user || isElite) return null;
@@ -194,9 +208,12 @@ export function EliteMembershipOfferCard({
 
   /** Checkout only when admin enabled the offer and end time is in the future (matches flash popup rules). */
   const offerLive = isOfferWindowOpen(config);
+  const soldOut = purchasedCount >= maxPurchases;
   const endTimePassed = new Date(config.end_time) <= new Date();
   /** Short copy for subscribers only — no internal / admin instructions. */
-  const offerStatusLabel = offerLive
+  const offerStatusLabel = soldOut
+    ? "Offer sold out"
+    : offerLive
     ? null
     : endTimePassed
       ? "Offer expired"
@@ -235,12 +252,12 @@ export function EliteMembershipOfferCard({
             <Sparkles className="h-3.5 w-3.5" />
             {config.title}
           </div>
-          {offerLive ? (
+          {offerLive && !soldOut ? (
             <div className="flex items-center gap-2 text-xs font-mono text-gray-400 sm:text-sm">
               <Hourglass className="h-3.5 w-3.5 text-[#C5A059]" />
               <span>{timeLeftStr || "—"}</span>
               <span className="text-[#C5A059]">·</span>
-              <span className="text-[#C5A059]">{config.progress_percentage}% claimed</span>
+              <span className="text-[#C5A059]">{purchasedCount}/{maxPurchases} claimed</span>
             </div>
           ) : (
             <span className="text-xs font-semibold text-muted-foreground sm:text-sm">{offerStatusLabel}</span>
@@ -344,9 +361,9 @@ export function EliteMembershipOfferCard({
           <Button
             type="button"
             size="lg"
-            disabled={processingPayment || !offerLive}
+            disabled={processingPayment || !offerLive || soldOut}
             onClick={handleCheckout}
-            title={!offerLive ? "This offer cannot be purchased right now" : undefined}
+            title={!offerLive || soldOut ? "This offer cannot be purchased right now" : undefined}
             className="h-12 w-full border-0 font-black text-black shadow-[0_0_24px_rgba(197,160,89,0.35)] sm:h-14 sm:max-w-md sm:text-lg"
             style={{
               background: "linear-gradient(135deg, #F2D091 0%, #C5A059 45%, #8E6E37 100%)",
@@ -356,7 +373,7 @@ export function EliteMembershipOfferCard({
               <Loader2 className="h-5 w-5 animate-spin" />
             ) : (
               <>
-                {ctaLabel}
+                {soldOut ? "Sold Out" : ctaLabel}
                 <Crown className="ml-2 h-5 w-5" />
               </>
             )}

@@ -60,6 +60,7 @@ export default function AdminFlashSale() {
   };
 
   const [config, setConfig] = useState<FlashSaleConfig | null>(null);
+  const [purchasedCount, setPurchasedCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState({
@@ -79,6 +80,7 @@ export default function AdminFlashSale() {
     modal_subheadline: DEFAULT_MODAL_SUBHEADLINE,
     modal_cta_text: DEFAULT_MODAL_CTA_TEXT,
     duration_days: 730,
+    max_purchases: 100,
     featureRows: featureRowsFromStrings([...DEFAULT_FEATURE_LINES]),
   });
 
@@ -98,6 +100,8 @@ export default function AdminFlashSale() {
       if (error && error.code !== 'PGRST116') {
         throw error;
       }
+
+      await fetchPurchaseStats();
 
       if (data) {
         setConfig(data);
@@ -122,6 +126,7 @@ export default function AdminFlashSale() {
           modal_subheadline: data.modal_subheadline?.trim() || DEFAULT_MODAL_SUBHEADLINE,
           modal_cta_text: data.modal_cta_text?.trim() || DEFAULT_MODAL_CTA_TEXT,
           duration_days: data.duration_days ?? 730,
+          max_purchases: data.max_purchases ?? 100,
           featureRows: featureRowsFromStrings(lines),
         });
       }
@@ -131,6 +136,16 @@ export default function AdminFlashSale() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const fetchPurchaseStats = async () => {
+    const { data, error } = await supabase.rpc("get_flash_sale_purchase_stats");
+    if (error) {
+      console.error("Failed to fetch flash sale purchase stats:", error);
+      return;
+    }
+    const stats = Array.isArray(data) ? data[0] : data;
+    setPurchasedCount(Number(stats?.purchased_count ?? 0));
   };
 
   const handleSave = async () => {
@@ -158,6 +173,7 @@ export default function AdminFlashSale() {
         modal_subheadline: formData.modal_subheadline.trim() || DEFAULT_MODAL_SUBHEADLINE,
         modal_cta_text: formData.modal_cta_text.trim() || DEFAULT_MODAL_CTA_TEXT,
         duration_days: formData.duration_days,
+        max_purchases: formData.max_purchases,
       };
 
       if (config?.id) {
@@ -358,6 +374,32 @@ export default function AdminFlashSale() {
                     />
                     <span className="text-sm font-medium text-muted-foreground">
                       = {formatDurationLabel(formData.duration_days)}
+                    </span>
+                  </div>
+                </div>
+                <div className="space-y-2 pt-2 border-t border-green-200/60 dark:border-green-800/60">
+                  <Label className="text-base font-semibold text-green-700 dark:text-green-400">
+                    Flash Sale Purchase Cap
+                  </Label>
+                  <p className="text-sm text-muted-foreground">
+                    Set how many users can buy this flash sale plan in total.
+                  </p>
+                  <div className="flex items-center gap-3">
+                    <Input
+                      type="number"
+                      min="1"
+                      value={formData.max_purchases}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          max_purchases: Math.max(1, parseInt(e.target.value, 10) || 100),
+                        })
+                      }
+                      className="max-w-[160px] text-lg font-bold"
+                    />
+                    <span className="text-sm font-medium text-muted-foreground">
+                      Purchased: {purchasedCount} / {formData.max_purchases} (
+                      {Math.max(formData.max_purchases - purchasedCount, 0)} left)
                     </span>
                   </div>
                 </div>
