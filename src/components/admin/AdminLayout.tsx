@@ -1,3 +1,9 @@
+/**
+ * @fileoverview Protected layout wrapper for the superadmin portal.
+ * Redirects non-authenticated or non-superadmin users away, and renders
+ * the admin sidebar + header chrome around child pages.
+ */
+
 import { ReactNode, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
@@ -9,6 +15,10 @@ interface AdminLayoutProps {
   children: ReactNode;
 }
 
+/**
+ * Superadmin layout shell with auth guard, loading spinner, and access-denied fallback.
+ * Uses Shadcn `SidebarProvider` for collapsible navigation.
+ */
 export function AdminLayout({ children }: AdminLayoutProps) {
   const { user, loading, isSuperadmin } = useAuth();
   const navigate = useNavigate();

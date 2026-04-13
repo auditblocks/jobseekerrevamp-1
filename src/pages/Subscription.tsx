@@ -1,3 +1,11 @@
+/**
+ * @file Subscription.tsx
+ * @description Subscription management page — displays current plan status, pricing tiers
+ * (Free / Pro / Pro Max), and handles Razorpay payment flow for upgrades.
+ * Elite members see a dedicated confirmation card instead of the standard pricing grid.
+ * Also shows a compact recent-orders table linked to full order history.
+ */
+
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -54,7 +62,10 @@ interface SubscriptionPlan {
   yearly_price: number | null;
 }
 
-// Plan hierarchy for upgrade/downgrade logic (higher index = higher tier)
+/**
+ * Maps plan names to numeric levels so we can compare tiers for
+ * upgrade / downgrade / current-plan logic without relying on DB sort order.
+ */
 const PLAN_HIERARCHY: Record<string, number> = {
   "FREE": 0,
   "free": 0,
@@ -66,8 +77,8 @@ const PLAN_HIERARCHY: Record<string, number> = {
   "promax": 2,
 };
 
+/** Resolves a raw plan name (possibly with spaces/underscores) to its hierarchy level. */
 const getPlanLevel = (planName: string): number => {
-  // Normalize the plan name and find its level
   const normalized = planName.toUpperCase().replace(/[\s_-]/g, '_');
   if (normalized.includes('PRO_MAX') || normalized.includes('PROMAX')) return 2;
   if (normalized.includes('PRO')) return 1;
@@ -75,6 +86,11 @@ const getPlanLevel = (planName: string): number => {
   return PLAN_HIERARCHY[planName] ?? -1;
 };
 
+/**
+ * Main subscription page component.
+ * Loads plans from DB, renders the current-plan card, Elite offer (if applicable),
+ * pricing grid with upgrade buttons, and a recent-orders section.
+ */
 const Subscription = () => {
   const navigate = useNavigate();
   const { user, isElite, refreshProfile: refreshGlobalProfile } = useAuth();
@@ -197,6 +213,11 @@ const Subscription = () => {
     }
   };
 
+  /**
+   * Initiates the Razorpay checkout flow: creates a server-side order via edge function,
+   * opens the Razorpay modal, and on success verifies payment server-side before
+   * refreshing the profile and navigating to the dashboard.
+   */
   const handleUpgradePlan = async (plan: SubscriptionPlan, priceToCharge: number) => {
     if (!user?.id || priceToCharge === 0) return;
 
@@ -325,6 +346,10 @@ const Subscription = () => {
     return colors[index % colors.length];
   };
 
+  /**
+   * Converts DB subscription plans into the shape expected by the PricingContainer UI.
+   * Applies upgrade/downgrade/current logic so buttons are disabled or labelled appropriately.
+   */
   const convertToPricingPlans = (): PricingPlan[] => {
     const currentTierLevel = getPlanLevel(profile.subscriptionTier);
 
@@ -387,6 +412,7 @@ const Subscription = () => {
     });
   };
 
+  /** Derives a badge label + formatted text for the subscription expiry date. */
   const getExpiryStatus = () => {
     if (profile.subscriptionTier === "FREE" || !profile.subscriptionExpiresAt) {
       return null;

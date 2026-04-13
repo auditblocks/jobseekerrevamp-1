@@ -1,17 +1,16 @@
 /**
- * Razorpay Error Filter Utility
- * 
- * This utility suppresses expected Razorpay anti-fraud tracking errors from the console.
- * These errors are part of Razorpay's security system and do not affect payment functionality.
- * 
+ * @file razorpayErrorFilter.ts
+ * Suppresses expected Razorpay anti-fraud / device-fingerprint tracking errors from the
+ * browser console. These errors originate from Razorpay's security SDK and do not affect
+ * payment functionality — they only pollute the dev console.
+ *
  * OPTIONAL: Only use this if you want cleaner console output during development.
- * 
- * Usage:
- * 1. Import in your main App.tsx or index.tsx:
- *    import { initRazorpayErrorFilter, cleanupRazorpayErrorFilter } from '@/utils/razorpayErrorFilter';
- * 
- * 2. Call initRazorpayErrorFilter() when app starts
- * 3. Call cleanupRazorpayErrorFilter() when app unmounts (if needed)
+ *
+ * @example
+ * // In App.tsx or main.tsx:
+ * import { initRazorpayErrorFilter, cleanupRazorpayErrorFilter } from '@/utils/razorpayErrorFilter';
+ * initRazorpayErrorFilter();
+ * // cleanupRazorpayErrorFilter(); // on unmount if needed
  */
 
 let originalConsoleError: typeof console.error | null = null;

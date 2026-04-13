@@ -1,3 +1,11 @@
+/**
+ * @fileoverview PWA install prompt for mobile devices.
+ * Detects the platform (iOS Safari/Chrome/Edge/Firefox, Android Chrome, generic)
+ * and renders browser-specific "Add to Home Screen" instructions. On Android Chrome,
+ * intercepts the `beforeinstallprompt` event to offer a native install button.
+ * Includes a 10-day snooze and "already installed" persistence via localStorage.
+ */
+
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -15,6 +23,7 @@ interface BeforeInstallPromptEvent extends Event {
   userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
 }
 
+/** Checks whether the app is already running in standalone/fullscreen PWA mode. */
 function isStandaloneDisplay(): boolean {
   if (typeof window === "undefined") return false;
   return (
@@ -44,6 +53,7 @@ function getIosBrowserKind(): "safari" | "chrome" | "edge" | "firefox" | "other"
   return "other";
 }
 
+/** Renders browser-specific iOS "Add to Home Screen" instructions based on detected UA. */
 function IosInstallSteps() {
   const kind = getIosBrowserKind();
 
@@ -129,6 +139,11 @@ function IosInstallSteps() {
   );
 }
 
+/**
+ * Bottom-sheet install prompt shown on mobile devices.
+ * Skipped on admin pages, when already installed, when snoozed, or on desktop.
+ * Locks body scroll while open and dismisses on Escape.
+ */
 export function MobilePwaInstallPrompt() {
   const location = useLocation();
   const [open, setOpen] = useState(false);

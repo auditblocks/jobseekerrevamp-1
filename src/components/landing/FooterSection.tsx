@@ -1,7 +1,13 @@
+/**
+ * @fileoverview Site-wide footer with brand info, social links, product/company/legal
+ * navigation columns, a disclaimer, and copyright line.
+ */
+
 import { Mail, Twitter, Linkedin, Github } from "lucide-react";
 import { Link } from "react-router-dom";
 import { HomeSectionLink } from "@/components/landing/HomeSectionLink";
 
+/** Four-column footer with brand, product links, company links, and legal links. */
 const FooterSection = () => {
   return (
     <footer className="bg-primary py-8 sm:py-16">

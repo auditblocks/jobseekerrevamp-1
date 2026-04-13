@@ -1,3 +1,10 @@
+/**
+ * @file PrivacyPolicy.tsx
+ * @description Static legal page rendering the platform's Privacy Policy.
+ * Covers data collection, Gmail integration, cookies, user rights, and
+ * international data transfers. Marked as noindex.
+ */
+
 import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,6 +13,7 @@ import { useNavigate } from "react-router-dom";
 import SEOHead from "@/components/SEO/SEOHead";
 import StructuredData from "@/components/SEO/StructuredData";
 
+/** Privacy Policy page component. Displays privacy terms in a single card layout. */
 const PrivacyPolicy = () => {
   const navigate = useNavigate();
 

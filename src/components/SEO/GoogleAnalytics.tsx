@@ -1,3 +1,9 @@
+/**
+ * @fileoverview Google Analytics 4 integration component.
+ * Dynamically injects the gtag.js script on mount and tracks
+ * page views on `popstate` events (browser back/forward navigation).
+ */
+
 import { useEffect } from "react";
 
 interface GoogleAnalyticsProps {

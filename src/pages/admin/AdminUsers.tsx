@@ -1,3 +1,16 @@
+/**
+ * @fileoverview Admin User Management Page
+ *
+ * Central hub for managing all registered users. Provides:
+ * - Filterable/searchable user list with status, tier, and Elite indicators
+ * - Inline subscription tier changes (FREE / PRO / PRO_MAX / Elite member)
+ * - Account status control (active / inactive / suspended / banned)
+ * - User activity & session history viewer (via RPCs)
+ * - Permanent user deletion through the `admin-delete-user` edge function
+ *
+ * User data is fetched via the `admin_get_all_users` RPC which joins
+ * `auth.users` with `profiles` for a unified view.
+ */
 import { useEffect, useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { AdminLayout } from "@/components/admin/AdminLayout";
@@ -56,8 +69,16 @@ interface UserData {
   last_sign_in_at: string | null;
 }
 
+/** Default suspension window: 7 days from the moment of suspension. */
 const SUSPENSION_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 
+/**
+ * Admin page for user lifecycle management.
+ *
+ * Fetches all users via `admin_get_all_users` RPC. Supports inline status
+ * and tier changes, activity drill-down, and permanent deletion (with edge
+ * function). The current admin cannot delete their own account.
+ */
 export default function AdminUsers() {
   const { user: currentUser } = useAuth();
   const [users, setUsers] = useState<UserData[]>([]);
@@ -91,6 +112,7 @@ export default function AdminUsers() {
     }
   };
 
+  /** Updates user status; sets `suspended_until` automatically for suspensions. */
   const updateUserStatus = async (userId: string, status: string) => {
     try {
       const now = new Date();
@@ -114,6 +136,7 @@ export default function AdminUsers() {
     }
   };
 
+  /** Invokes the `admin-delete-user` edge function which removes auth + profile data. */
   const confirmDeleteUser = async () => {
     if (!deleteTarget) return;
     setDeleting(true);
@@ -144,11 +167,20 @@ export default function AdminUsers() {
     }
   };
 
+  // PRO_MAX + Elite is represented as a synthetic "PRO_MAX_ELITE" option in the
+  // dropdown so admins can distinguish regular Pro Max from Elite members.
   const subscriptionSelectValue = (user: UserData) =>
     user.subscription_tier === "PRO_MAX" && user.is_elite_member
       ? "PRO_MAX_ELITE"
       : user.subscription_tier;
 
+  /**
+   * Updates a user's subscription tier and Elite status.
+   *
+   * When downgrading to FREE, clears expiry and Elite flag.
+   * For PRO/PRO_MAX, sets a 1-year expiry. The synthetic "PRO_MAX_ELITE"
+   * value maps to PRO_MAX + `is_elite_member = true`.
+   */
   const updateUserSubscriptionTier = async (userId: string, value: string) => {
     try {
       const isEliteTier = value === "PRO_MAX_ELITE";
@@ -189,6 +221,8 @@ export default function AdminUsers() {
     }
   };
 
+  // "elite" is a virtual tier filter that checks the `is_elite_member` flag
+  // rather than the actual `subscription_tier` value.
   const filteredUsers = users.filter((user) => {
     const matchesSearch =
       user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||

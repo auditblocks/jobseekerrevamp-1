@@ -1,3 +1,9 @@
+/**
+ * @file TermsOfService.tsx
+ * @description Static legal page rendering the platform's Terms of Service.
+ * Marked as noindex to avoid duplicate legal content in search results.
+ */
+
 import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,6 +12,7 @@ import { useNavigate } from "react-router-dom";
 import SEOHead from "@/components/SEO/SEOHead";
 import StructuredData from "@/components/SEO/StructuredData";
 
+/** Terms of Service page component. Displays legal terms in a single card layout. */
 const TermsOfService = () => {
   const navigate = useNavigate();
 

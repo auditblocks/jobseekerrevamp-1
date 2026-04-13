@@ -1,3 +1,9 @@
+/**
+ * @fileoverview Admin table for managing private (Naukri / LinkedIn) job listings.
+ * Supports search, source/status filters, pagination, toggling public visibility,
+ * and deleting individual jobs. Data is fetched directly from the `naukri_jobs` table.
+ */
+
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -46,6 +52,7 @@ export interface AdminNaukriJobRow {
   scraped_at: string | null;
 }
 
+/** Returns a colour-coded badge for the job's scraping source. */
 function sourceBadge(source: string) {
   if (source === "linkedin") {
     return (
@@ -61,6 +68,10 @@ function sourceBadge(source: string) {
   );
 }
 
+/**
+ * Paginated admin listing of scraped private jobs with search, filter, visibility toggle,
+ * and delete actions. Resets to page 1 when filters change and auto-corrects page overflow.
+ */
 export function AdminPrivateJobsListings() {
   const [jobs, setJobs] = useState<AdminNaukriJobRow[]>([]);
   const [totalCount, setTotalCount] = useState(0);
@@ -108,6 +119,7 @@ export function AdminPrivateJobsListings() {
         query = query.eq("is_active", false);
       }
 
+      // Escape SQL wildcards in the user's search input before using ilike
       if (debouncedSearch) {
         const raw = debouncedSearch.replace(/,/g, " ").trim();
         const escaped = raw.replace(/%/g, "\\%").replace(/_/g, "\\_");
@@ -134,6 +146,7 @@ export function AdminPrivateJobsListings() {
     fetchJobs();
   }, [fetchJobs]);
 
+  // After a delete, the current page might exceed total pages — auto-correct
   useEffect(() => {
     if (loading) return;
     if (jobs.length === 0 && totalCount > 0) {

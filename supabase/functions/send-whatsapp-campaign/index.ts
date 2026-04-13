@@ -1,3 +1,13 @@
+/**
+ * @module send-whatsapp-campaign
+ * @description Supabase Edge Function that dispatches a WhatsApp campaign to a list of
+ * recipients via the Meta Business (Cloud) API. Supports two recipient formats: a new
+ * structured array with explicit phone/name fields (for CSV imports) and a legacy
+ * user-ID-based format for backward compatibility. Sends each message sequentially,
+ * updates per-recipient delivery status, and finalizes aggregate campaign stats.
+ *
+ * @route POST /send-whatsapp-campaign  (expects { campaign_id, recipients|recipient_ids, template_name, template_language })
+ */
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.0";
 
@@ -35,14 +45,13 @@ serve(async (req) => {
 
         const payload = await req.json() as WhatsappPayload;
 
-        // Normalize recipients
+        // Normalize the two supported payload shapes into a unified recipient list.
+        // The new format provides phone/name inline; the legacy format resolves from profiles.
         let finalRecipients = [];
 
         if (payload.recipients && payload.recipients.length > 0) {
-            // New format with raw data
             finalRecipients = payload.recipients;
         } else if (payload.recipient_ids && payload.recipient_ids.length > 0) {
-            // Legacy format: need to fetch from profiles
             const { data: users, error: userError } = await supabaseClient
                 .from("profiles")
                 .select("id, phone_number, name")
@@ -91,6 +100,7 @@ serve(async (req) => {
         // 3. Send messages
         for (const recipient of finalRecipients) {
             try {
+                // Strip non-numeric chars (spaces, dashes, plus sign) for Meta API compliance
                 const cleanPhone = recipient.phone_number.replace(/[^0-9]/g, "");
 
                 console.log(`Sending to ${recipient.name} (${cleanPhone})...`);
@@ -146,25 +156,10 @@ serve(async (req) => {
             }
         }
 
-        // 4. Update stats in database
-        // We assume the rows are already inserted as 'pending' by the frontend?
-        // If we support CSV, the frontend might batch insert them first.
-        // If not, we should insert logs here.
-        // To match previous implementation logic, we'll try to update if exists (by user_id + campaign_id) 
-        // OR if we have message_id. 
-        // BUT since we now have "CSV guests" who don't have user_ids, we can't easily matching by user_id.
-        // The reliable way is: Frontend inserts all recipients with status 'pending' and we update them.
-        // HOWEVER, for simplicity (and since `whatsapp_campaign_recipients` ID is not known here), 
-        // let's blindly UPDATE based on (campaign_id, phone_number).
-        // This assumes phone_number is unique per campaign (reasonable).
-
-        // We will attempt to update status for each result.
-        // Since we can't easily batch update with different values without a procedure, loop update is easiest for V1.
-
+        // Update per-recipient delivery status in the DB.
+        // Relies on the frontend having pre-inserted rows with status 'pending'.
+        // Matching by (campaign_id, phone_number) since CSV guests lack user_ids.
         for (const res of results) {
-            // Try to update existing record by phone number in this campaign
-            // If it doesn't exist (maybe frontend didn't insert it?), we could insert it, 
-            // but let's stick to the contract that frontend prepares the DB.
 
             const { error: updateError } = await supabaseClient
                 .from("whatsapp_campaign_recipients")
@@ -181,7 +176,7 @@ serve(async (req) => {
             }
         }
 
-        // 5. Update campaign completion stats
+        // Mark the campaign as completed (or failed if every message errored)
         await supabaseClient
             .from("whatsapp_campaigns")
             .update({

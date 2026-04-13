@@ -1,3 +1,10 @@
+/**
+ * @file Dashboard.tsx
+ * @description Main authenticated dashboard page. Serves as the landing page after login,
+ * displaying email outreach stats, onboarding progress, quick actions, and recent activity.
+ * Also triggers the guided product tour for first-time users.
+ */
+
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
@@ -23,6 +30,11 @@ interface DashboardStats {
   openRate: number;
 }
 
+/**
+ * Dashboard page component.
+ * Fetches email tracking stats, checks template existence for onboarding,
+ * and initiates the product tour once auth is ready.
+ */
 const Dashboard = () => {
   const navigate = useNavigate();
   const { user, profile, loading: authLoading } = useAuth();
@@ -32,6 +44,7 @@ const Dashboard = () => {
   });
   const [statsLoading, setStatsLoading] = useState(true);
 
+  // Redirect unauthenticated users to the auth page
   useEffect(() => {
     if (!authLoading && !user) {
       navigate("/auth");
@@ -64,6 +77,7 @@ const Dashboard = () => {
           setHasTemplates((templatesCount || 0) > 0);
         }
 
+        // Derive open rate from the ratio of opened emails to total sent
         const totalEmails = emailData?.length || 0;
         const openedEmails = emailData?.filter(e => e.opened_at !== null).length || 0;
         const openRate = totalEmails > 0 ? Math.round((openedEmails / totalEmails) * 100) : 0;
@@ -86,6 +100,7 @@ const Dashboard = () => {
 
   const { startTour } = useTour();
 
+  // Kick off the guided product tour once the user session is confirmed
   useEffect(() => {
     if (!authLoading && user) {
       startTour();

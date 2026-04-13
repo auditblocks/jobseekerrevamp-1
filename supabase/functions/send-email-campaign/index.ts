@@ -1,3 +1,14 @@
+/**
+ * @module send-email-campaign
+ * @description Admin-only Supabase Edge Function that sends bulk email campaigns.
+ * Iterates over a list of recipient user IDs, personalises HTML with template
+ * variables ({{user_name}}, {{user_email}}), injects open/click tracking pixels,
+ * appends an unsubscribe footer, and records per-recipient delivery status.
+ * Campaign lifecycle: draft → sending → completed/failed.
+ *
+ * Requires: RESEND_API_KEY, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
+ * Auth: Bearer token (admin role via user_roles or superadmin in profiles)
+ */
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { Resend } from "https://esm.sh/resend@2.0.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
@@ -14,7 +25,10 @@ interface CampaignRequest {
   from_email?: string;
 }
 
-// Helper function to wrap links with click tracking
+/**
+ * Rewrites anchor hrefs to route through the click-tracking edge function,
+ * skipping mailto/tel links and already-tracked URLs to avoid double-wrapping.
+ */
 function wrapLinksWithTracking(html: string, clickTrackingId: string, supabaseUrl: string): string {
   const trackingUrl = `${supabaseUrl}/functions/v1/track-email-click?id=${clickTrackingId}&url=`;
   
@@ -90,7 +104,7 @@ serve(async (req) => {
     console.log("User authenticated:", user.id, user.email);
 
     console.log("Step 5: Checking admin access");
-    // Check if user is admin - check both user_roles and profiles
+    // Two-source admin check: user_roles table OR superadmin flag in profiles
     const { data: roleData, error: roleError } = await supabase
       .from("user_roles")
       .select("role")
@@ -230,13 +244,12 @@ serve(async (req) => {
     let failedCount = 0;
     console.log("Starting to send emails to", recipients.length, "recipients");
 
-    // Download attachments if any
+    // Pre-download all attachments once so they can be reused across recipients
     const attachmentFiles: any[] = [];
     if (attachments && attachments.length > 0) {
       for (const attachment of attachments) {
         try {
-          // Extract file path from Supabase storage URL
-          // URL format: https://[project].supabase.co/storage/v1/object/public/[bucket]/[path]
+          // Parse bucket + path from the Supabase public storage URL convention
           const urlParts = attachment.file_url.split('/storage/v1/object/public/');
           if (urlParts.length > 1) {
             const pathParts = urlParts[1].split('/');
@@ -285,11 +298,11 @@ serve(async (req) => {
         // Add tracking pixel
         emailBody += `<img src="${trackingPixelUrl}" width="1" height="1" style="display:none;" alt="" />`;
 
-        // Replace template variables
+        // Personalise template placeholders with recipient data
         emailBody = emailBody.replace(/\{\{user_name\}\}/g, recipient.name || recipient.email);
         emailBody = emailBody.replace(/\{\{user_email\}\}/g, recipient.email);
 
-        // Add unsubscribe link to email body
+        // CAN-SPAM / GDPR compliance: always include an unsubscribe footer
         const unsubscribeUrl = `${supabaseUrl.replace('/functions/v1', '')}/unsubscribe?user_id=${recipient.id}&campaign_id=${campaign_id}`;
         const unsubscribeLink = `<div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #e0e0e0; font-size: 12px; color: #666;">
           <p>If you no longer wish to receive these emails, you can <a href="${unsubscribeUrl}" style="color: #666;">unsubscribe here</a>.</p>
@@ -329,7 +342,7 @@ serve(async (req) => {
         const resendEmailId = (emailResponse as any)?.id || (emailResponse as any)?.data?.id;
         console.log(`Resend email ID for ${recipient.email}:`, resendEmailId);
         
-        // Only store Resend email ID if it's a valid UUID
+        // Resend sometimes returns non-UUID IDs; only persist valid UUIDs for FK safety
         let validResendEmailId: string | null = null;
         if (resendEmailId && uuidRegex.test(resendEmailId)) {
           validResendEmailId = resendEmailId;
@@ -415,7 +428,7 @@ serve(async (req) => {
     console.error("Error stack:", error?.stack);
     console.error("Request campaign ID:", requestCampaignId);
     
-    // Update campaign status to failed if campaign_id exists
+    // Best-effort: mark campaign as failed so the admin UI reflects the error
     try {
       if (requestCampaignId) {
         console.log("Updating campaign status to failed");

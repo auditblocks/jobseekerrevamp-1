@@ -1,3 +1,12 @@
+/**
+ * @file Compose.tsx
+ * @description Email outreach page — users compose messages (or use AI / templates),
+ * select recipients from a tier-gated recruiter database, and send via Gmail OAuth.
+ * Key mechanics: daily send limits per subscription tier, per-recruiter cooldown
+ * (blocks re-contacting the same person for N days), inline resume attachment
+ * loaded from Supabase Storage, and a multi-step Gmail OAuth trust flow.
+ */
+
 import { Helmet } from "react-helmet-async";
 import { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
@@ -52,6 +61,7 @@ import { cn } from "@/lib/utils";
 
 const MAX_RESUME_INLINE_BYTES = 5 * 1024 * 1024;
 
+/** Converts an ArrayBuffer to a base64 string in chunks to avoid call-stack overflow on large files. */
 function arrayBufferToBase64(buf: ArrayBuffer): string {
   const bytes = new Uint8Array(buf);
   const chunk = 0x8000;
@@ -158,6 +168,10 @@ interface EmailCooldown {
   email_count: number;
 }
 
+/**
+ * Email compose page with Gmail OAuth, recruiter selection, template library,
+ * AI generation stub, and tier-based daily send limits + per-recruiter cooldowns.
+ */
 const Compose = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -561,7 +575,7 @@ const Compose = () => {
     }
   };
 
-  // Helper function to normalize tier names to standard enum values
+  /** Normalizes dynamic plan names (e.g. "Pro Plan") to standard enums (FREE / PRO / PRO_MAX). */
   const normalizeTier = (tier: string | null): string => {
     if (!tier) return "FREE";
     const clean = tier.trim().toUpperCase();
@@ -577,7 +591,10 @@ const Compose = () => {
     return "FREE"; // Default fallback
   };
 
-  // Helper function to check if user can access recruiter based on tier
+  /**
+   * Tier-gate check: user can only see recruiters tagged at their tier level or below.
+   * This prevents free users from seeing PRO/PRO_MAX-exclusive recruiter contacts.
+   */
   const canAccessRecruiter = (recruiterTier: string | null) => {
     // Get raw tier from profile
     const rawUserTier = profile?.subscription_tier || "FREE";
@@ -597,7 +614,7 @@ const Compose = () => {
     return recruiterTierIndex <= userTierIndex;
   };
 
-  // Helper function to get cooldown info for a recruiter
+  /** Returns remaining cooldown days for a recruiter, or null if not blocked. */
   const getCooldownInfo = (email: string) => {
     const cooldown = cooldowns.find(c =>
       c.recruiter_email.toLowerCase() === email.toLowerCase()
@@ -738,6 +755,11 @@ Best regards,
       reader.readAsDataURL(file);
     });
 
+  /**
+   * Sends the composed email to all selected (non-blocked) recruiters sequentially.
+   * Validates Gmail connection, email limits, and serializes attachments + resume
+   * into base64 payloads before invoking the send-email-gmail edge function per recipient.
+   */
   const handleSend = async () => {
     if (!isGmailConnected) {
       setShowConnectDialog(true);

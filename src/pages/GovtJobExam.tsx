@@ -1,3 +1,13 @@
+/**
+ * @file GovtJobExam.tsx
+ * @description Practice test / mock exam page for a government job.
+ * Entitlement is checked at load: the user must either be Pro Max (unlimited) or have
+ * already added this job to their tracker. Questions are fetched from exam_questions;
+ * if none exist, Pro Max users can trigger AI generation (90-question, ~90-min mock).
+ * A countdown timer auto-submits when time expires. Results are saved to user_exams
+ * and user_exam_responses for analytics tracking.
+ */
+
 import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -45,6 +55,7 @@ interface Question {
 /** Full mock: 90 questions with UI timer of 1 minute per question → 90-minute practice session. */
 const PRACTICE_MOCK_QUESTION_COUNT = 90;
 
+/** Timed practice exam component with MCQ / fill-in-the-blank questions and score review. */
 const GovtJobExam = () => {
     const { jobId } = useParams();
     const navigate = useNavigate();
@@ -88,6 +99,10 @@ const GovtJobExam = () => {
         };
     }, [questions, isCompleted]);
 
+    /**
+     * Checks entitlement (Pro Max tier OR job present in user's tracker), then fetches
+     * the job metadata and exam questions in parallel. Sets timer to 1 min per question.
+     */
     const fetchJobAndQuestions = async () => {
         try {
             setLoading(true);
@@ -138,6 +153,7 @@ const GovtJobExam = () => {
         setAnswers(prev => ({ ...prev, [questionId]: answer }));
     };
 
+    /** Invokes the edge function to AI-generate a full 90-question practice set for this job. */
     const handleAIGenerate = async () => {
         setIsSubmitting(true);
         try {
@@ -165,6 +181,7 @@ const GovtJobExam = () => {
         }
     };
 
+    /** Grades answers client-side, persists results to user_exams + user_exam_responses. */
     const handleSubmit = async () => {
         if (isSubmitting || isCompleted) return;
         setIsSubmitting(true);

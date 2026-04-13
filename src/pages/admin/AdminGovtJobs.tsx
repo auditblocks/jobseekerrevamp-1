@@ -1,3 +1,15 @@
+/**
+ * @fileoverview Admin Government Jobs Page
+ *
+ * Lists, searches, and manages government job postings stored in `govt_jobs`.
+ * Key capabilities:
+ * - Server-side paginated job listing with debounced search
+ * - Two scrape modes: **Full** (bulk ingest, skips AI exam generation) and
+ *   **Quick** (10 jobs + AI-generated practice exams)
+ * - Source selector (UPSC, FreeJobAlert, or all enabled)
+ * - Configurable practice/tracker slot limits per tier (FREE / PRO)
+ * - Links to per-job exam question management
+ */
 import { useState, useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -28,6 +40,13 @@ import { AdminLayout } from "@/components/admin/AdminLayout";
 
 const PAGE_SIZE_OPTIONS = [10, 15, 25, 50] as const;
 
+/**
+ * Admin page for government job postings management.
+ *
+ * Uses server-side pagination via Supabase `.range()` with debounced search.
+ * Practice tracker limits are stored in `dashboard_config` and upserted on save.
+ * The scraper is invoked via the `scrape-govt-jobs` edge function.
+ */
 const AdminGovtJobs = () => {
     const [jobs, setJobs] = useState<any[]>([]);
     const [totalCount, setTotalCount] = useState(0);
@@ -38,7 +57,7 @@ const AdminGovtJobs = () => {
     const [debouncedSearch, setDebouncedSearch] = useState("");
     const [scraping, setScraping] = useState(false);
     const [scrapeSource, setScrapeSource] = useState<string>("all");
-    /** full = ingest many listings; quick = small batch + AI exam generation */
+    /** "full" = bulk ingest (many listings, no AI exams); "quick" = small batch + AI exam generation */
     const [scrapeMode, setScrapeMode] = useState<string>("full");
 
     const [freeMax, setFreeMax] = useState<number>(2);
@@ -66,6 +85,7 @@ const AdminGovtJobs = () => {
         })();
     }, []);
 
+    /** Upserts practice tracker slot limits for FREE and PRO tiers into `dashboard_config`. */
     const handleSaveLimits = async () => {
         setLimitsSaving(true);
         try {
@@ -133,6 +153,8 @@ const AdminGovtJobs = () => {
         fetchJobs();
     }, [fetchJobs]);
 
+    // Auto-correct page number if the current page is beyond the last page
+    // (can happen after a deletion reduces total count).
     useEffect(() => {
         if (loading) return;
         if (jobs.length === 0 && totalCount > 0) {
@@ -160,6 +182,11 @@ const AdminGovtJobs = () => {
     const showingFrom = totalCount === 0 ? 0 : (page - 1) * pageSize + 1;
     const showingTo = Math.min(page * pageSize, totalCount);
 
+    /**
+     * Invokes the `scrape-govt-jobs` edge function.
+     * In "quick" mode, limits to 10 jobs and enables AI exam generation.
+     * In "full" mode, ingests all available listings without AI processing.
+     */
     const handleManualScrape = async () => {
         setScraping(true);
         try {

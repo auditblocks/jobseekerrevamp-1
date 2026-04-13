@@ -1,3 +1,12 @@
+/**
+ * @module send-email-resend
+ * @description Supabase Edge Function that sends individual recruiter outreach emails
+ * via the Resend API. Enforces a per-recruiter cooldown period (configurable via
+ * `system_settings`) to prevent spam, and upserts cooldown records after each send.
+ *
+ * Requires: RESEND_API_KEY, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
+ * Auth: Bearer token (user must be authenticated)
+ */
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { Resend } from "https://esm.sh/resend@2.0.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
@@ -45,9 +54,10 @@ serve(async (req) => {
 
     const { to, subject, body, from_name }: EmailRequest = await req.json();
 
-    // CHECK COOLDOWN - Prevent spamming same recruiter
+    // Normalise before cooldown lookup to avoid case-sensitive duplicates
     const recruiterEmailLower = to.toLowerCase();
 
+    // RPC returns false when the recruiter is still within the cooldown window
     const { data: canEmail, error: checkError } = await supabase
       .rpc('can_email_recruiter', {
         p_user_id: user.id,
@@ -78,7 +88,7 @@ serve(async (req) => {
 
     // ... (rest of code) ...
 
-    // Fetch configured cooldown days
+    // Allow admins to tune spam protection without redeploying the function
     let cooldownDays = 7; // Default
     const { data: cooldownSetting } = await supabase
       .from("system_settings")
@@ -90,7 +100,7 @@ serve(async (req) => {
       cooldownDays = Number(cooldownSetting.setting_value);
     }
 
-    // CREATE/UPDATE COOLDOWN after successful send
+    // Upsert cooldown so the same recruiter can't be emailed again until expiry
     const blockedUntil = new Date();
     blockedUntil.setDate(blockedUntil.getDate() + cooldownDays);
 

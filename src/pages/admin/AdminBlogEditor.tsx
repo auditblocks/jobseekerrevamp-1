@@ -1,3 +1,10 @@
+/**
+ * @fileoverview Admin Blog Editor — rich-text editor for creating and editing
+ * blog posts. Features TiptapEditor for content, featured-image upload with
+ * client-side compression, SEO fields (meta title, description, focus keyword),
+ * auto-slug generation from the title, and draft/published toggling.
+ */
+
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -13,6 +20,12 @@ import { AdminLayout } from "@/components/admin/AdminLayout";
 import { compressImage } from "@/lib/image-compression";
 import { useRef } from "react";
 
+/**
+ * Blog post editor supporting create (`/new`) and edit (`:id`) modes.
+ * Provides a two-column layout: main content + SEO on the left, publishing
+ * metadata and featured image upload on the right.
+ * @returns {JSX.Element}
+ */
 const AdminBlogEditor = () => {
     const { id } = useParams();
     const navigate = useNavigate();
@@ -61,6 +74,7 @@ const AdminBlogEditor = () => {
         }
     };
 
+    /** Auto-generates a URL slug from the title on new posts; preserves manual edits on existing ones. */
     const handleSlugGeneration = (title: string) => {
         if (!formData.slug || !isEditing) {
             const slug = title
@@ -77,6 +91,7 @@ const AdminBlogEditor = () => {
         setFormData((prev) => ({ ...prev, [field]: value }));
     };
 
+    /** Compresses the selected image client-side before uploading to the `blog-images` storage bucket. */
     const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
@@ -116,6 +131,7 @@ const AdminBlogEditor = () => {
         }
     };
 
+    /** Saves the blog — strips leading slashes and `blog/` prefix from the slug before persisting. */
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setSaving(true);

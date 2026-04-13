@@ -1,3 +1,10 @@
+/**
+ * @fileoverview Drag-and-drop resume upload component.
+ * Accepts PDF, DOCX, and TXT files up to 5 MB, uploads via the
+ * `upload-resume` Supabase edge function, and refreshes the token
+ * before each request to avoid stale-session errors.
+ */
+
 import { useState, useCallback } from "react";
 import { useDropzone } from "react-dropzone";
 import { Button } from "@/components/ui/button";
@@ -14,11 +21,19 @@ interface ResumeUploadProps {
   disabled?: boolean;
 }
 
+/**
+ * Provides a dropzone UI for uploading a single resume file.
+ * On success, the parent is notified via `onUploadSuccess` with the created resume record.
+ * @param onUploadSuccess - Callback invoked with the new resume object after upload.
+ * @param setAsActive - Whether the uploaded resume should be set as the primary/active resume.
+ * @param disabled - Disables the dropzone and upload button when true.
+ */
 const ResumeUpload = ({ onUploadSuccess, setAsActive = false, disabled = false }: ResumeUploadProps) => {
   const [file, setFile] = useState<File | null>(null);
   const [resumeName, setResumeName] = useState("");
   const [uploading, setUploading] = useState(false);
 
+  /** Auto-populates the resume name from the filename (minus extension) on first drop. */
   const onDrop = useCallback((acceptedFiles: File[]) => {
     if (acceptedFiles.length > 0) {
       const selectedFile = acceptedFiles[0];
@@ -41,6 +56,7 @@ const ResumeUpload = ({ onUploadSuccess, setAsActive = false, disabled = false }
     disabled: disabled,
   });
 
+  /** Refreshes the auth session, then invokes the `upload-resume` edge function via FormData. */
   const handleUpload = async () => {
     if (!file) {
       toast.error("Please select a file first");

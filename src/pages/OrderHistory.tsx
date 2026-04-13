@@ -1,3 +1,10 @@
+/**
+ * @file OrderHistory.tsx
+ * @description Subscription order history page. Displays all past purchases with
+ * summary stats (total orders, completed, total spent), a status filter, and
+ * responsive table/card layouts for desktop and mobile views.
+ */
+
 import { useEffect, useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { useNavigate } from "react-router-dom";
@@ -64,6 +71,11 @@ interface OrderHistoryItem {
   } | null;
 }
 
+/**
+ * Order history page component.
+ * Fetches subscription_history with joined profile and plan details,
+ * computes spending summaries, and renders desktop table + mobile card views.
+ */
 const OrderHistory = () => {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
@@ -139,8 +151,8 @@ const OrderHistory = () => {
     }
   };
 
+  /** Formats amount in INR. Note: DB stores rupees directly, not paise. */
   const formatCurrency = (amountInRupees: number) => {
-    // Amounts are stored in rupees (999 = ₹999), not paise
     return new Intl.NumberFormat("en-IN", {
       style: "currency",
       currency: "INR",

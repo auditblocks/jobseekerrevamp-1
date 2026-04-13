@@ -1,3 +1,12 @@
+/**
+ * @module get-google-client-id
+ * @description Supabase Edge Function that exposes the Google OAuth Client ID to the
+ * frontend without embedding it in client-side bundles. This keeps the client ID
+ * managed as a server-side secret while still allowing the frontend to initiate
+ * the OAuth consent flow.
+ *
+ * @route GET /get-google-client-id
+ */
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 
 const corsHeaders = {

@@ -1,3 +1,14 @@
+/**
+ * @module upload-resume
+ * @description Supabase Edge Function that handles resume file uploads for the
+ * Resume Optimizer feature. Validates file type (PDF, DOCX, TXT) and size (≤ 5 MB),
+ * uploads to the `resumes` storage bucket, creates a database record in `resumes`,
+ * and optionally marks the new upload as the user's active resume.
+ * Text extraction for non-TXT formats is deferred to the frontend for compatibility.
+ *
+ * Requires: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
+ * Auth: Bearer token (PRO / PRO_MAX subscription required)
+ */
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
 
@@ -114,7 +125,7 @@ serve(async (req) => {
       fileType = "txt";
     }
 
-    // Upload file to Supabase Storage
+    // Namespace uploads under user ID to isolate storage; add timestamp + random suffix to avoid collisions
     const fileExt = file.name.split(".").pop();
     const fileName = `${user.id}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
     
@@ -162,7 +173,7 @@ serve(async (req) => {
       extractedText = "";
     }
 
-    // Set other resumes as inactive if this is set as active
+    // Only one resume can be "active" at a time; deactivate others first
     const setAsActive = formData.get("setAsActive") === "true";
     if (setAsActive) {
       await supabase
@@ -189,7 +200,7 @@ serve(async (req) => {
 
     if (dbError) {
       console.error("Database error:", dbError);
-      // Clean up uploaded file
+      // Roll back the storage upload to avoid orphaned files
       await supabase.storage.from("resumes").remove([fileName]);
       return new Response(
         JSON.stringify({ error: "Failed to save resume record", details: dbError.message }),

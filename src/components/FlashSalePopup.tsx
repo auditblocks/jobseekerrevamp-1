@@ -1,3 +1,10 @@
+/**
+ * @fileoverview Flash-sale promotional popup that appears on select routes.
+ * Fetches the active sale config from Supabase, renders a mini bubble with a
+ * countdown timer, and opens a detailed Elite membership modal with Razorpay checkout.
+ * Automatically hides for Elite members and already-subscribed users.
+ */
+
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Hourglass, Loader2, Check, ShieldCheck, Crown } from "lucide-react";
@@ -15,6 +22,7 @@ import {
 
 type FlashSaleConfig = Database['public']['Tables']['flash_sale_config']['Row'];
 
+/** Converts a duration in days to a human-friendly "X-Year Y-Month" label. */
 function formatDurationLabel(days: number): string {
   const years = Math.floor(days / 365);
   const months = Math.round((days % 365) / 30);
@@ -29,6 +37,11 @@ declare global {
   }
 }
 
+/**
+ * Renders a flash-sale bubble (bottom-right) with an expandable Elite membership modal.
+ * Handles Razorpay payment flow end-to-end: order creation, checkout, and verification.
+ * Only renders on whitelisted routes and for non-Elite, non-subscribed users.
+ */
 export function FlashSalePopup() {
   const [config, setConfig] = useState<FlashSaleConfig | null>(null);
   const [purchasedCount, setPurchasedCount] = useState(0);
@@ -41,6 +54,7 @@ export function FlashSalePopup() {
   const navigate = useNavigate();
   const location = useLocation();
 
+  // Popup only appears on high-intent pages where conversion is most likely
   const isAllowedRoute =
     location.pathname === "/" ||
     location.pathname === "/pricing" ||
@@ -156,6 +170,7 @@ export function FlashSalePopup() {
     );
   };
 
+  /** Initiates the Razorpay checkout flow for the flash-sale plan. */
   const handleClaim = async () => {
     if (purchasedCount >= maxPurchases) {
       toast.error("This flash sale is sold out");
@@ -180,6 +195,7 @@ export function FlashSalePopup() {
       if (orderError) throw new Error(orderError.message || "Failed to create payment order");
       if (!orderData?.order_id) throw new Error("Failed to create payment order");
 
+      // Lazy-load the Razorpay SDK only when the user actually tries to pay
       if (!window.Razorpay) {
         await new Promise<void>((resolve, reject) => {
           const script = document.createElement("script");
@@ -197,6 +213,7 @@ export function FlashSalePopup() {
         name: "StartWorking.in",
         description: `Flash Sale — ${formatDurationLabel(config?.duration_days ?? 730)} PRO MAX`,
         order_id: orderData.order_id,
+        // Razorpay success callback — verify signature server-side before granting access
         handler: async (response: Record<string, unknown>) => {
           try {
             const { data: refreshed, error: refreshErr } = await supabase.auth.refreshSession();
@@ -247,6 +264,7 @@ export function FlashSalePopup() {
 
   if (!isVisible || !config || !isAllowedRoute) return null;
 
+  // Progress bar width: clamped 0–100 to avoid CSS overflow
   const soldOut = purchasedCount >= maxPurchases;
   const claimedProgress = maxPurchases > 0
     ? Math.min(100, Math.max(0, (purchasedCount / maxPurchases) * 100))

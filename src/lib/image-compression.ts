@@ -1,6 +1,14 @@
 /**
+ * @file image-compression.ts
+ * Client-side image compression utility using the Canvas API.
+ * Resizes and converts images to WebP before upload to reduce storage and bandwidth.
+ */
+
+/**
  * Compresses an image file to ensure it's below a certain size and optimized for web.
  * Target: Max width 1200px, Quality 0.8, WebP format.
+ * @param file - Original image File from an `<input>` or drag-and-drop.
+ * @returns A WebP-encoded File, or the original if the input is not an image.
  */
 export async function compressImage(file: File): Promise<File> {
     return new Promise((resolve, reject) => {

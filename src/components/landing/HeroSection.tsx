@@ -1,3 +1,9 @@
+/**
+ * @fileoverview Above-the-fold hero section for the landing page.
+ * Displays the value proposition, CTA buttons, dynamic platform stats
+ * (fetched from `dashboard_config`), and an animated dashboard preview card.
+ */
+
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Mail, BarChart3, Users, Sparkles, Send, Eye, MessageSquare, Briefcase } from "lucide-react";
@@ -6,6 +12,10 @@ import { HomeSectionLink } from "@/components/landing/HomeSectionLink";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
+/**
+ * Landing-page hero with animated stats, floating feature cards, and a mock dashboard preview.
+ * Stats are populated from `dashboard_config` (admin-managed) with sensible fallbacks.
+ */
 const HeroSection = () => {
   const [landingStats, setLandingStats] = useState({
     activeUsers: "10k+",
@@ -19,8 +29,8 @@ const HeroSection = () => {
     { label: "Replies", value: "67", icon: Users },
   ]);
 
+  // Pull admin-configured stats on mount; falls back to hardcoded defaults if unavailable
   useEffect(() => {
-    // Fetch dashboard config for landing page stats
     const fetchLandingStats = async () => {
       try {
         const { data: dashboardConfigs } = await supabase
@@ -91,6 +101,7 @@ const HeroSection = () => {
     fetchLandingStats();
   }, []);
 
+  /** Abbreviates large numbers for display (e.g. 12500 → "13k+"). */
   const formatNumber = (num: number): string => {
     if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M+`;
     if (num >= 1000) return `${(num / 1000).toFixed(0)}k+`;

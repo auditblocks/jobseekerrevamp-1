@@ -1,9 +1,17 @@
+/**
+ * @file useActivityTracking.tsx
+ * Comprehensive user activity tracking hook.
+ * Records sessions, page views, button/link clicks, and form submissions
+ * to the `user_sessions` and `user_activity_events` Supabase tables.
+ * Supports both authenticated and anonymous (guest) users.
+ */
+
 import { useEffect, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./useAuth";
 
-// Device detection utilities
+/** Infers device category from the User-Agent string. */
 const detectDeviceType = (): "mobile" | "desktop" | "tablet" => {
   const ua = navigator.userAgent.toLowerCase();
   if (/(tablet|ipad|playbook|silk)|(android(?!.*mobi))/i.test(ua)) {
@@ -15,6 +23,7 @@ const detectDeviceType = (): "mobile" | "desktop" | "tablet" => {
   return "desktop";
 };
 
+/** Derives the browser name from the User-Agent string. */
 const detectBrowser = (): string => {
   const ua = navigator.userAgent;
   if (ua.includes("Chrome") && !ua.includes("Edg")) return "Chrome";
@@ -25,7 +34,7 @@ const detectBrowser = (): string => {
   return "Unknown";
 };
 
-// Generate unique session token
+/** Generates a unique-enough session token (timestamp + random suffix). */
 const generateSessionToken = (): string => {
   return `${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
 };
@@ -38,6 +47,13 @@ async function resolveTrackingUserId(): Promise<string | null> {
   return session?.user?.id ?? null;
 }
 
+/**
+ * Tracks user sessions, page views, clicks, and form submissions.
+ * Initialises a session on mount, sends heartbeats every 30 s while active,
+ * and ends the session on tab close or 5-minute inactivity timeout.
+ *
+ * @returns `{ endSession, sessionId, trackClickEvent, trackFormSubmit }`
+ */
 export function useActivityTracking() {
   const { user } = useAuth();
   const location = useLocation();

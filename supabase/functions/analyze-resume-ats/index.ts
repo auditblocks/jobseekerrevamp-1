@@ -1,3 +1,15 @@
+/**
+ * @module analyze-resume-ats
+ * @description Supabase Edge Function that performs a detailed ATS compatibility
+ * analysis. Accepts resume content as plain text, a storage file path, or a
+ * public URL. For PDF uploads, converts the file to base64 and sends it to
+ * Gemini Vision for layout-aware analysis (colours, fonts, section structure).
+ * PRO users get unlimited analyses; FREE users require per-analysis payment.
+ * Results are written back to the existing `resume_analyses` row by analysis_id.
+ *
+ * Requires: GOOGLE_GEMINI_API_KEY, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
+ * Auth: Bearer token (payment_status checked for FREE tier)
+ */
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
 import { GoogleGenerativeAI } from "https://esm.sh/@google/generative-ai@0.21.0";
@@ -87,12 +99,13 @@ serve(async (req) => {
       );
     }
 
-    // Validate resume content - check for empty strings and invalid data URLs
+    // At least one content source is required; guard against empty strings,
+    // malformed data-URIs the browser may generate for empty files, etc.
     const hasResumeText = resume_text && typeof resume_text === 'string' && resume_text.trim().length > 0;
     const hasFilePath = file_path && typeof file_path === 'string' && file_path.trim().length > 0;
     const hasFileUrl = file_url && typeof file_url === 'string' && file_url.trim().length > 0 &&
-      !file_url.startsWith('data:;base64,') && // Filter out invalid data URLs
-      !file_url.startsWith('data:;base64,='); // Filter out empty data URLs
+      !file_url.startsWith('data:;base64,') &&
+      !file_url.startsWith('data:;base64,=');
 
     if (!hasResumeText && !hasFilePath && !hasFileUrl) {
       console.error("Validation failed: No resume content provided", {
@@ -148,7 +161,7 @@ serve(async (req) => {
       );
     }
 
-    // Sanitize text to avoid Unicode escape sequence issues
+    // Gemini chokes on literal \uXXXX / \xXX sequences in prompts; resolve them first
     const sanitizeText = (text: string): string => {
       if (!text) return text;
       // Remove problematic Unicode escape sequences
@@ -171,8 +184,10 @@ serve(async (req) => {
 
     const sanitizedJobDescription = job_description ? sanitizeText(job_description) : undefined;
 
-    // Helper function to prepare PDF for Vision API
-    // Convert PDF buffer to base64 - Gemini Vision can analyze PDFs directly
+    /**
+     * Converts a raw PDF ArrayBuffer into a base64 string suitable for
+     * Gemini Vision's inlineData payload (application/pdf MIME type).
+     */
     const preparePdfForVision = async (pdfBuffer: ArrayBuffer): Promise<string> => {
       try {
         // Convert PDF buffer to base64 (handle large files efficiently)
@@ -268,9 +283,11 @@ serve(async (req) => {
     console.log("Initializing Gemini API...");
     const genAI = new GoogleGenerativeAI(geminiApiKey);
 
-    // Helper function to try generating content with different models (supports Vision API)
+    /**
+     * Attempts content generation across available Gemini models, falling back
+     * on 404s. Accepts both string prompts and multipart arrays (Vision API).
+     */
     const tryGenerateContent = async (prompt: any) => {
-      // Use gemini-pro to avoid free tier quota issues
       const modelNames = ["gemini-pro"];
 
       for (const modelName of modelNames) {
@@ -502,7 +519,7 @@ ${sanitizedJobDescription}
         throw new Error(`Failed to parse AI response as JSON: ${parseError.message}`);
       }
 
-      // Extract scores with validation
+      // Derive sub-scores; formatting penalty is -10 per issue, content baseline is 50/70
       const atsScore = typeof analysisResult.ats_score === 'number' ? analysisResult.ats_score : 0;
       const keywordScore = typeof analysisResult.keyword_analysis?.keyword_score === 'number'
         ? analysisResult.keyword_analysis.keyword_score

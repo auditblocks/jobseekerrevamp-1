@@ -1,8 +1,17 @@
+/**
+ * @file use-toast.ts
+ * Headless toast notification system inspired by radix-ui patterns.
+ * Manages toast state outside React via an in-memory store + listener pattern,
+ * allowing `toast()` to be called from non-component code (e.g., utility functions).
+ */
+
 import * as React from "react";
 
 import type { ToastActionElement, ToastProps } from "@/components/ui/toast";
 
+/** Maximum number of visible toasts at once. */
 const TOAST_LIMIT = 1;
+/** Delay (ms) before a dismissed toast is removed from DOM (allows exit animation). */
 const TOAST_REMOVE_DELAY = 1000000;
 
 type ToasterToast = ToastProps & {
@@ -21,6 +30,7 @@ const actionTypes = {
 
 let count = 0;
 
+/** Monotonically increasing ID generator; wraps at MAX_SAFE_INTEGER. */
 function genId() {
   count = (count + 1) % Number.MAX_SAFE_INTEGER;
   return count.toString();
@@ -52,6 +62,7 @@ interface State {
 
 const toastTimeouts = new Map<string, ReturnType<typeof setTimeout>>();
 
+/** Schedules deferred DOM removal after the dismiss animation completes. */
 const addToRemoveQueue = (toastId: string) => {
   if (toastTimeouts.has(toastId)) {
     return;
@@ -68,6 +79,7 @@ const addToRemoveQueue = (toastId: string) => {
   toastTimeouts.set(toastId, timeout);
 };
 
+/** Pure reducer for toast state transitions. */
 export const reducer = (state: State, action: Action): State => {
   switch (action.type) {
     case "ADD_TOAST":
@@ -121,10 +133,13 @@ export const reducer = (state: State, action: Action): State => {
   }
 };
 
+/** External subscribers (one per mounted `useToast` consumer). */
 const listeners: Array<(state: State) => void> = [];
 
+/** Singleton in-memory state shared across all hook instances. */
 let memoryState: State = { toasts: [] };
 
+/** Dispatches an action, updates memoryState, and notifies all subscribers. */
 function dispatch(action: Action) {
   memoryState = reducer(memoryState, action);
   listeners.forEach((listener) => {
@@ -134,6 +149,10 @@ function dispatch(action: Action) {
 
 type Toast = Omit<ToasterToast, "id">;
 
+/**
+ * Imperatively create a toast notification from anywhere in the app.
+ * Returns handles to `update` or `dismiss` it programmatically.
+ */
 function toast({ ...props }: Toast) {
   const id = genId();
 
@@ -163,6 +182,7 @@ function toast({ ...props }: Toast) {
   };
 }
 
+/** React hook that subscribes to the toast store and exposes current toasts + actions. */
 function useToast() {
   const [state, setState] = React.useState<State>(memoryState);
 

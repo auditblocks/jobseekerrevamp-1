@@ -1,6 +1,15 @@
+/**
+ * @fileoverview Full-screen loading overlay with an animated spinner.
+ * Displayed during route-level lazy loading or initial app bootstrap.
+ * Uses a semi-transparent backdrop blur so background content remains visible.
+ */
 
 import { motion } from "framer-motion";
 
+/**
+ * Renders a fixed, full-viewport loading overlay with a spinning ring
+ * and pulsing "Loading…" text branded with the JobSeeker name.
+ */
 export const LoadingScreen = () => {
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">

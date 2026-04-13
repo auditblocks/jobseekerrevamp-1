@@ -1,3 +1,10 @@
+/**
+ * @fileoverview Admin Email Campaigns page — full lifecycle management of email
+ * campaigns: create, edit drafts, send via the `send-email-campaign` Edge Function,
+ * and review delivery / open / click metrics. Recipients are selected through
+ * `CampaignUserSelector`; attachments are uploaded via `CampaignAttachmentUpload`.
+ */
+
 import { useEffect, useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { AdminLayout } from "@/components/admin/AdminLayout";
@@ -60,6 +67,7 @@ import { toast } from "sonner";
 import { CampaignUserSelector } from "@/components/admin/CampaignUserSelector";
 import { CampaignAttachmentUpload } from "@/components/admin/CampaignAttachmentUpload";
 
+/** Row shape for the `email_campaigns` table. */
 interface Campaign {
   id: string;
   subject: string;
@@ -78,6 +86,7 @@ interface Campaign {
   from_name?: string | null;
 }
 
+/** Minimal user profile used when resolving recipients. */
 interface User {
   id: string;
   name: string;
@@ -86,6 +95,12 @@ interface User {
   status: string;
 }
 
+/**
+ * Admin page for creating, editing, sending, and tracking email campaigns.
+ * Supports HTML body with template variables, file attachments, and per-user
+ * recipient selection. Metrics (open/click rates) are displayed in a detail dialog.
+ * @returns {JSX.Element}
+ */
 export default function AdminEmailCampaigns() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
@@ -127,6 +142,11 @@ export default function AdminEmailCampaigns() {
     }
   };
 
+  /**
+   * Creates a campaign record, uploads attachments, validates recipient UUIDs,
+   * and invokes the `send-email-campaign` Edge Function. Uses the verified
+   * domain sender `hello@startworking.in` for deliverability.
+   */
   const handleCreateCampaign = async () => {
     if (!campaignSubject || !campaignBody) {
       toast.error("Please fill in subject and email body");
@@ -180,7 +200,7 @@ export default function AdminEmailCampaigns() {
         throw new Error("Not authenticated. Please sign in again.");
       }
 
-      // Validate UUIDs before sending
+      // Guard against malformed IDs that would cause the Edge Function to fail silently
       const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
       const invalidUserIds = selectedUsers.filter(id => !uuidRegex.test(id));
       
@@ -296,6 +316,10 @@ export default function AdminEmailCampaigns() {
     }
   };
 
+  /**
+   * Persists edits to a draft campaign — replaces attachments and recipients
+   * via delete-then-insert to keep data consistent.
+   */
   const handleUpdateDraft = async () => {
     if (!editingCampaignId) return;
 
@@ -384,6 +408,7 @@ export default function AdminEmailCampaigns() {
     }
   };
 
+  /** Soft-guard: only draft campaigns may be deleted; DB cascade handles children. */
   const handleDeleteDraft = async (campaign: Campaign) => {
     if (campaign.status !== "draft") {
       toast.error("Only draft campaigns can be deleted");
@@ -432,11 +457,13 @@ export default function AdminEmailCampaigns() {
     return matchesSearch && matchesStatus;
   });
 
+  /** Calculates the open rate percentage, avoiding division by zero. */
   const openRate = (campaign: Campaign) => {
     if (campaign.sent_count === 0) return 0;
     return Math.round((campaign.opened_count / campaign.sent_count) * 100);
   };
 
+  /** Calculates the click-through rate percentage, avoiding division by zero. */
   const clickRate = (campaign: Campaign) => {
     if (campaign.sent_count === 0) return 0;
     return Math.round((campaign.clicked_count / campaign.sent_count) * 100);

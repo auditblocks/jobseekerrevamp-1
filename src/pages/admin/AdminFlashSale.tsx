@@ -1,3 +1,16 @@
+/**
+ * @fileoverview Admin Flash Sale Configuration Page
+ *
+ * Provides a form-driven UI for superadmins to manage the flash-sale popup
+ * that appears on the Home Page and Dashboard. Configuration is stored as a
+ * single row in `flash_sale_config` (upserted on save).
+ *
+ * Key capabilities:
+ * - Toggle popup visibility globally
+ * - Customise copy, pricing, duration, countdown, and benefit lines
+ * - Configure purchase caps with both manual (marketing) and real claimed counts
+ * - Edit membership-details modal text shown when users tap "View Membership Details"
+ */
 import { useEffect, useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { AdminLayout } from "@/components/admin/AdminLayout";
@@ -31,8 +44,10 @@ const DEFAULT_MODAL_SUBHEADLINE = "Excellence Unlocked: The Ultimate Elite Exper
 
 const DEFAULT_MODAL_CTA_TEXT = "SECURE MY ELITE PLAN";
 
+/** Local representation of a draggable benefit line in the editor. */
 type FeatureRow = { id: string; text: string };
 
+/** Generates a unique ID for each benefit row; uses crypto.randomUUID with a fallback. */
 function newFeatureRowId(): string {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
     return crypto.randomUUID();
@@ -44,6 +59,7 @@ function featureRowsFromStrings(lines: string[]): FeatureRow[] {
   return lines.map((text) => ({ id: newFeatureRowId(), text }));
 }
 
+/** Converts a day count into a human-readable "X Year(s) Y Month(s)" label. */
 function formatDurationLabel(days: number): string {
   const years = Math.floor(days / 365);
   const months = Math.round((days % 365) / 30);
@@ -52,7 +68,17 @@ function formatDurationLabel(days: number): string {
   return `${months} Month${months > 1 ? 's' : ''}`;
 }
 
+/**
+ * Admin page for configuring the flash-sale popup and membership modal.
+ *
+ * Loads the singleton `flash_sale_config` row on mount, populating the form
+ * with saved values or sensible defaults. Tracks both real purchase stats
+ * (from the RPC) and the admin-set manual claimed count so the scarcity
+ * indicator can be tuned independently of actual sales.
+ */
 export default function AdminFlashSale() {
+  // Converts a Date to a local `datetime-local` input value (YYYY-MM-DDTHH:mm)
+  // by compensating for the timezone offset before slicing the ISO string.
   const formatLocalDate = (date: Date) => {
     const offset = date.getTimezoneOffset();
     const localDate = new Date(date.getTime() - offset * 60 * 1000);
@@ -141,6 +167,7 @@ export default function AdminFlashSale() {
     }
   };
 
+  /** Fetches effective (max of manual + real) and actual purchase counts via an RPC. */
   const fetchPurchaseStats = async () => {
     const { data, error } = await supabase.rpc("get_flash_sale_purchase_stats");
     if (error) {
@@ -152,10 +179,12 @@ export default function AdminFlashSale() {
     setActualPurchasedCount(Number(stats?.actual_purchased_count ?? 0));
   };
 
+  /** Persists the current form state to `flash_sale_config` (upsert on existing row). */
   const handleSave = async () => {
     try {
       setSaving(true);
       
+      // Strip empty benefit lines before persisting
       const features = formData.featureRows.map((r) => r.text.trim()).filter((t) => t.length > 0);
 
       const payload = {

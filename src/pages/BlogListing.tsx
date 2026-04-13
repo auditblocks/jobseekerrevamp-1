@@ -1,3 +1,10 @@
+/**
+ * @file BlogListing.tsx
+ * @description Public blog listing page. Fetches published posts from the "blogs" table
+ * and renders them in a responsive grid of cards with featured images,
+ * publish dates, and author attribution.
+ */
+
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -8,6 +15,7 @@ import SEOHead from "@/pages/Index"; // Importing SEOHead structure if available
 import { Helmet } from "react-helmet-async";
 import { Loader2 } from "lucide-react";
 
+/** Blog listing page component. Displays all published blog posts in a card grid. */
 const BlogListing = () => {
     const [blogs, setBlogs] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -70,6 +78,7 @@ const BlogListing = () => {
                     ) : (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                             {blogs.map((blog) => (
+                                {/* Strip leading slashes and "blog/" prefix from slug to build a clean route */}
                                 <Link
                                     to={`/blog/${blog.slug.replace(/^\/+/, "").replace(/^blog\//, "").replace(/^\/+/, "")}`}
                                     key={blog.id}

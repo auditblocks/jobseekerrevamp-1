@@ -1,3 +1,15 @@
+/**
+ * @module scrape-recruiters
+ * @description Supabase Edge Function that discovers tech recruiter contacts via
+ * Firecrawl web search. It runs country-specific search queries, extracts emails
+ * from result pages (with optional per-URL scrape fallback), deduplicates against
+ * the existing `recruiters` table, and batch-inserts new records. Progress is
+ * tracked in `scraping_logs` and can be stopped mid-run by an admin setting the
+ * log status to "stopped".
+ *
+ * Accepts POST body: { countries?: string[], queries?: string[], max_results?: number, config_id?: string }
+ */
+
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const corsHeaders = {
@@ -5,6 +17,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+/** Shape of a recruiter extracted from web search results before DB insert. */
 interface RecruiterData {
   name: string;
   email: string;
@@ -15,6 +28,7 @@ interface RecruiterData {
   source_platform: string;
 }
 
+/** Represents a single result from the Firecrawl /v1/search API; fields vary by source. */
 type FirecrawlSearchResult = {
   title?: string;
   description?: string;
@@ -146,6 +160,10 @@ const countrySearchQueries: Record<string, string[]> = {
   ],
 };
 
+/**
+ * Extracts valid personal emails from freeform text, filtering out generic
+ * addresses (noreply, support, etc.) and false positives (image file extensions).
+ */
 function extractEmails(text: string): string[] {
   const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
   const matches = text.match(emailRegex) || [];
@@ -157,6 +175,7 @@ function extractEmails(text: string): string[] {
       return false;
     }
 
+    // Reject automated / generic mailboxes and accidental image-URL captures
     return !lowerEmail.includes('noreply') &&
       !lowerEmail.includes('no-reply') &&
       !lowerEmail.includes('support@') &&
@@ -174,6 +193,7 @@ function extractEmails(text: string): string[] {
   });
 }
 
+/** Attempts to find a human name near the email in surrounding text, falling back to the email local part. */
 function extractNameFromContext(text: string, email: string): string {
   const emailIndex = text.indexOf(email);
   if (emailIndex === -1) return '';
@@ -194,10 +214,15 @@ function extractNameFromContext(text: string, email: string): string {
   return email.split('@')[0].replace(/[._]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 }
 
+/**
+ * Derives a company name from the email domain. For generic providers (Gmail, etc.)
+ * it falls back to NLP-style extraction from surrounding text ("at Company Inc").
+ */
 function extractCompany(email: string, text: string): string {
   const domain = email.split('@')[1];
   if (!domain) return '';
 
+  // Generic providers don't carry company info in the domain
   const genericProviders = ['gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com', 'mail.com'];
   if (genericProviders.includes(domain.toLowerCase())) {
     const companyPatterns = [
@@ -214,6 +239,7 @@ function extractCompany(email: string, text: string): string {
   return domain.split('.')[0].replace(/\b\w/g, c => c.toUpperCase());
 }
 
+/** Normalises the varying Firecrawl response shapes (data[], data.web[], web[]) into a flat array. */
 function toSearchResults(payload: Record<string, unknown>): FirecrawlSearchResult[] {
   const direct = payload.data;
   if (Array.isArray(direct)) return direct as FirecrawlSearchResult[];
@@ -226,6 +252,7 @@ function toSearchResults(payload: Record<string, unknown>): FirecrawlSearchResul
   return [];
 }
 
+/** Concatenates all text-bearing fields of a search result for downstream email extraction. */
 function getSearchResultText(result: FirecrawlSearchResult): string {
   const metadata = result.metadata && typeof result.metadata === "object"
     ? result.metadata as Record<string, unknown>
@@ -242,6 +269,7 @@ function getSearchResultText(result: FirecrawlSearchResult): string {
   return pieces.join(" ").trim();
 }
 
+/** Fallback: if the search snippet has no emails, scrape the result URL directly for deeper extraction. */
 async function scrapeResultUrlContent(
   url: string,
   firecrawlApiKey: string,
@@ -331,6 +359,7 @@ Deno.serve(async (req) => {
     let totalRecordsFound = 0;
     let stopRequested = false;
 
+    // Polls the scraping_logs row to allow admins to gracefully abort mid-scrape
     const isStopRequested = async (): Promise<boolean> => {
       if (!logId) return false;
       const { data } = await supabase
@@ -363,6 +392,7 @@ Deno.serve(async (req) => {
     }
     searchQueries.push(...customQueries);
 
+    // Cap the number of search queries: ~50 results expected per query, hard limit 100 queries
     const maxQueries = Math.min(Math.ceil(maxResults / 50), 100);
     const queriesToRun = searchQueries.slice(0, maxQueries);
     const totalQueries = queriesToRun.length;
@@ -414,6 +444,8 @@ Deno.serve(async (req) => {
             let content = getSearchResultText(result);
             let emails = extractEmails(content);
 
+            // When the search snippet yields no emails, scrape the source page
+            // directly (limited to SCRAPE_FALLBACK_PER_QUERY per query to control API costs)
             if (
               emails.length === 0 &&
               result.url &&
@@ -553,7 +585,7 @@ Deno.serve(async (req) => {
 
     console.log(`Total inserted: ${insertedCount}, Total skipped: ${skippedCount}`);
 
-    // Finalize log
+    // Finalize log – mark "partial" if more than half the unique results had errors
     if (logId) {
       await supabase
         .from('scraping_logs')

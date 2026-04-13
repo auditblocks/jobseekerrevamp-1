@@ -1,3 +1,11 @@
+/**
+ * @file GovtJobAnalytics.tsx
+ * @description Exam analytics dashboard — shows aggregate stats (tests taken, average/best
+ * score, total questions attempted) and a scrollable list of past exam attempts.
+ * Each card links back to the practice test for retakes. Data comes from the
+ * user_exams table joined with govt_jobs for title/org metadata.
+ */
+
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
@@ -38,17 +46,20 @@ interface UserExamRow {
     govt_jobs?: GovtJobEmbed | GovtJobEmbed[];
 }
 
+/** Supabase may return the join as a single object or an array — normalize to one. */
 function normalizeJob(embed: UserExamRow["govt_jobs"]): GovtJobEmbed {
     if (!embed) return null;
     if (Array.isArray(embed)) return embed[0] ?? null;
     return embed;
 }
 
+/** Safe percentage calculation that avoids division by zero. */
 function scorePercent(score: number, total: number): number {
     if (!total || total <= 0) return 0;
     return Math.round((score / total) * 100);
 }
 
+/** Exam analytics page showing performance stats and history of all practice tests taken. */
 const GovtJobAnalytics = () => {
     const navigate = useNavigate();
     const { user, loading: authLoading } = useAuth();

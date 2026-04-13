@@ -1,3 +1,13 @@
+/**
+ * @module generate-blog-post
+ * @description Supabase Edge Function (superadmin-only) that generates a blog post draft
+ * using AI via OpenRouter. Accepts a topic, optional SEO focus keyword, tone, and target
+ * audience, then produces structured HTML content with meta tags. Optionally fetches a
+ * stock photo from Pexels/Unsplash and uploads it to Supabase Storage as the featured
+ * image. The generated post is sanitized against XSS before being persisted to `blogs`.
+ *
+ * @route POST /generate-blog-post  (authenticated, superadmin role required)
+ */
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
 
@@ -60,7 +70,7 @@ function truncateSeo(s: string, max: number): string {
   return t.slice(0, Math.max(0, max - 1)).trimEnd() + "…";
 }
 
-/** Strip risky constructs; drop tags not in Tiptap allowlist (unwrap, keep text). */
+/** Strip scripts, styles, event handlers, and non-Tiptap tags from AI-generated HTML. */
 function sanitizeBlogHtml(html: string): string {
   let s = html.replace(/<script\b[\s\S]*?<\/script>/gi, "");
   s = s.replace(/<style\b[\s\S]*?<\/style>/gi, "");
@@ -76,6 +86,7 @@ function sanitizeBlogHtml(html: string): string {
   });
 }
 
+/** Incrementally suffix the slug until no collision exists in the blogs table. */
 async function ensureUniqueSlug(supabase: SupabaseClient, baseSlug: string): Promise<string> {
   const sanitized = slugify(baseSlug) || "blog-post";
   let n = 0;
@@ -87,6 +98,7 @@ async function ensureUniqueSlug(supabase: SupabaseClient, baseSlug: string): Pro
   }
 }
 
+/** Search Pexels for a relevant stock photo; returns null if the API key is missing or no results. */
 async function fetchPexelsImageUrl(query: string): Promise<{ url: string; contentType: string } | null> {
   const key = Deno.env.get("PEXELS_API_KEY");
   if (!key?.trim()) return null;
@@ -105,6 +117,7 @@ async function fetchPexelsImageUrl(query: string): Promise<{ url: string; conten
   return { url, contentType: "image/jpeg" };
 }
 
+/** Fallback stock photo provider; used when Pexels yields no results. */
 async function fetchUnsplashImageUrl(query: string): Promise<{ url: string; contentType: string } | null> {
   const key = Deno.env.get("UNSPLASH_ACCESS_KEY");
   if (!key?.trim()) return null;
@@ -123,6 +136,7 @@ async function fetchUnsplashImageUrl(query: string): Promise<{ url: string; cont
   return { url, contentType: "image/jpeg" };
 }
 
+/** Download a remote image and upload it to Supabase Storage under the blog-images bucket. */
 async function downloadAndUploadFeaturedImage(
   supabase: SupabaseClient,
   imageUrl: string,
@@ -153,6 +167,7 @@ async function downloadAndUploadFeaturedImage(
   }
 }
 
+/** Parse and validate the JSON response from the AI model, stripping markdown fences if present. */
 function parseBlogAiResponse(raw: string): BlogAiJson {
   let cleaned = raw.trim();
   cleaned = cleaned.replace(/^```json\n?/, "").replace(/\n?```$/, "");

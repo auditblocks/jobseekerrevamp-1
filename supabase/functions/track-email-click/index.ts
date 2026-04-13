@@ -1,3 +1,13 @@
+/**
+ * @module track-email-click
+ * @description Supabase Edge Function that tracks link clicks within email campaigns.
+ * When a recipient clicks a tracked link, this function records the first click event
+ * on the recipient record, increments the campaign-level clicked_count, and then
+ * performs a 302 redirect to the original destination URL. Tracking is fire-and-forget —
+ * if any DB update fails, the user is still redirected to avoid a broken experience.
+ *
+ * @route GET /track-email-click?id=<clickTrackingId>&url=<encodedOriginalUrl>
+ */
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
 
@@ -41,7 +51,7 @@ serve(async (req) => {
       .maybeSingle();
 
     if (recipient && !recipient.clicked_at) {
-      // Update recipient clicked status
+      // Only record the first click per recipient to keep metrics accurate
       await supabase
         .from("email_campaign_recipients")
         .update({
@@ -79,7 +89,7 @@ serve(async (req) => {
   } catch (error: any) {
     console.error("Error tracking email click:", error);
     
-    // Still try to redirect even if tracking fails
+    // Prioritize user experience over tracking accuracy — always redirect
     const url = new URL(req.url);
     const originalUrl = url.searchParams.get("url");
     

@@ -1,8 +1,16 @@
+/**
+ * @fileoverview Neo-brutalist animated pricing section.
+ * Renders a grid of pricing cards with 3D tilt on hover, animated counters,
+ * a monthly/yearly toggle, and floating background particles.
+ * Supports both controlled (`isYearly` + `onYearlyChange`) and uncontrolled toggle state.
+ */
+
 "use client"
 import React, { useRef, useState } from 'react'
 import { motion, useMotionValue, useSpring, useTransform, animate } from 'framer-motion'
 import { cn } from '@/lib/utils';
 
+/** Configuration for a single pricing tier displayed in the pricing grid. */
 export interface PricingPlan {
     name: string;
     monthlyPrice: number;
@@ -29,7 +37,7 @@ interface PricingProps {
     onYearlyChange?: (isYearly: boolean) => void;
 }
 
-// Counter Component
+/** Smoothly animates a number from `from` to `to` over 1 second using framer-motion. */
 const Counter = ({ from, to }: { from: number; to: number }) => {
     const nodeRef = useRef<HTMLSpanElement>(null);
     React.useEffect(() => {
@@ -130,7 +138,7 @@ const BackgroundEffects = () => (
     </>
 );
 
-// Pricing Card Component
+/** Individual pricing card with 3D mouse-follow tilt, animated price badge, and feature checklist. */
 const PricingCard = ({
     plan,
     isYearly,
@@ -301,7 +309,10 @@ const PricingCard = ({
     );
 };
 
-// Main Container Component
+/**
+ * Top-level pricing section that composes the header, toggle, background effects, and card grid.
+ * Accepts controlled or uncontrolled monthly/yearly toggle state.
+ */
 export const PricingContainer = ({
     title = "Pricing Plans",
     plans,

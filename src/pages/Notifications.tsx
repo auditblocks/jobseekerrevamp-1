@@ -1,3 +1,10 @@
+/**
+ * @file Notifications.tsx
+ * @description User notification centre. Displays in-app notifications
+ * (info, success, warning, promo) with read/unread state management,
+ * individual and bulk mark-as-read actions, and type-based visual badges.
+ */
+
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
@@ -32,6 +39,11 @@ interface Notification {
   created_at: string;
 }
 
+/**
+ * Notifications page component.
+ * Fetches notifications from user_notifications, provides mark-as-read
+ * for individual items and bulk mark-all-read.
+ */
 export default function Notifications() {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();

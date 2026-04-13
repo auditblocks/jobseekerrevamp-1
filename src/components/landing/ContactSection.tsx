@@ -1,8 +1,14 @@
+/**
+ * @fileoverview Contact / support section on the landing page.
+ * Wraps the reusable `ContactSupportForm` in a scroll-animated card with a heading.
+ */
+
 import { motion } from "framer-motion";
 import { Mail } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ContactSupportForm } from "@/components/ContactSupportForm";
 
+/** Scroll-animated "Get in touch" section embedding the shared contact support form. */
 const ContactSection = () => {
   return (
     <section id="contact" className="py-16 sm:py-24 bg-background border-t border-border">

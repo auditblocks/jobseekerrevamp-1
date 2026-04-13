@@ -1,3 +1,8 @@
+/**
+ * @fileoverview Feature showcase grid for the landing page.
+ * Renders a static list of platform capabilities with staggered scroll-reveal animations.
+ */
+
 import { motion } from "framer-motion";
 import { Mail, BarChart3, Users, Zap, Shield, Clock, Sparkles, Target } from "lucide-react";
 
@@ -40,6 +45,7 @@ const features = [
   },
 ];
 
+/** Animated 3-column grid highlighting core platform features with scroll-triggered entrance. */
 const FeaturesSection = () => {
   return (
     <section id="features" className="py-12 sm:py-24 bg-background">

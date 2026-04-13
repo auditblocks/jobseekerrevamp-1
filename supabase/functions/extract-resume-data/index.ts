@@ -1,3 +1,13 @@
+/**
+ * @module extract-resume-data
+ * @description Supabase Edge Function that uses Google Gemini to extract structured
+ * JSON data from raw resume text. Returns fields like personalInfo, workExperience,
+ * education, skills, projects, certifications, and languages—preserving original
+ * formatting, capitalisation, and date formats as closely as possible.
+ *
+ * Requires: GEMINI_API_KEY, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
+ * Auth: Bearer token (authenticated user)
+ */
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
 import { GoogleGenerativeAI } from "https://esm.sh/@google/generative-ai@0.21.0";
@@ -73,7 +83,10 @@ serve(async (req) => {
 
     const genAI = new GoogleGenerativeAI(geminiApiKey);
 
-    // Model names to try (in order of preference)
+    /**
+     * Attempts content generation across available models, keeping the last
+     * error so the caller gets a meaningful message if all models fail.
+     */
     const modelNames = [
       "gemini-pro",
     ];
@@ -169,7 +182,7 @@ The goal is to extract data while maintaining the professional, polished appeara
     const response = await result.response;
     const extractedText = response.text();
 
-    // Parse JSON response
+    // Strip markdown fences Gemini may wrap the JSON in
     let extractedJson = extractedText.trim();
     if (extractedJson.startsWith("```json")) {
       extractedJson = extractedJson.replace(/^```json\n?/, "").replace(/\n?```$/, "");

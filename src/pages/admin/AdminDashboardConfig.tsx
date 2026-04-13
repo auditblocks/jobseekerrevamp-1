@@ -1,3 +1,17 @@
+/**
+ * @fileoverview Admin Dashboard Configuration Page
+ *
+ * Manages the **marketing statistics** displayed on the public landing page
+ * (Home Page). Each stat card is a row in `dashboard_config` with a JSON
+ * `config_value` containing label, value, icon, and colour settings.
+ *
+ * These are static/admin-set numbers (e.g. "10,000+ Emails Sent") — they
+ * do NOT reflect real user data. The actual user dashboard always shows
+ * live data from the user's own account.
+ *
+ * Supports full CRUD: add, edit, delete, toggle active/inactive, and
+ * reorder via `display_order`.
+ */
 import { useEffect, useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { AdminLayout } from "@/components/admin/AdminLayout";
@@ -35,6 +49,13 @@ interface DashboardConfig {
   updated_at: string;
 }
 
+/**
+ * Admin page for configuring landing-page marketing stat cards.
+ *
+ * Each card maps to a `dashboard_config` row. The `config_key` is immutable
+ * after creation (acts as a stable identifier). Active/inactive toggle
+ * controls visibility on the public landing page without deletion.
+ */
 export default function AdminDashboardConfig() {
   const [configs, setConfigs] = useState<DashboardConfig[]>([]);
   const [loading, setLoading] = useState(true);
@@ -103,6 +124,7 @@ export default function AdminDashboardConfig() {
     setIsDialogOpen(true);
   };
 
+  /** Persists a new or edited stat card. New keys are normalised to lowercase + underscores. */
   const handleSave = async () => {
     try {
       if (!formData.config_key.trim() || !formData.label.trim()) {

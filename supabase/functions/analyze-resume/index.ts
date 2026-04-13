@@ -1,3 +1,15 @@
+/**
+ * @module analyze-resume
+ * @description Supabase Edge Function that performs ATS (Applicant Tracking System)
+ * compatibility analysis on a user's resume. Looks up the resume from either the
+ * `resumes` or `user_resumes` table, extracts text (supports PDF via pdfjs-dist
+ * and plain-text), then sends it to Google Gemini for scoring. Optionally compares
+ * the resume against a provided job description for keyword-match analysis.
+ * Results are persisted in `resume_analyses`.
+ *
+ * Requires: GOOGLE_GEMINI_API_KEY, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
+ * Auth: Bearer token (PRO / PRO_MAX subscription required)
+ */
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
 import { GoogleGenerativeAI } from "https://esm.sh/@google/generative-ai@0.21.0";
@@ -135,13 +147,13 @@ serve(async (req) => {
 
     console.log("Processing analysis for resume_id:", resume_id);
 
-    // Fetch resume from both tables (resumes and user_resumes)
+    // Resumes live in two tables: `resumes` (optimizer uploads) and `user_resumes`
+    // (settings-page uploads). Try both so users can analyse from either source.
     console.log("Fetching resume with ID:", resume_id);
 
     let resume: any = null;
     let resumeError: any = null;
 
-    // First try the resumes table (Resume Optimizer)
     const { data: optimizerResume, error: optimizerError } = await supabase
       .from("resumes")
       .select("*")
@@ -153,7 +165,7 @@ serve(async (req) => {
       resume = optimizerResume;
       console.log("Resume found in resumes table");
     } else {
-      // If not found, try user_resumes table (Settings page)
+      // Fallback: check the legacy user_resumes table and normalise to the same shape
       console.log("Resume not found in resumes table, checking user_resumes table");
       const { data: userResume, error: userResumeError } = await supabase
         .from("user_resumes")
@@ -217,9 +229,7 @@ serve(async (req) => {
       try {
         let fileBuffer: ArrayBuffer;
 
-        // Try to extract file path from Supabase Storage URL
-        // URL format: https://[project].supabase.co/storage/v1/object/public/[bucket]/[path]
-        // or: https://[project].supabase.co/storage/v1/object/sign/[bucket]/[path]?token=...
+        // Handles both public and signed Supabase Storage URL conventions
         const urlParts = resume.file_url.split('/storage/v1/object/');
         if (urlParts.length > 1) {
           // This is a Supabase Storage URL - use storage client to download
@@ -404,9 +414,11 @@ serve(async (req) => {
 
     const genAI = new GoogleGenerativeAI(geminiApiKey);
 
-    // Helper function to try generating content with different models
+    /**
+     * Attempts content generation with a list of Gemini model names, falling back
+     * to the next model on 404 errors (useful when model availability varies).
+     */
     const tryGenerateContent = async (prompt: string) => {
-      // Use gemini-pro to avoid free tier quota issues
       const modelNames = ["gemini-pro"];
 
       for (const modelName of modelNames) {
@@ -493,7 +505,7 @@ Please respond ONLY with valid JSON. Do not include any markdown formatting or c
       const response = await result.response;
       const analysisText = response.text();
 
-      // Parse JSON response (remove markdown code blocks if present)
+      // Gemini sometimes wraps JSON in markdown fences; strip them before parsing
       let analysisJson = analysisText.trim();
       if (analysisJson.startsWith("```json")) {
         analysisJson = analysisJson.replace(/^```json\n?/, "").replace(/\n?```$/, "");

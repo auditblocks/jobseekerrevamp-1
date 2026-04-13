@@ -1,3 +1,12 @@
+/**
+ * @module auto-scrape-recruiters
+ * @description Supabase Edge Function designed to be invoked by a cron schedule.
+ * It reads all enabled scraper configurations from `scraper_config` and fans out
+ * one HTTP call per config to the `scrape-recruiters` function, passing each
+ * config's countries, search queries, and daily quota. Results for every config
+ * are aggregated and returned in a single response.
+ */
+
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const corsHeaders = {
@@ -43,6 +52,7 @@ Deno.serve(async (req) => {
 
     const results = [];
 
+    // Fan-out: invoke scrape-recruiters once per enabled config using the service role key
     for (const config of configs) {
       console.log('Processing config:', config.platform, 'Countries:', config.target_countries);
 

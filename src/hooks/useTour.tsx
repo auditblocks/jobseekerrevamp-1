@@ -1,8 +1,18 @@
+/**
+ * @file useTour.tsx
+ * Provides a guided product tour using Driver.js.
+ * The tour is shown once to new users (persisted via `localStorage`) and
+ * highlights key dashboard elements (welcome, progress, compose, recruiters).
+ */
 
 import { useEffect, useRef } from "react";
 import { driver } from "driver.js";
 import "driver.js/dist/driver.css";
 
+/**
+ * Initialises a Driver.js tour instance and exposes `startTour` (first-time only)
+ * and `restartTour` (manual replay) callbacks.
+ */
 export const useTour = () => {
     const driverObj = useRef<any>(null);
 

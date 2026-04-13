@@ -1,3 +1,15 @@
+/**
+ * @file send-email-gmail — Supabase Edge Function
+ *
+ * Sends an email on behalf of the authenticated user via their connected Gmail
+ * account (OAuth2 refresh-token flow). Supports:
+ *   - HTML formatting with an invisible tracking pixel for open-tracking.
+ *   - Resume attachment (inline base64 or fetched from Supabase Storage).
+ *   - Additional file attachments (up to 5, each <=6 MB).
+ *   - Spam protection: per-recruiter cooldown enforced via `email_cooldowns`.
+ *   - Subscription-tier daily send limits (FREE=5, PRO=50, ENTERPRISE=1000).
+ *   - Conversation thread creation/update for the in-app messaging timeline.
+ */
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
 import {
@@ -38,10 +50,12 @@ interface EmailRequest {
   resumeInline?: ResumeInlinePayload;
 }
 
+/** Insert CRLF every 76 characters per MIME base64 encoding rules (RFC 2045). */
 function wrapBase64ForMime(b64: string): string {
   return b64.replace(/\s/g, "").replace(/.{76}(?=.)/g, "$&\r\n");
 }
 
+/** Calculate decoded byte length from a base64 string without actually decoding (for size checks). */
 function decodedBase64ByteLength(b64: string): number {
   const clean = b64.replace(/\s/g, "");
   if (clean.length === 0) return 0;
@@ -97,6 +111,7 @@ serve(async (req) => {
 
     const bodyJson = (await req.json()) as EmailRequest & { attachResume?: unknown };
     const { to, subject, body, recruiterName, attachments: rawAttachments, resumeInline } = bodyJson;
+    // Accept boolean, string "true", or numeric 1 for flexible client integration
     const attachResume =
       bodyJson.attachResume === true ||
       bodyJson.attachResume === "true" ||
@@ -140,6 +155,7 @@ serve(async (req) => {
 
     const mimeAttachments: Array<{ filename: string; mime: string; base64Body: string }> = [];
 
+    // Resume resolution order: caller-provided inline base64 → primary resume from Supabase Storage
     if (attachResume) {
       let resumeAtt: { filename: string; mime: string; base64Body: string } | null = null;
 
@@ -272,8 +288,7 @@ serve(async (req) => {
       domain
     });
 
-    // Create/Update Conversation Thread logic (same as Resend)
-    // Get recruiter info if available
+    // Maintain the in-app conversation timeline — upsert a thread per user+recruiter pair
     const { data: recruiter } = await supabase
       .from("recruiters")
       .select("name, company")
@@ -359,8 +374,8 @@ serve(async (req) => {
       }
     }
 
-    // Fetch configured cooldown days
-    let cooldownDays = 7; // Default
+    // Cooldown prevents users from spamming the same recruiter; default 7 days, configurable via system_settings
+    let cooldownDays = 7;
     const { data: cooldownSetting } = await supabase
       .from("system_settings")
       .select("setting_value")
@@ -371,16 +386,9 @@ serve(async (req) => {
       cooldownDays = Number(cooldownSetting.setting_value);
     }
 
-    // CREATE/UPDATE COOLDOWN after successful send
+    // Upsert cooldown: read-then-write because Supabase JS upsert can't atomically increment
     const blockedUntil = new Date();
     blockedUntil.setDate(blockedUntil.getDate() + cooldownDays);
-
-    // Get current count to increment (optional, or just handle in DB)
-    // For simplicity with upsert, we might lose strict increment if we don't read first.
-    // But we can read first or just assume +1. 
-    // To do it properly with upsert, we need to know the previous value or let DB handle it.
-    // Supabase JS upsert doesn't support "increment existing" easily without raw SQL.
-    // So we'll keep the read but simplify the write.
 
     const { data: existingCooldown } = await supabase
       .from("email_cooldowns")

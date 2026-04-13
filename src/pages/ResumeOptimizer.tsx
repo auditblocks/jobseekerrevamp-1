@@ -1,3 +1,12 @@
+/**
+ * @file ResumeOptimizer.tsx
+ * @description AI-powered resume optimization page. Users upload a resume (PDF/DOCX/TXT)
+ * or paste text, optionally provide a job description, then pay (free for PRO users)
+ * for an ATS compatibility analysis. Results include keyword matching, formatting issues,
+ * content improvements, and actionable suggestions that can be selectively applied.
+ * Post-optimization, users can export to professional templates via the template builder.
+ */
+
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
@@ -72,6 +81,11 @@ interface ScanSettings {
   currency: string;
 }
 
+/**
+ * Resume optimizer page component.
+ * Orchestrates the full workflow: file upload → text extraction → payment →
+ * AI analysis → suggestion selection → resume optimization → template export.
+ */
 const ResumeOptimizer = () => {
   const navigate = useNavigate();
   const { user, profile } = useAuth();
@@ -99,6 +113,7 @@ const ResumeOptimizer = () => {
   const [uploadingFile, setUploadingFile] = useState(false);
   const [originalFileType, setOriginalFileType] = useState<'pdf' | 'docx' | 'txt' | null>(null);
 
+  // PRO/PRO_MAX users get unlimited free scans; FREE users pay per scan
   const isProUser = (() => {
     if (!profile?.subscription_tier) return false;
     const tier = profile.subscription_tier.trim().toUpperCase();
@@ -274,10 +289,12 @@ const ResumeOptimizer = () => {
     setResumeText(pastedText);
   };
 
+  /**
+   * Sanitises resume text before DB insertion to prevent JSON parse errors
+   * from malformed Unicode/hex escape sequences in pasted content.
+   */
   const sanitizeText = (text: string): string => {
     if (!text) return text;
-    // Remove or replace problematic Unicode escape sequences
-    // Replace \u followed by digits with the actual character or remove it
     return text
       .replace(/\\u([0-9a-fA-F]{4})/g, (match, hex) => {
         try {
@@ -594,6 +611,11 @@ const ResumeOptimizer = () => {
     setSelectedSuggestions(newSelected);
   };
 
+  /**
+   * Collects user-selected suggestions across all categories (action items,
+   * formatting, content, job-specific) and sends them to the optimize-resume
+   * edge function for AI-powered text rewriting.
+   */
   const handleOptimizeResume = async () => {
     if (!currentAnalysis || selectedSuggestions.size === 0) {
       toast.error("Please select at least one suggestion to apply");

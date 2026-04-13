@@ -1,3 +1,12 @@
+/**
+ * @module verify-ats-payment
+ * @description Supabase Edge Function that verifies a Razorpay payment for ATS resume
+ * scans. Validates the HMAC-SHA256 signature sent by Razorpay against the server-side
+ * secret to confirm payment authenticity, then marks the analysis as paid and
+ * asynchronously triggers a purchase receipt email.
+ *
+ * @route POST /verify-ats-payment  (authenticated, expects Razorpay callback payload)
+ */
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
 import { crypto } from "https://deno.land/std@0.190.0/crypto/mod.ts";
@@ -14,6 +23,7 @@ interface PaymentVerification {
   razorpay_signature: string;
 }
 
+/** Generate HMAC-SHA256 hex digest using Web Crypto API (Deno-compatible). */
 async function createHmac(key: string, message: string): Promise<string> {
   const encoder = new TextEncoder();
   const keyData = encoder.encode(key);
@@ -56,7 +66,7 @@ serve(async (req) => {
 
     const { razorpay_order_id, razorpay_payment_id, razorpay_signature }: PaymentVerification = await req.json();
 
-    // Verify signature using Web Crypto API
+    // Razorpay signature = HMAC-SHA256(order_id|payment_id, key_secret)
     const body = razorpay_order_id + "|" + razorpay_payment_id;
     const expectedSignature = await createHmac(razorpayKeySecret, body);
 
@@ -99,6 +109,7 @@ serve(async (req) => {
       .eq("id", user.id)
       .single();
 
+    // Fire-and-forget receipt email — don't block the payment confirmation response
     const purchaseIso = new Date().toISOString();
     const amountPaid = Number(analysis.amount_paid) || 0;
 

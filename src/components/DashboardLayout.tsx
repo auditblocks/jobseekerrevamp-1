@@ -1,3 +1,9 @@
+/**
+ * @fileoverview Authenticated dashboard shell providing sidebar navigation,
+ * top bar with subscription tier badges, and responsive mobile drawer.
+ * Wraps every post-login page in the main app.
+ */
+
 import { ReactNode, useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
@@ -29,7 +35,9 @@ import { Button } from "@/components/ui/button";
 import { NotificationBell } from "@/components/NotificationBell";
 import { toast } from "sonner";
 
+/** @interface DashboardLayoutProps */
 interface DashboardLayoutProps {
+    /** Page content rendered inside the main area */
     children: ReactNode;
 }
 
@@ -49,6 +57,10 @@ interface NavSection {
 
 type TierBadgeKind = "PRO_MAX" | "PRO" | null;
 
+/**
+ * Determines whether a nav item should be highlighted as active.
+ * Supports both exact-match and prefix-match (for nested routes like `/government-jobs/:slug`).
+ */
 function isNavItemActive(item: NavItem, pathname: string): boolean {
     if (item.matchPrefix) {
         if (item.path === "/government-jobs") {
@@ -59,6 +71,10 @@ function isNavItemActive(item: NavItem, pathname: string): boolean {
     return pathname === item.path;
 }
 
+/**
+ * Normalizes freeform tier strings (e.g. "pro-max", "Pro Max") into canonical enum values.
+ * Defensive against inconsistent casing or separators stored in the DB.
+ */
 function resolveSubscriptionTier(rawTier?: string | null): "FREE" | "PRO" | "PRO_MAX" {
     const normalized = (rawTier || "").toUpperCase().replace(/[\s-]/g, "_");
     if (normalized.includes("PRO_MAX") || normalized.includes("PROMAX")) return "PRO_MAX";
@@ -66,6 +82,7 @@ function resolveSubscriptionTier(rawTier?: string | null): "FREE" | "PRO" | "PRO
     return "FREE";
 }
 
+/** Maps raw tier to the badge variant shown beside the user avatar and in the top bar. */
 function getTierBadgeKind(rawTier?: string | null): TierBadgeKind {
     const tier = resolveSubscriptionTier(rawTier);
     if (tier === "PRO_MAX") return "PRO_MAX";
@@ -73,6 +90,12 @@ function getTierBadgeKind(rawTier?: string | null): TierBadgeKind {
     return null;
 }
 
+/**
+ * Main dashboard layout with collapsible sidebar, mobile drawer, sticky top bar,
+ * and subscription-aware upgrade CTA.
+ *
+ * @param {DashboardLayoutProps} props
+ */
 const DashboardLayout = ({ children }: DashboardLayoutProps) => {
     const navigate = useNavigate();
     const location = useLocation();
@@ -333,6 +356,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                                 <span className="text-sm font-bold tracking-tight hidden sm:inline">Pro</span>
                             </div>
                         )}
+                        {/* Upgrade CTA: hidden for Elite/Pro Max; shows tier-appropriate label */}
                         {(() => {
                             const isProMax = normalizedTier === "PRO_MAX";
                             const isPro = normalizedTier === "PRO";

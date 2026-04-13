@@ -1,3 +1,10 @@
+/**
+ * @fileoverview Floating AI chat widget for the JobSeeker platform.
+ * Streams responses from the `ai-chat` edge function, injects page context
+ * (current path, document title, listing details) into the conversation,
+ * and supports user-initiated abort. Hidden on admin routes.
+ */
+
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { MessageCircle, X, Send, Loader2, Square } from "lucide-react";
@@ -13,6 +20,11 @@ const INTRO: ChatTurn = {
   content: "Hi! I'm JobSeeker AI—ask about the site, jobs, or your search.",
 };
 
+/**
+ * Expandable chat bubble fixed to the bottom-right corner.
+ * Messages are streamed token-by-token via SSE; the user can stop generation mid-stream.
+ * Page context (route, title, listing data) is attached to each request for relevance.
+ */
 export function JobSeekerChatWidget() {
   const location = useLocation();
   const { listingContext } = useChatListingContext();
@@ -39,6 +51,7 @@ export function JobSeekerChatWidget() {
     setStreaming(false);
   };
 
+  /** Constructs page context, appends the user message, and streams the AI response. */
   const handleSend = async () => {
     const text = input.trim();
     if (!text || streaming) return;

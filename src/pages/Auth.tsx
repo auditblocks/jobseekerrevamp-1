@@ -1,3 +1,11 @@
+/**
+ * @file Auth.tsx
+ * @description Authentication page supporting email/password sign-in/sign-up and Google OAuth.
+ * Handles OAuth hash callbacks, safe internal redirects (preventing open redirects),
+ * account suspension checks on login, and duplicate-welcome-toast suppression.
+ * Split layout: form on the left, decorative marketing panel on the right (desktop).
+ */
+
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate, useSearchParams, Link } from "react-router-dom";
@@ -12,7 +20,11 @@ import { Helmet } from "react-helmet-async";
 import { useAuth } from "@/hooks/useAuth";
 import { getAccountAccessDenialMessage } from "@/lib/accountAccess";
 
-/** Same-origin path only; prevents open redirects. */
+/**
+ * Validates that a redirect path is a same-origin relative path, rejecting
+ * protocol-relative URLs (//evil.com) and absolute URLs (https://...).
+ * Returns null for anything unsafe — callers fall back to /dashboard.
+ */
 export function getSafeInternalRedirect(raw: string | null | undefined): string | null {
   if (raw == null || typeof raw !== "string") return null;
   const t = raw.trim();
@@ -36,6 +48,11 @@ export function readPostLoginRedirect(): string {
   );
 }
 
+/**
+ * Auth page component — renders login or sign-up form based on `?mode=signup` param.
+ * Processes Google OAuth hash callbacks, checks for suspended accounts on email login,
+ * and redirects already-authenticated users to their intended destination.
+ */
 const Auth = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -120,6 +137,7 @@ const Auth = () => {
     return () => subscription.unsubscribe();
   }, []);
 
+  /** Initiates Google OAuth flow — preserves redirect param so the user lands back correctly. */
   const handleGoogleSignIn = async () => {
     setLoading(true);
     try {
@@ -152,6 +170,11 @@ const Auth = () => {
     }
   };
 
+  /**
+   * Email auth handler — on login: verifies credentials, clears expired suspensions,
+   * checks account status before allowing access. On sign-up: creates account and
+   * either auto-signs in (if email confirmation disabled) or prompts user to verify.
+   */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);

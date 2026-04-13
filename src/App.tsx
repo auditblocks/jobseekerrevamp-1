@@ -1,3 +1,10 @@
+/**
+ * @file App.tsx
+ * Root application component. Composes global providers (auth, query, helmet, tooltips),
+ * sets up client-side routing with lazy-loaded pages for code splitting, and renders
+ * app-wide overlays (toasters, flash sale, PWA prompt, chat widget).
+ */
+
 import { Suspense, lazy } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -79,6 +86,10 @@ const AdminNaukriJobs = lazy(() => import("./pages/admin/AdminNaukriJobs"));
 
 const queryClient = new QueryClient();
 
+/**
+ * Root component that wires up all global providers and defines the full route tree.
+ * All page components are lazy-loaded to keep the initial JS bundle small.
+ */
 const App = () => (
   <HelmetProvider>
     <QueryClientProvider client={queryClient}>

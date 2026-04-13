@@ -1,3 +1,9 @@
+/**
+ * @file FAQ.tsx
+ * @description Frequently asked questions page. Renders an accordion of Q&A items
+ * and injects FAQPage JSON-LD structured data for rich search snippets.
+ */
+
 import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,6 +19,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 
+/** FAQ page component. Outputs FAQPage schema markup alongside the visual accordion. */
 const FAQ = () => {
   const navigate = useNavigate();
 
@@ -59,7 +66,7 @@ const FAQ = () => {
     }
   ];
 
-  // FAQPage Schema for structured data
+  // JSON-LD FAQPage schema injected via Helmet for Google rich results
   const faqSchema = {
     "@context": "https://schema.org",
     "@type": "FAQPage",

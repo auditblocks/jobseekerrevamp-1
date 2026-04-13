@@ -1,3 +1,11 @@
+/**
+ * @fileoverview Admin Email Cooldowns page — manages per-user rate limits
+ * that prevent spamming the same recruiter within a configurable window.
+ * Cooldown duration is stored in `system_settings` (key: `email_cooldown_days`).
+ * Admins can view/search cooldowns, manually remove individual entries,
+ * and bulk-clear expired ones.
+ */
+
 import { useEffect, useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { motion } from "framer-motion";
@@ -39,6 +47,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
+/** Cooldown row joined with user profile data for display. */
 interface EmailCooldown {
   id: string;
   user_id: string;
@@ -50,6 +59,12 @@ interface EmailCooldown {
   user_email?: string;
 }
 
+/**
+ * Admin page for viewing and managing email cooldowns. Provides stats
+ * (total / active / expired), a configurable cooldown-days setting,
+ * search, and per-record deletion with confirmation dialog.
+ * @returns {JSX.Element}
+ */
 const AdminEmailCooldowns = () => {
   const [cooldowns, setCooldowns] = useState<EmailCooldown[]>([]);
   const [loading, setLoading] = useState(true);
@@ -174,6 +189,7 @@ const AdminEmailCooldowns = () => {
     }
   };
 
+  /** Bulk-deletes all cooldowns whose `blocked_until` is in the past. */
   const handleClearExpired = async () => {
     setIsClearingExpired(true);
     try {
@@ -201,6 +217,7 @@ const AdminEmailCooldowns = () => {
     return format(new Date(dateString), "MMM dd, yyyy 'at' hh:mm a");
   };
 
+  /** Derives active/expired status and remaining days from the `blocked_until` timestamp. */
   const getCooldownStatus = (blockedUntil: string) => {
     const blockedDate = new Date(blockedUntil);
     const now = new Date();

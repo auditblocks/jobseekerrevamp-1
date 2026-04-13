@@ -1,3 +1,10 @@
+/**
+ * @fileoverview User selector widget for email/WhatsApp campaigns in the admin panel.
+ * Provides two modes: "Manual Selection" (search + individual checkboxes) and
+ * "Filter & Select" (tier/status dropdowns that narrow the visible user pool).
+ * Selected user IDs are lifted to the parent via `onUsersChange`.
+ */
+
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -37,11 +44,18 @@ interface User {
   is_elite_member?: boolean;
 }
 
+/** @interface CampaignUserSelectorProps */
 interface CampaignUserSelectorProps {
+  /** Currently selected user IDs (controlled) */
   selectedUsers: string[];
+  /** Callback when selection changes */
   onUsersChange: (userIds: string[]) => void;
 }
 
+/**
+ * Dual-mode user selector (manual + filter) for targeting campaign recipients.
+ * Fetches all users via `admin_get_all_users` RPC on mount; client-side filtering keeps interactions fast.
+ */
 export function CampaignUserSelector({ selectedUsers, onUsersChange }: CampaignUserSelectorProps) {
   const [users, setUsers] = useState<User[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
@@ -78,6 +92,7 @@ export function CampaignUserSelector({ selectedUsers, onUsersChange }: CampaignU
     }
   };
 
+  // "elite" is a virtual tier filter — it maps to the is_elite_member boolean, not subscription_tier
   const applyFilters = () => {
     let filtered = [...users];
 

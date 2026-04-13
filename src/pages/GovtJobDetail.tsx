@@ -1,3 +1,13 @@
+/**
+ * @file GovtJobDetail.tsx
+ * @description Single government job detail page. Resolves the job by slug or UUID,
+ * renders full description, key dates, fee structure, and "How to Apply" steps.
+ * The sidebar contains tier-gated apply buttons (guest → sign up, free+premium → upgrade,
+ * paid → direct apply), tracker add, and practice-test link.
+ * Outputs Google-structured JobPosting JSON-LD for SEO.
+ * Public visitors see Navbar/Footer; authenticated users see DashboardLayout.
+ */
+
 import { Helmet } from "react-helmet-async";
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
@@ -69,6 +79,7 @@ interface GovtJob {
     created_at?: string | null;
 }
 
+/** Detail page for a single government job, with tier-gated actions and SEO structured data. */
 const GovtJobDetail = () => {
     const { slug } = useParams();
     const navigate = useNavigate();
@@ -93,6 +104,7 @@ const GovtJobDetail = () => {
         fetchTrackedJobIds(user.id).then(setTrackedJobIds);
     }, [user]);
 
+    /** Fetches the job by slug or UUID fallback — supports both SEO-friendly slugs and legacy UUID links. */
     const fetchJobDetail = async () => {
         try {
             setIsLoading(true);
@@ -190,6 +202,11 @@ const GovtJobDetail = () => {
         }
     };
 
+    /**
+     * Renders the correct CTA based on auth state and subscription tier:
+     * Guest → "Sign Up to Apply", Free+Premium job → "Upgrade to Apply",
+     * Paid or Free+Free job → "Apply Now" with external link.
+     */
     const renderApplyButton = () => {
         if (!job) return null;
 

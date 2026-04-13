@@ -1,3 +1,10 @@
+/**
+ * @fileoverview Admin Government Job Editor — create or edit a government job posting.
+ * Organised into three tabs: Content Details (rich-text description, tags, links),
+ * SEO & Meta (title, description, Google preview), and Settings (dates, visibility,
+ * premium toggle). Slug is auto-generated from the post name + organisation.
+ */
+
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -17,6 +24,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { X as CloseIcon, Tag } from "lucide-react";
 
+/**
+ * Multi-tab editor for government job postings. Handles both creation (`/new`)
+ * and editing (`:id`) modes. Uses TiptapEditor for rich-text content and
+ * supports SEO metadata, tag management, and visibility/premium toggles.
+ * @returns {JSX.Element}
+ */
 const AdminGovtJobEditor = () => {
     const { id } = useParams();
     const navigate = useNavigate();
@@ -93,6 +106,7 @@ const AdminGovtJobEditor = () => {
         setFormData((prev) => ({ ...prev, [field]: value }));
     };
 
+    /** Derives a URL-safe slug from the post name and organisation, appended with a short unique suffix. */
     const generateSlug = () => {
         if (!formData.post_name) {
             toast.error("Enter job title first");
@@ -106,6 +120,7 @@ const AdminGovtJobEditor = () => {
         handleChange("slug", `${slug}-${Date.now().toString().slice(-4)}`);
     };
 
+    /** Saves the job posting — creates on `/new`, updates on existing. Lets the DB trigger generate the slug if empty. */
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setSaving(true);

@@ -1,3 +1,15 @@
+/**
+ * @fileoverview Admin Dashboard — Platform Metrics Overview
+ *
+ * Landing page for the admin panel. Displays high-level KPIs and trends:
+ * - Stat cards: total users, active subscriptions, total/today email volume
+ * - 7-day signup bar chart (last 30 days of data, showing most recent 7)
+ * - Subscription tier distribution with percentage bars
+ *
+ * All data is fetched via dedicated RPCs (`admin_get_dashboard_stats`,
+ * `admin_get_user_signups_last_30_days`, `admin_get_subscription_distribution`)
+ * and a direct `email_history` count query.
+ */
 import { useEffect, useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { AdminLayout } from "@/components/admin/AdminLayout";
@@ -21,6 +33,13 @@ interface TierDistribution {
   count: number;
 }
 
+/**
+ * Admin dashboard showing platform-wide KPIs, signup trends, and tier distribution.
+ *
+ * Fetches all metrics in parallel on mount. The signup chart shows the most
+ * recent 7 days from the 30-day dataset. Tier distribution percentages are
+ * computed relative to total user count.
+ */
 export default function AdminDashboard() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [signups, setSignups] = useState<SignupData[]>([]);
@@ -52,7 +71,7 @@ export default function AdminDashboard() {
         setTierDistribution(tierData as TierDistribution[]);
       }
 
-      // Fetch email stats
+      // Email stats use head-only count queries to avoid fetching actual rows
       const { count: totalEmails } = await supabase
         .from("email_history")
         .select("*", { count: "exact", head: true });

@@ -1,3 +1,10 @@
+/**
+ * @file BlogDetail.tsx
+ * @description Individual blog post page. Fetches a single published post by slug
+ * (handles multiple slug formats for backwards compatibility), renders rich HTML
+ * content with Open Graph / article meta tags, and redirects to 404 if not found.
+ */
+
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -8,6 +15,11 @@ import { Helmet } from "react-helmet-async";
 import { Loader2, ArrowLeft, Calendar, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
+/**
+ * Blog detail page component.
+ * Queries the blog by slug with an OR clause covering multiple slug formats
+ * to support legacy and current URL patterns.
+ */
 const BlogDetail = () => {
     const { slug } = useParams();
     const navigate = useNavigate();
@@ -25,6 +37,7 @@ const BlogDetail = () => {
             const { data, error } = await supabase
                 .from("blogs" as any)
                 .select("*")
+                // Match against multiple slug formats for backwards compatibility
                 .or(`slug.eq.${slug},slug.eq./blog/${slug},slug.eq./${slug}`)
                 .eq("status", "published")
                 .single();

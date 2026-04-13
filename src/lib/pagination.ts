@@ -1,4 +1,17 @@
-/** Page numbers and ellipsis markers for compact numeric pagination. */
+/**
+ * @file pagination.ts
+ * Pure utility for generating pagination button ranges with ellipsis gaps.
+ */
+
+/**
+ * Builds an array of page numbers and `"ellipsis"` markers for a compact
+ * pagination bar. Always includes the first and last page, with a window
+ * of ±1 around the current page.
+ *
+ * @param current - The currently active page (1-based).
+ * @param total   - Total number of pages.
+ * @returns An ordered array, e.g. `[1, "ellipsis", 4, 5, 6, "ellipsis", 20]`.
+ */
 export function buildPaginationItems(
   current: number,
   total: number,

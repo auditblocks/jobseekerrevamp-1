@@ -1,3 +1,12 @@
+/**
+ * @module sitemap
+ * @description Supabase Edge Function that dynamically generates XML sitemaps for
+ * SEO crawlers. Supports a sitemap index (default) plus individual sitemaps for
+ * static pages, published blog posts, and active government job listings.
+ * Responses are cached for 1 hour via Cache-Control headers.
+ *
+ * @route GET /sitemap?type=index|pages|blogs|govt-jobs
+ */
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3'
 
 const SITE_URL = 'https://startworking.in'

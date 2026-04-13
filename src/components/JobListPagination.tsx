@@ -1,3 +1,9 @@
+/**
+ * @fileoverview Reusable pagination control for job listings.
+ * Renders numbered page buttons with ellipsis, prev/next controls,
+ * and a "go to page" jump input. Hides entirely when totalPages <= 1.
+ */
+
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,6 +19,10 @@ type JobListPaginationProps = {
   ariaLabel?: string;
 };
 
+/**
+ * Page navigation bar with numbered buttons, ellipsis gaps, and a jump-to-page input.
+ * Uses `buildPaginationItems` to generate the page number / ellipsis sequence.
+ */
 export function JobListPagination({
   safePage,
   totalPages,
@@ -30,6 +40,7 @@ export function JobListPagination({
 
   const items = buildPaginationItems(safePage, totalPages);
 
+  /** Clamps the user-entered page number to [1, totalPages] and navigates. */
   const commitJump = () => {
     const n = parseInt(jumpValue, 10);
     if (!Number.isFinite(n)) return;

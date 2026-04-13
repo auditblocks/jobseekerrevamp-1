@@ -1,3 +1,11 @@
+/**
+ * @fileoverview Admin Blog listing page — displays all blog posts in a
+ * searchable table with edit/delete/view actions. Also provides an
+ * AI-powered draft generation dialog that invokes the `generate-blog-post`
+ * Edge Function with configurable topic, focus keyword, hero image, and
+ * publish mode.
+ */
+
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -33,6 +41,12 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 
+/**
+ * Admin blog management page. Lists all posts with status badges,
+ * search filtering, and per-row actions (view published, edit, delete).
+ * Includes an AI generation dialog for creating draft posts.
+ * @returns {JSX.Element}
+ */
 const AdminBlogs = () => {
     const [blogs, setBlogs] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -86,6 +100,11 @@ const AdminBlogs = () => {
         blog.title.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
+    /**
+     * Calls the `generate-blog-post` Edge Function, then navigates to the
+     * editor for the newly created draft. Handles nested error extraction
+     * from the function's response context.
+     */
     const handleGenerateDraft = async () => {
         const topic = genTopic.trim();
         if (!topic) {

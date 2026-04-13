@@ -1,3 +1,14 @@
+/**
+ * @file ApplyLatestJobs.tsx
+ * @description Aggregated private-sector job listing page sourcing from Naukri and LinkedIn
+ * (synced via Apify). Server-side filtering and pagination via the
+ * `get_apply_latest_jobs_page` RPC. Authenticated users can "Apply" which records
+ * a row in private_job_applies and opens the employer's listing in a new tab.
+ * Daily apply limits are enforced per tier (privateApplyPolicy).
+ * Guests can browse but must sign up to apply.
+ * Supplies listing context to ChatListingContext for the AI assistant.
+ */
+
 import { Helmet } from "react-helmet-async";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -94,6 +105,7 @@ const RAW_DESC_KEYS = [
   "job_details",
 ] as const;
 
+/** Tries well-known keys in the raw_item JSON to extract a job description string. */
 function pickDescriptionFromObject(o: Record<string, unknown>): string | null {
   for (const k of RAW_DESC_KEYS) {
     const v = o[k];
@@ -128,6 +140,7 @@ function getFullJobDescription(job: NaukriJobRow): string | null {
   return null;
 }
 
+/** Normalizes skills field (array | CSV string | null) into a clean string array. */
 function formatSkillsList(skills: unknown): string[] {
   if (Array.isArray(skills)) {
     return skills.map((s) => String(s).trim()).filter(Boolean);
@@ -191,6 +204,7 @@ type ApplyLatestJobsPagePayload = {
   posted_today_sample: { title: string; company_name: string | null; apply_url: string }[];
 };
 
+/** Type-safe parser for the JSON returned by the get_apply_latest_jobs_page RPC. */
 function parseApplyPagePayload(raw: unknown): ApplyLatestJobsPagePayload | null {
   if (!raw || typeof raw !== "object") return null;
   const o = raw as Record<string, unknown>;
@@ -207,6 +221,10 @@ function parseApplyPagePayload(raw: unknown): ApplyLatestJobsPagePayload | null 
   };
 }
 
+/**
+ * Apply Latest Jobs page — server-paginated listing with rich filters, detail dialog,
+ * daily apply limit enforcement, and an upgrade popup when limit is reached.
+ */
 const ApplyLatestJobs = () => {
   const navigate = useNavigate();
   const { setListingContext } = useChatListingContext();
@@ -518,6 +536,11 @@ const ApplyLatestJobs = () => {
     return name.slice(0, 2).toUpperCase();
   };
 
+  /**
+   * Records the apply action in private_job_applies (enforced by a DB trigger that checks
+   * daily limits), then opens the employer's apply URL. Handles duplicate-apply (23505)
+   * gracefully and shows upgrade popup when limit is exhausted.
+   */
   const handleApply = async (job: NaukriJobRow) => {
     if (!user) return;
     if (appliedJobIds.has(job.id)) {

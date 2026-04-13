@@ -1,3 +1,13 @@
+/**
+ * @module gmail-oauth-callback
+ * @description Supabase Edge Function that completes the Google OAuth 2.0 flow for
+ * Gmail integration. Exchanges the authorization code for access/refresh tokens,
+ * stores the refresh token on the user's profile, and registers a Gmail push
+ * notification watch via the Gmail API so inbound emails trigger real-time webhooks.
+ * If the watch setup fails, the OAuth connection still succeeds gracefully.
+ *
+ * @route POST /gmail-oauth-callback  (authenticated, expects { code, redirect_uri })
+ */
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
 
@@ -73,7 +83,8 @@ serve(async (req) => {
       throw new Error("Failed to save Gmail connection");
     }
 
-    // Enable Gmail watch for push notifications
+    // Subscribe to Gmail push notifications via Pub/Sub so new emails trigger the gmail-webhook function.
+    // This is non-critical — failure here doesn't invalidate the OAuth connection.
     try {
       const googleCloudProjectId = Deno.env.get("GOOGLE_CLOUD_PROJECT_ID") || "jobseeker-production";
       const accessToken = tokens.access_token;
@@ -97,11 +108,12 @@ serve(async (req) => {
         const watchData = await watchResponse.json();
         console.log("Gmail watch enabled:", watchData);
         
-        // Calculate expiration time (Gmail watch expires after 7 days)
+        // Gmail watch subscriptions auto-expire after 7 days;
+        // store the expiry so a cron job can renew before it lapses
         const expirationTime = new Date();
         expirationTime.setDate(expirationTime.getDate() + 7);
         
-        // Get current preferences to preserve existing data
+        // Merge into existing preferences JSONB to avoid overwriting unrelated fields
         const { data: currentProfile } = await supabase
           .from("profiles")
           .select("preferences")

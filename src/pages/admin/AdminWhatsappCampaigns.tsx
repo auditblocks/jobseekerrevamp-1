@@ -1,3 +1,11 @@
+/**
+ * @fileoverview Admin WhatsApp Campaigns page — send bulk WhatsApp messages
+ * via the Meta Cloud API. Recipients can be selected from existing users
+ * (with phone numbers) or uploaded via CSV. The campaign is persisted in
+ * `whatsapp_campaigns` / `whatsapp_campaign_recipients` and dispatched
+ * through the `send-whatsapp-campaign` Edge Function.
+ */
+
 import { useEffect, useState, useCallback, useRef } from "react";
 import { Helmet } from "react-helmet-async";
 import { AdminLayout } from "@/components/admin/AdminLayout";
@@ -49,6 +57,7 @@ import { CampaignUserSelector } from "@/components/admin/CampaignUserSelector";
 import Papa from "papaparse";
 import { useDropzone } from "react-dropzone";
 
+/** Row shape for the `whatsapp_campaigns` table. */
 interface WhatsappCampaign {
     id: string;
     template_name: string;
@@ -61,11 +70,19 @@ interface WhatsappCampaign {
     completed_at: string | null;
 }
 
+/** Parsed recipient from a user-uploaded CSV file. */
 interface CSVRecipient {
     name: string;
     phone: string;
 }
 
+/**
+ * Admin page for creating and reviewing WhatsApp campaigns. Supports
+ * two recipient sources — platform users (via `CampaignUserSelector`)
+ * and CSV upload (via drag-and-drop with PapaParse). Displays campaign
+ * history with delivery status and sent/failed counts.
+ * @returns {JSX.Element}
+ */
 export default function AdminWhatsappCampaigns() {
     const [campaigns, setCampaigns] = useState<WhatsappCampaign[]>([]);
     const [loading, setLoading] = useState(true);
@@ -102,6 +119,10 @@ export default function AdminWhatsappCampaigns() {
         }
     };
 
+    /**
+     * Creates the campaign record, inserts recipient rows, and invokes the
+     * `send-whatsapp-campaign` Edge Function to dispatch messages.
+     */
     const handleCreateCampaign = async () => {
         if (!templateName) {
             toast.error("Please enter a template name");
@@ -218,6 +239,7 @@ export default function AdminWhatsappCampaigns() {
         }
     };
 
+    /** Parses the dropped CSV, flexibly matching columns containing "name" and "phone"/"mobile"/"contact". */
     const onDrop = useCallback((acceptedFiles: File[]) => {
         const file = acceptedFiles[0];
         if (!file) return;

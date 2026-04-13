@@ -1,3 +1,10 @@
+/**
+ * @file Index.tsx
+ * @description Public landing / home page. Composes hero, features, pricing, blog
+ * preview, contact, and footer sections. Also serves as the "/pricing" route by
+ * auto-scrolling to the pricing section. Uses SEO head tags and JSON-LD structured data.
+ */
+
 import HeroSection from "@/components/landing/HeroSection";
 import FeaturesSection from "@/components/landing/FeaturesSection";
 import DataUsageSection from "@/components/landing/DataUsageSection";
@@ -12,11 +19,18 @@ import StructuredData from "@/components/SEO/StructuredData";
 import { useEffect, useLayoutEffect } from "react";
 import { useLocation } from "react-router-dom";
 
+/** Routes that share this same page component (home + pricing). */
 const HOME_PATHS = new Set(["/", "/pricing"]);
 
+/**
+ * Landing page component.
+ * Handles scroll-to-section logic for hash fragments and the /pricing alias.
+ * Retries element lookup up to 30 times to account for lazy-rendered sections.
+ */
 const Index = () => {
   const { pathname, hash } = useLocation();
 
+  // Reset scroll to top on direct navigation, but skip if there's a hash or pricing alias
   useLayoutEffect(() => {
     if (!HOME_PATHS.has(pathname)) return;
     if (hash) return;

@@ -1,3 +1,10 @@
+/**
+ * @file About.tsx
+ * @description Public "About Us" page. Showcases the company story, mission, core values,
+ * platform features, technology stack, and a call-to-action for sign-up.
+ * Fully static content with animated entrance transitions.
+ */
+
 import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,6 +13,7 @@ import { useNavigate, Link } from "react-router-dom";
 import SEOHead from "@/components/SEO/SEOHead";
 import StructuredData from "@/components/SEO/StructuredData";
 
+/** About page component. Renders brand story, values grid, and feature highlights. */
 const About = () => {
   const navigate = useNavigate();
 

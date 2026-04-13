@@ -1,3 +1,13 @@
+/**
+ * @module generate-follow-up
+ * @description Supabase Edge Function that generates AI-powered follow-up email
+ * suggestions for an existing conversation thread. Analyses days since last
+ * contact and thread history to produce a contextual follow-up draft with
+ * priority and reasoning. Persists the suggestion in `follow_up_suggestions`.
+ *
+ * Requires: LOVABLE_API_KEY, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
+ * Auth: Bearer token (thread must belong to the authenticated user)
+ */
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
 
@@ -57,9 +67,11 @@ serve(async (req) => {
       .eq("id", user.id)
       .single();
 
+    // Sort descending to find the most recent message in the thread
     const lastMessage = thread.conversation_messages
       ?.sort((a: any, b: any) => new Date(b.sent_at).getTime() - new Date(a.sent_at).getTime())[0];
 
+    // Default to 7 days when there are no messages (treat as stale thread)
     const daysSinceLastContact = lastMessage
       ? Math.floor((Date.now() - new Date(lastMessage.sent_at).getTime()) / (1000 * 60 * 60 * 24))
       : 7;
@@ -121,7 +133,7 @@ Return your response as JSON with "subject", "body", "priority" (low/medium/high
       };
     }
 
-    // Store suggestion
+    // Schedule urgently (today) if over 7 days stale, otherwise buffer 3 days
     const suggestedDate = new Date();
     suggestedDate.setDate(suggestedDate.getDate() + (daysSinceLastContact > 7 ? 0 : 3));
 

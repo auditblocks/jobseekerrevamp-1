@@ -1,3 +1,9 @@
+/**
+ * @fileoverview Landing-page section showcasing the 3 most recent government job listings.
+ * Fetches active jobs from Supabase and renders cards with category badges, deadline info,
+ * and smart tags. Unauthenticated users are redirected to sign-up before viewing details.
+ */
+
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -37,6 +43,10 @@ interface GovtJob {
     created_at?: string | null;
 }
 
+/**
+ * Fetches the latest 3 active government jobs and renders them as cards with
+ * category badges, deadline countdown, and premium/free visibility indicators.
+ */
 const GovtJobsSection = () => {
     const navigate = useNavigate();
     const { user } = useAuth();
@@ -66,6 +76,7 @@ const GovtJobsSection = () => {
         fetchLatestJobs();
     }, []);
 
+    /** Navigates to job detail; redirects guests to sign-up with a post-auth return URL. */
     const handleJobClick = (job: GovtJob) => {
         if (!user) {
             navigate("/auth?mode=signup&redirect=" + encodeURIComponent(`/government-jobs/${job.slug || job.id}`));

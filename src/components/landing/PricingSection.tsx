@@ -1,3 +1,9 @@
+/**
+ * @fileoverview Landing-page pricing section that dynamically fetches active subscription
+ * plans from Supabase and renders them via the reusable `PricingContainer`.
+ * Detects the user's current tier to disable downgrades and mark the active plan.
+ */
+
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -23,6 +29,10 @@ interface SubscriptionPlan {
   yearly_price: number | null;
 }
 
+/**
+ * Fetches subscription plans, maps them to the `PricingContainer` format,
+ * and handles tier-aware button states (current plan, downgrade disabled).
+ */
 const PricingSection = () => {
   const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
   const [loading, setLoading] = useState(true);
@@ -82,6 +92,7 @@ const PricingSection = () => {
     return colors[index % colors.length];
   };
 
+  /** Assigns a numeric weight to each tier so we can compare for upgrade/downgrade logic. */
   const getPlanWeight = (planName: string) => {
     const name = planName.toUpperCase();
     if (name.includes('PRO MAX')) return 3;
@@ -89,10 +100,10 @@ const PricingSection = () => {
     return 1; // FREE
   };
 
+  /** Disables the CTA for the current plan and any lower-tier plan (no downgrades). */
   const isDisabled = (planName: string) => {
     if (isCurrentPlan(planName)) return true;
 
-    // Check for downgrade
     const currentTierName = profile?.subscription_tier || 'FREE';
     // If current is FREE, weights 1. If PRO, 2. If PRO MAX, 3.
     // However, the database might store 'PRO_MAX' or 'PRO MAX'. 

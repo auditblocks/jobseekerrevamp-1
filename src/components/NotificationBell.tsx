@@ -1,3 +1,9 @@
+/**
+ * @fileoverview Bell icon with unread badge and dropdown notification panel.
+ * Subscribes to Supabase Realtime for live notification inserts and supports
+ * mark-as-read (individual and bulk) actions.
+ */
+
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Bell } from "lucide-react";
@@ -17,6 +23,11 @@ interface Notification {
   created_at: string;
 }
 
+/**
+ * Notification bell icon for the dashboard top bar.
+ * Fetches the 20 most recent notifications, listens for new ones via Realtime,
+ * and delegates rendering to {@link NotificationAlertDialog}.
+ */
 export function NotificationBell() {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -102,7 +113,7 @@ export function NotificationBell() {
     }
   };
 
-  // Convert notifications to the format expected by NotificationAlertDialog
+  /** Transforms DB notification rows into the shape expected by {@link NotificationAlertDialog}. */
   const convertNotifications = () => {
     return notifications.map((notification) => {
       // Extract initials from title or use first two letters

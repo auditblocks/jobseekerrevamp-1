@@ -1,7 +1,14 @@
+/**
+ * @file ai-chat-stream.ts
+ * Client-side streaming consumer for the `ai-chat` Supabase edge function.
+ * Reads an OpenAI-compatible SSE stream and emits token deltas via a callback.
+ */
+
 import { supabase } from "@/integrations/supabase/client";
 
 export type ChatRole = "user" | "assistant";
 
+/** A single turn in the chat conversation history sent to the edge function. */
 export interface ChatTurn {
   role: ChatRole;
   content: string;
@@ -10,6 +17,10 @@ export interface ChatTurn {
 const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
 const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined;
 
+/**
+ * Parses a single SSE `data:` line and extracts the assistant content delta.
+ * Returns `null` for keep-alive, `[DONE]`, or non-content events.
+ */
 function parseSseDataLine(line: string): string | null {
   const prefix = "data:";
   const trimmed = line.trimStart();
@@ -84,6 +95,7 @@ export async function streamAiChat(
 
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
+  // `carry` buffers an incomplete line across read() chunks.
   let carry = "";
 
   const flushLine = (raw: string) => {

@@ -1,3 +1,11 @@
+/**
+ * @fileoverview Admin Exam Library page — manages master exam patterns
+ * (e.g. SSC CGL, Banking PO) that define question counts and time limits.
+ * From this page, admins can create new patterns and trigger AI-powered
+ * bulk question generation linked to a specific government job post via
+ * the `generate-exam-questions` Edge Function.
+ */
+
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -43,6 +51,7 @@ import {
     Edit3,
 } from "lucide-react";
 
+/** Exam pattern template from the `master_exams` table. */
 interface MasterExam {
     id: string;
     name: string;
@@ -54,12 +63,19 @@ interface MasterExam {
     is_active: boolean;
 }
 
+/** Minimal govt job reference used in the generation modal's job selector. */
 interface GovtJob {
     id: string;
     post_name: string;
     organization: string;
 }
 
+/**
+ * Admin exam library page. Lists exam patterns grouped by category in tabs,
+ * allows adding new patterns, and provides an AI generation modal to bulk-create
+ * questions linked to a government job post.
+ * @returns {JSX.Element}
+ */
 const AdminExams = () => {
     const navigate = useNavigate();
     const [loading, setLoading] = useState(true);
@@ -148,6 +164,7 @@ const AdminExams = () => {
         setIsGenerateModalOpen(true);
     };
 
+    /** Invokes the `generate-exam-questions` Edge Function and redirects to the questions page on success. */
     const handleBulkGenerate = async () => {
         if (!selectedJobId || !selectedExam) {
             toast.error("Please select a job post");

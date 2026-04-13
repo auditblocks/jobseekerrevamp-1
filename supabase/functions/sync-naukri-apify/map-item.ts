@@ -1,5 +1,13 @@
-/** Map arbitrary Apify dataset item to naukri_jobs row fields (best-effort). */
+/**
+ * @module map-item
+ * @description Best-effort mapper that normalises arbitrary Apify dataset items
+ * (from various Naukri scraper actors) into a consistent `naukri_jobs` row shape.
+ * Field names in Apify output vary by actor version, so each picker tries
+ * multiple candidate keys in priority order. Items without a valid title + HTTP
+ * URL are rejected (return null) to prevent garbage rows.
+ */
 
+/** Returns the first non-empty string value found for any of the candidate keys. */
 function pickString(obj: Record<string, unknown>, keys: string[]): string | null {
   for (const k of keys) {
     const v = obj[k];
@@ -18,6 +26,7 @@ function pickScalarString(obj: Record<string, unknown>, keys: string[]): string 
   return null;
 }
 
+/** Like pickString but only returns values that start with http(s)://. */
 function pickHttpUrl(obj: Record<string, unknown>, keys: string[]): string | null {
   for (const k of keys) {
     const v = obj[k];
@@ -28,6 +37,7 @@ function pickHttpUrl(obj: Record<string, unknown>, keys: string[]): string | nul
   return null;
 }
 
+/** Walks a dot-path into a nested object (e.g. ["job","title"]) and returns the leaf string. */
 function pickNestedString(obj: Record<string, unknown>, path: string[]): string | null {
   let cur: unknown = obj;
   for (const p of path) {
@@ -55,6 +65,7 @@ export interface MappedJob {
   raw_item: Record<string, unknown>;
 }
 
+/** Coerces skills into an array – handles arrays, comma/pipe-delimited strings, and objects. */
 function normalizeSkills(raw: unknown): unknown {
   if (raw === null || raw === undefined) return [];
   if (Array.isArray(raw)) return raw;
@@ -68,10 +79,16 @@ function normalizeSkills(raw: unknown): unknown {
   return [];
 }
 
+/**
+ * Maps a single raw Apify dataset item to a `MappedJob`. Returns null when
+ * mandatory fields (title, valid HTTP apply URL) are missing, so callers can
+ * safely skip unmappable items.
+ */
 export function mapApifyItemToRow(item: unknown): MappedJob | null {
   if (!item || typeof item !== "object") return null;
   const o = item as Record<string, unknown>;
 
+  // Title is required – try several naming conventions across actor versions
   const title =
     pickScalarString(o, [
       "Job Title",
@@ -172,6 +189,7 @@ export function mapApifyItemToRow(item: unknown): MappedJob | null {
   };
 }
 
+/** Generates a deterministic SHA-256 hex digest of the URL, used as upsert key in naukri_jobs. */
 export async function externalKeyFromUrl(applyUrl: string): Promise<string> {
   const enc = new TextEncoder().encode(applyUrl);
   const buf = await crypto.subtle.digest("SHA-256", enc);

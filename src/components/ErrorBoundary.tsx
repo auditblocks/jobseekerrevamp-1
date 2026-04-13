@@ -1,3 +1,10 @@
+/**
+ * @fileoverview Top-level React error boundary.
+ * Catches unhandled rendering errors and displays a recovery UI.
+ * Automatically reloads the page when a stale chunk / dynamic-import error
+ * is detected (common after deployments with cache-busted filenames).
+ */
+
 import React, { Component, ErrorInfo, ReactNode } from "react";
 
 interface Props {
@@ -8,6 +15,10 @@ interface State {
     hasError: boolean;
 }
 
+/**
+ * Class-based error boundary (required by React — hooks cannot catch render errors).
+ * Intercepts failed dynamic imports and triggers a hard reload as a recovery strategy.
+ */
 class ErrorBoundary extends Component<Props, State> {
     public state: State = {
         hasError: false

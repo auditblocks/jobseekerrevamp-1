@@ -1,3 +1,10 @@
+/**
+ * @fileoverview Resume template selection and download dialog.
+ * Offers simple (ATS-friendly single-column) and creative (two-column sidebar)
+ * templates. Parses resume text (or uses structured data when available) to
+ * populate the chosen template, then exports as HTML or PDF.
+ */
+
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,6 +24,7 @@ import { Download, Eye, FileText, FileDown } from "lucide-react";
 import { toast } from "sonner";
 import { StructuredResumeData } from "@/types/resume";
 
+/** Metadata for a single resume template variant. */
 export interface ResumeTemplate {
   id: string;
   name: string;
@@ -27,6 +35,7 @@ export interface ResumeTemplate {
   templateType: "simple" | "creative";
 }
 
+/** Intermediate representation of a resume's content sections, used by template renderers. */
 export interface ParsedResume {
   header: {
     name: string;
@@ -170,6 +179,10 @@ const TEMPLATES: ResumeTemplate[] = [
   },
 ];
 
+/**
+ * Template picker dialog that renders resume content into selectable
+ * professional templates. Supports preview in an iframe, and download as HTML or PDF.
+ */
 export const ResumeTemplates = ({
   originalResume,
   optimizedResume,
@@ -193,7 +206,7 @@ export const ResumeTemplates = ({
 
   const currentResume = resumeSource === "optimized" && optimizedResume ? optimizedResume : originalResume;
 
-  // Convert structured data to ParsedResume format for template rendering
+  /** Maps the strongly-typed `StructuredResumeData` into the generic `ParsedResume` shape for template rendering. */
   const convertStructuredToParsed = (data: StructuredResumeData): ParsedResume => {
     return {
       header: {
@@ -223,7 +236,11 @@ export const ResumeTemplates = ({
     };
   };
 
-  // Enhanced parsing with better section detection
+  /**
+   * Heuristic parser that converts raw resume text into a `ParsedResume`.
+   * Detects sections via uppercase headers and extracts contact details with regex.
+   * Falls back gracefully when structured data is unavailable.
+   */
   const parseResumeContent = (text: string): ParsedResume => {
     const lines = text.split("\n").map((line) => line.trim()).filter((line) => line.length > 0);
     
@@ -398,6 +415,11 @@ export const ResumeTemplates = ({
     return parsed;
   };
 
+  /**
+   * Generates a self-contained HTML document for the given template and resume content.
+   * Uses structured data when available, otherwise falls back to the text parser.
+   * Applies template-specific styling (sidebar color, font, layout type).
+   */
   const generateTemplateHTML = (template: ResumeTemplate, resumeText: string, formatData?: typeof formattingData): string => {
     // Use structured data if available, otherwise parse from text
     const parsed = structuredData 
@@ -1060,6 +1082,7 @@ export const ResumeTemplates = ({
     setPreviewOpen(true);
   };
 
+  /** Downloads the rendered template as either an HTML file or a PDF (via html2pdf.js, with HTML fallback). */
   const handleDownload = async (template: ResumeTemplate, format: 'html' | 'pdf' = 'html') => {
     try {
       const html = generateTemplateHTML(template, currentResume, formattingData);

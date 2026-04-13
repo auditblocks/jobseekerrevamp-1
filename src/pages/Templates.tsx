@@ -1,3 +1,11 @@
+/**
+ * @file Templates.tsx
+ * @description Email template management page. Users can browse, search, create, edit,
+ * and delete personal templates. Global (admin-created) templates are read-only.
+ * Template selection navigates to the compose page with pre-filled content.
+ * Uses React Query for data fetching and mutation caching.
+ */
+
 import { Helmet } from "react-helmet-async";
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -68,6 +76,11 @@ interface EmailTemplate {
 
 const categories = ["All", "Technology", "Finance", "Healthcare", "Marketing", "General"];
 
+/**
+ * Templates page component.
+ * Provides CRUD operations on user-owned email templates and read-only access
+ * to global templates. Supports category filtering and search.
+ */
 const Templates = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -199,8 +212,8 @@ const Templates = () => {
     return matchesSearch && matchesCategory;
   });
 
+  /** Passes selected template data to the compose page via router state. */
   const handleUseTemplate = (template: EmailTemplate) => {
-    // Navigate to compose with template data
     navigate("/compose", { state: { template } });
     toast.success(`Template "${template.name}" selected!`);
   };

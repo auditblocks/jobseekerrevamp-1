@@ -1,3 +1,9 @@
+/**
+ * @fileoverview File attachment uploader for email campaign composition.
+ * Validates file type/size, uploads to the `email-campaign-attachments` Supabase
+ * storage bucket, and surfaces the public URL to the parent form.
+ */
+
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -12,11 +18,18 @@ interface Attachment {
   type: string;
 }
 
+/** @interface CampaignAttachmentUploadProps */
 interface CampaignAttachmentUploadProps {
+  /** Current list of uploaded attachments (controlled) */
   attachments: Attachment[];
+  /** Callback when attachments are added or removed */
   onAttachmentsChange: (attachments: Attachment[]) => void;
 }
 
+/**
+ * Single-file upload widget with validation (10 MB max, PDF/image/Word only).
+ * Uploads to Supabase Storage and appends the resulting public URL to the attachment list.
+ */
 export function CampaignAttachmentUpload({ 
   attachments, 
   onAttachmentsChange 
@@ -52,7 +65,7 @@ export function CampaignAttachmentUpload({
         return;
       }
 
-      // Upload to Supabase Storage
+      // Generate a unique filename with timestamp + random suffix to avoid collisions
       const fileExt = file.name.split(".").pop();
       const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
       const bucketName = "email-campaign-attachments";

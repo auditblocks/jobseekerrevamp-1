@@ -1,3 +1,10 @@
+/**
+ * @fileoverview JSON-LD structured data injection for SEO.
+ * Outputs Organization, WebSite, SoftwareApplication, BreadcrumbList,
+ * and WebPage schemas depending on the page type. Used by search engines
+ * for rich snippets and knowledge-graph entries.
+ */
+
 import { Helmet } from "react-helmet-async";
 
 interface StructuredDataProps {
@@ -7,6 +14,11 @@ interface StructuredDataProps {
   pageUrl?: string;
 }
 
+/**
+ * Injects JSON-LD `<script>` tags for search-engine structured data.
+ * Homepage gets Organization + WebSite + SoftwareApplication schemas;
+ * inner pages get BreadcrumbList + WebPage schemas.
+ */
 const StructuredData = ({ type = "page", pageTitle, pageDescription, pageUrl }: StructuredDataProps) => {
   const baseUrl = "https://startworking.in";
   const siteName = "JobSeeker";

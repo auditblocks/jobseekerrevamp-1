@@ -1,3 +1,8 @@
+/**
+ * @fileoverview User onboarding checklist card.
+ * Shows a 4-step setup flow (signup, Gmail connect, template creation, first email)
+ * with a progress bar. Auto-hides once all steps are completed.
+ */
 
 import { Check, Mail, User, FileText, ArrowRight } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -15,6 +20,11 @@ interface OnboardingProgressProps {
     onDismiss?: () => void;
 }
 
+/**
+ * Animated onboarding checklist card.
+ * Renders each step with a completion indicator and action button.
+ * Returns `null` when all steps are completed (100% progress).
+ */
 export function OnboardingProgress({
     isGmailConnected,
     hasTemplates,

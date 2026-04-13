@@ -1,3 +1,9 @@
+/**
+ * @fileoverview Landing-page blog preview section showing the 3 most recent
+ * published articles. Fetches from the `blogs` table and renders cards with
+ * featured images, publication dates, and excerpts.
+ */
+
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -6,6 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { ArrowRight, Loader2 } from "lucide-react";
 
+/** Fetches the 3 latest published blog posts and renders them as image + excerpt cards. */
 const BlogPreviewSection = () => {
     const [blogs, setBlogs] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);

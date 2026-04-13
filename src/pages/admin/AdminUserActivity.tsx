@@ -1,3 +1,11 @@
+/**
+ * @fileoverview Admin User Activity page — real-time and historical session
+ * monitoring. Displays online users, device mix, and per-session details.
+ * Uses Supabase Realtime subscriptions + a 30-second polling interval for
+ * live updates. Historical view is powered by `admin_get_all_sessions` RPC
+ * with optional date-range filtering.
+ */
+
 import { useEffect, useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { AdminLayout } from "@/components/admin/AdminLayout";
@@ -51,6 +59,7 @@ import {
 import { format, formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
 
+/** Flattened session row returned by the `admin_get_active_sessions` / `admin_get_all_sessions` RPCs. */
 interface ActiveSession {
   session_id: string;
   user_id: string;
@@ -71,6 +80,7 @@ interface ActiveSession {
   ended_at?: string | null;
 }
 
+/** Individual user event (page_view, click, form_submit) from `admin_get_user_activity`. */
 interface UserActivity {
   id: string;
   event_type: string;
@@ -84,6 +94,7 @@ interface UserActivity {
   created_at: string;
 }
 
+/** Historical session record from `admin_get_user_sessions`. */
 interface UserSession {
   id: string;
   session_token: string;
@@ -103,6 +114,12 @@ interface UserSession {
   metadata: any;
 }
 
+/**
+ * Real-time user activity dashboard with session table, device-mix stats,
+ * drill-down activity logs, and full session history per user. Supports
+ * filtering by status, device type, subscription tier, and date range.
+ * @returns {JSX.Element}
+ */
 export default function AdminUserActivity() {
   const [sessions, setSessions] = useState<ActiveSession[]>([]);
   const [onlineCount, setOnlineCount] = useState(0);
@@ -128,14 +145,14 @@ export default function AdminUserActivity() {
   useEffect(() => {
     fetchData();
     
-    // Set up auto-refresh every 30 seconds (only for active sessions)
+    // Poll every 30s for near-real-time updates; disabled in historical mode
     const refreshInterval = setInterval(() => {
       if (!showAllSessions) {
         fetchData();
       }
     }, 30000);
 
-    // Set up Realtime subscription (only for active sessions)
+    // Supabase Realtime channel triggers refetch on any session row change
     const channel = supabase
       .channel("user-sessions-changes")
       .on(
@@ -228,6 +245,7 @@ export default function AdminUserActivity() {
     }
   };
 
+  /** Loads both the activity log and session history for a specific user in parallel. */
   const fetchUserDetails = async (userId: string) => {
     setLoadingDetails(true);
     try {
@@ -295,6 +313,7 @@ export default function AdminUserActivity() {
     tablet: totalSessions > 0 ? ((deviceMix.tablet || 0) / totalSessions * 100).toFixed(1) : "0",
   };
 
+  /** Formats seconds into a human-readable h/m/s string. */
   const formatDuration = (seconds: number) => {
     if (seconds < 60) return `${seconds}s`;
     if (seconds < 3600) return `${Math.floor(seconds / 60)}m ${seconds % 60}s`;

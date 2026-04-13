@@ -1,3 +1,14 @@
+/**
+ * @module cleanup-expired-cooldowns
+ * @description Scheduled cron-style Edge Function that manages the email cooldown lifecycle.
+ * Performs two tasks:
+ *   1. Finds cooldowns that expired in the last 24 hours and notifies affected users
+ *      (both in-app notification and optional email via Resend) that recruiters are
+ *      available to contact again.
+ *   2. Purges cooldown records older than 7 days to keep the table lean.
+ *
+ * @route POST /cleanup-expired-cooldowns  (invoked by pg_cron or external scheduler)
+ */
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
 
@@ -25,7 +36,8 @@ serve(async (req) => {
     console.log("Current time:", now.toISOString());
     console.log("Looking for cooldowns expired between:", oneDayAgo.toISOString(), "and", now.toISOString());
 
-    // Step 1: Find recently expired cooldowns (last 24h) for notifications
+    // Step 1: Find cooldowns that expired within the last 24 hours.
+    // We use a sliding window (oneDayAgo → now) so each cooldown triggers only one notification cycle.
     const { data: recentlyExpired, error: expiredError } = await supabase
       .from("email_cooldowns")
       .select("id, user_id, recruiter_email, blocked_until")
@@ -75,6 +87,7 @@ serve(async (req) => {
           continue;
         }
 
+        // Cap the inline list at 3 names to keep notifications concise
         const recruiterEmails = cooldowns.map(c => c.recruiter_email);
         const recruiterList = recruiterEmails.length > 3 
           ? `${recruiterEmails.slice(0, 3).join(", ")} and ${recruiterEmails.length - 3} more`
@@ -154,7 +167,7 @@ serve(async (req) => {
       }
     }
 
-    // Step 2: Delete cooldowns expired more than 7 days ago
+    // Step 2: Hard-delete stale cooldown records (>7 days past expiry) to prevent table bloat
     console.log("Deleting cooldowns expired before:", sevenDaysAgo.toISOString());
     
     const { data: deleted, error: deleteError } = await supabase

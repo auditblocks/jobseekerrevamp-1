@@ -1,3 +1,12 @@
+/**
+ * @module send-contact-form
+ * @description Supabase Edge Function that processes public contact form submissions.
+ * Validates input fields, sanitizes HTML to prevent XSS, persists the submission to
+ * `contact_submissions`, and forwards a formatted notification email to the support
+ * team via Resend. Optionally associates the submission with an authenticated user.
+ *
+ * @route POST /send-contact-form  (public, optional auth)
+ */
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
 import { Resend } from "https://esm.sh/resend@2.0.0";
@@ -18,6 +27,7 @@ interface ContactFormRequest {
   source?: string;
 }
 
+/** Escape user-supplied strings before embedding in the notification email HTML. */
 function escapeHtml(s: string): string {
   return s
     .replace(/&/g, "&amp;")
@@ -69,6 +79,8 @@ serve(async (req) => {
       });
     }
 
+    // If the caller is authenticated, attach their user ID for traceability.
+    // Use the anon key (not service key) so RLS context is respected during getUser.
     let userId: string | null = null;
     const authHeader = req.headers.get("Authorization");
     if (authHeader?.startsWith("Bearer ") && supabaseAnonKey) {

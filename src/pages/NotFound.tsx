@@ -1,6 +1,13 @@
+/**
+ * @file NotFound.tsx
+ * @description 404 error page. Logs the attempted route to the console for debugging
+ * and displays a minimal "page not found" message with a home link.
+ */
+
 import { useLocation } from "react-router-dom";
 import { useEffect } from "react";
 
+/** 404 page component. Shown when no route matches the current URL. */
 const NotFound = () => {
   const location = useLocation();
 

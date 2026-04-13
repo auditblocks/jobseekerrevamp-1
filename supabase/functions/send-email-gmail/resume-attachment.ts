@@ -1,3 +1,15 @@
+/**
+ * @file resume-attachment — Fetches a user's resume from Supabase Storage and
+ * prepares it as a base64-encoded MIME attachment for the Gmail send flow.
+ *
+ * Handles multiple Supabase Storage URL formats (public, signed, authenticated,
+ * and legacy path patterns) so the function works regardless of how the resume
+ * was originally uploaded. Falls back to a direct HTTP fetch for signed/external URLs.
+ *
+ * Resume lookup order:
+ *   1. `user_resumes` table (primary first, then most recent).
+ *   2. Legacy `resumes` table (active resumes).
+ */
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
 import { uint8ToBase64Mime } from "./email-format.ts";
 
@@ -7,6 +19,7 @@ export interface ResumeMimeAttachment {
   base64Body: string;
 }
 
+/** Map common resume file extensions to their MIME types; defaults to octet-stream. */
 export function guessMimeFromResumeFileName(fileName: string): string {
   const ext = fileName.split(".").pop()?.toLowerCase() || "";
   if (ext === "pdf") return "application/pdf";
@@ -29,13 +42,16 @@ function parseStorageLocation(fileUrl: string): { bucket: string; path: string }
   const trimmed = fileUrl.trim();
   if (!trimmed) return null;
 
+  // Strip query params (tokens, cache-busters) before path analysis
   const noQuery = trimmed.split("?")[0] ?? trimmed;
 
+  // Plain relative paths (e.g. "userId/file.pdf") default to the "resumes" bucket
   if (!/^https?:\/\//i.test(noQuery)) {
     const p = noQuery.replace(/^\/+/, "").replace(/^resumes\//, "");
     return p ? { bucket: "resumes", path: decodeURIComponent(p) } : null;
   }
 
+  // Full URLs: parse with URL API first for correct encoding handling
   try {
     const pathname = new URL(trimmed).pathname;
     const storageMarker = "/storage/v1/object/";
@@ -77,9 +93,10 @@ function parseStorageLocation(fileUrl: string): { bucket: string; path: string }
       }
     }
   } catch {
-    /* fall through */
+    /* fall through — URL constructor may fail on malformed strings */
   }
 
+  // Fallback: regex-based parsing when the URL object route above fails
   const storageMarker = "/storage/v1/object/";
   const si = noQuery.indexOf(storageMarker);
   if (si !== -1) {
@@ -110,6 +127,7 @@ function parseStorageLocation(fileUrl: string): { bucket: string; path: string }
     }
   }
 
+  // Legacy URL patterns from older versions of the app's upload flow
   const legacyMarkers = [
     "/object/public/resumes/",
     "/object/sign/resumes/",
@@ -126,6 +144,10 @@ function parseStorageLocation(fileUrl: string): { bucket: string; path: string }
   return null;
 }
 
+/**
+ * Download a resume binary from Supabase Storage (SDK route), falling back to a
+ * direct HTTP fetch for signed/external URLs that can't be resolved to bucket+path.
+ */
 async function downloadResumeFromStorage(
   supabase: SupabaseClient,
   fileUrl: string,
@@ -163,10 +185,15 @@ async function downloadResumeFromStorage(
   return null;
 }
 
+/**
+ * Locate the user's primary resume and return it as a base64-encoded MIME attachment.
+ * Checks `user_resumes` first (newer schema) then falls back to the legacy `resumes` table.
+ */
 export async function fetchPrimaryResumeForUser(
   supabase: SupabaseClient,
   userId: string,
 ): Promise<ResumeMimeAttachment | null> {
+  // Prefer the newest primary resume from the user_resumes table
   const { data: urList } = await supabase
     .from("user_resumes")
     .select("file_url, file_name, file_type")
@@ -188,6 +215,7 @@ export async function fetchPrimaryResumeForUser(
     return { filename: name, mime, base64Body: uint8ToBase64Mime(buf) };
   }
 
+  // Fallback: legacy resumes table (older user accounts may only have rows here)
   const { data: rlist } = await supabase
     .from("resumes")
     .select("file_url, name, file_type")

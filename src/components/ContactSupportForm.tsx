@@ -1,3 +1,10 @@
+/**
+ * @fileoverview Contact/support form component.
+ * Submits messages via the `send-contact-form` Supabase edge function.
+ * Supports pre-populated name/email, two visual variants (default and compact),
+ * and tracks which page the form was submitted from via the `source` prop.
+ */
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,6 +24,12 @@ interface ContactSupportFormProps {
   className?: string;
 }
 
+/**
+ * Reusable contact support form that sends messages to the backend edge function.
+ * Resets subject/message fields on success while preserving name/email defaults.
+ * @param source - Identifies where the form is rendered (home, contact_page, settings) for analytics.
+ * @param variant - "compact" reduces spacing and row count for embedding in smaller containers.
+ */
 export function ContactSupportForm({
   source,
   defaultName = "",

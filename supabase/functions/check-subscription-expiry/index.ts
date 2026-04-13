@@ -1,3 +1,19 @@
+/**
+ * @module check-subscription-expiry
+ * @description Supabase Edge Function (intended to be invoked on a cron schedule)
+ * that detects and downgrades expired paid subscriptions. The workflow:
+ *
+ *   1. Query all `profiles` where `subscription_tier != 'FREE'` and
+ *      `subscription_expires_at < now()`.
+ *   2. Batch-update those profiles back to the FREE tier and clear the expiry.
+ *   3. Create in-app `user_notifications` to inform affected users about the
+ *      downgrade (non-blocking — notification failures don't abort the process).
+ *
+ * Returns a summary of processed users for observability / cron-job logging.
+ *
+ * @requires SUPABASE_URL
+ * @requires SUPABASE_SERVICE_ROLE_KEY
+ */
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
 
@@ -16,7 +32,11 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Get all users with non-FREE tier and expired subscriptions
+    // Find all paid users whose subscription_expires_at has passed.
+    // The three filters together ensure we only touch rows that genuinely need downgrading:
+    //   - tier != FREE  → skip users already on free
+    //   - expires_at IS NOT NULL → skip lifetime / manually-managed accounts
+    //   - expires_at < now → only truly expired
     const now = new Date().toISOString();
     
     const { data: expiredUsers, error: fetchError } = await supabase
@@ -46,7 +66,8 @@ serve(async (req) => {
 
     console.log(`Found ${expiredUsers.length} expired subscriptions`);
 
-    // Update expired users to FREE tier
+    // Batch downgrade: reset tier to FREE and clear expiry so they won't be
+    // picked up again on the next cron run
     const userIds = expiredUsers.map(u => u.id);
     
     const { error: updateError } = await supabase

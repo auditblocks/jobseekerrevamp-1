@@ -1,3 +1,12 @@
+/**
+ * @module email-webhook
+ * @description Supabase Edge Function that receives webhook callbacks from the email
+ * delivery provider (e.g. Resend). Maps provider event types (sent, delivered, opened,
+ * clicked, bounced, complained) to internal tracking statuses in `email_tracking` and
+ * propagates status changes to `conversation_messages` for UI display.
+ *
+ * @route POST /email-webhook  (called by email provider)
+ */
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
 
@@ -38,6 +47,7 @@ serve(async (req) => {
     console.log("Webhook payload:", JSON.stringify(payload, null, 2));
 
     const { type, data, created_at } = payload;
+    // The provider may send the ID as either tracking_id or email_id depending on event type
     const trackingId = data.tracking_id || data.email_id;
 
     if (!trackingId) {
@@ -104,7 +114,8 @@ serve(async (req) => {
     }
 
     if (Object.keys(updateData).length > 0) {
-      // Try to update by tracking_pixel_id first
+      // Two-pass lookup: first by tracking_pixel_id, then fall back to email_id.
+      // This handles cases where the webhook payload uses either identifier.
       const firstUpdate = await supabase
         .from("email_tracking")
         .update(updateData)
@@ -127,7 +138,7 @@ serve(async (req) => {
         console.log("Email tracking updated successfully for type:", type);
       }
 
-      // Update conversation_messages if exists
+      // Sync engagement status to conversation_messages for inline UI display
       const { data: trackingRecord } = await supabase
         .from("email_tracking")
         .select("email_id")

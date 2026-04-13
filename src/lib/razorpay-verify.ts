@@ -1,4 +1,14 @@
-/** Normalize Razorpay checkout `handler` payload (field names vary by integration / SDK). */
+/**
+ * @file razorpay-verify.ts
+ * Utilities for normalizing and parsing Razorpay payment responses before
+ * server-side signature verification.
+ */
+
+/**
+ * Normalize Razorpay checkout `handler` payload (field names vary by integration / SDK).
+ * Produces a consistent `{ razorpay_order_id, razorpay_payment_id, razorpay_signature }` shape.
+ * @param response - Raw response object from the Razorpay checkout handler callback.
+ */
 export function normalizeRazorpayHandlerResponse(response: Record<string, unknown> | undefined | null) {
   const r = response && typeof response === "object" ? response : {};
   const order =
@@ -20,7 +30,11 @@ export function normalizeRazorpayHandlerResponse(response: Record<string, unknow
   };
 }
 
-/** Read `{ error: string }` from Supabase functions.invoke error body when present. */
+/**
+ * Extracts a meaningful error message from a Supabase `functions.invoke` error.
+ * The error's `context.body` may contain a JSON `{ error: string }` payload from the
+ * edge function; this parser surfaces that inner message when available.
+ */
 export function parseSupabaseFunctionInvokeError(error: {
   message: string;
   context?: { body?: string };

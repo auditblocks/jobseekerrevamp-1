@@ -1,3 +1,11 @@
+/**
+ * @fileoverview Admin Analytics dashboard — aggregates email tracking data,
+ * page-view statistics, and online-user counts into visual cards, bar charts,
+ * and an engagement funnel. Data is computed client-side from `email_tracking`
+ * rows and server-side via RPC functions (`admin_get_page_view_stats`,
+ * `get_online_users_count`).
+ */
+
 import { useEffect, useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { AdminLayout } from "@/components/admin/AdminLayout";
@@ -14,6 +22,7 @@ import {
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
+/** Aggregated email performance metrics computed from `email_tracking` rows. */
 interface EmailStats {
   total_sent: number;
   total_opened: number;
@@ -24,6 +33,7 @@ interface EmailStats {
   reply_rate: number;
 }
 
+/** Per-domain email volume and engagement breakdown. */
 interface DomainPerformance {
   domain: string;
   count: number;
@@ -31,6 +41,7 @@ interface DomainPerformance {
   clicked: number;
 }
 
+/** Page-view aggregation returned by the `admin_get_page_view_stats` RPC. */
 interface PageViewStats {
   category: string;
   page_path: string;
@@ -41,6 +52,12 @@ interface PageViewStats {
   guest_views: number;
 }
 
+/**
+ * Platform analytics dashboard showing email KPIs, daily send volume,
+ * top-performing domains, an engagement funnel, and page-view leaderboards
+ * for blogs and government job posts.
+ * @returns {JSX.Element}
+ */
 export default function AdminAnalytics() {
   const [emailStats, setEmailStats] = useState<EmailStats | null>(null);
   const [domainPerformance, setDomainPerformance] = useState<DomainPerformance[]>([]);
@@ -76,7 +93,7 @@ export default function AdminAnalytics() {
           reply_rate: total > 0 ? (replied / total) * 100 : 0,
         });
 
-        // Domain performance
+        // Build per-domain aggregation in a single pass over tracking rows
         const domainMap = new Map<string, DomainPerformance>();
         trackingData.forEach((email) => {
           const domain = email.domain || "unknown";
@@ -92,7 +109,7 @@ export default function AdminAnalytics() {
             .slice(0, 10)
         );
 
-        // Daily stats (last 7 days)
+        // Pre-populate the last 7 calendar days so days with zero sends still appear
         const dailyMap = new Map<string, number>();
         const last7Days = [...Array(7)].map((_, i) => {
           const d = new Date();

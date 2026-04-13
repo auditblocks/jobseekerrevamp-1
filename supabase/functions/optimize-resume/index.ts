@@ -1,3 +1,15 @@
+/**
+ * @module optimize-resume
+ * @description Supabase Edge Function that rewrites a resume by applying a set of
+ * AI-generated improvement suggestions. Takes the original resume text, an array
+ * of categorised suggestions (keywords, formatting, content, etc.), and an
+ * optional target job description, then asks Google Gemini to produce an
+ * optimised version. The optimised text and applied suggestions are persisted
+ * inside the `analysis_result` JSONB column of the corresponding `resume_analyses` row.
+ *
+ * Requires: GOOGLE_GEMINI_API_KEY, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
+ * Auth: Bearer token (analysis must belong to the authenticated user)
+ */
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
 import { GoogleGenerativeAI } from "https://esm.sh/@google/generative-ai@0.21.0";
@@ -70,7 +82,7 @@ serve(async (req) => {
       );
     }
 
-    // Sanitize text to avoid Unicode escape sequence issues
+    // Resolve literal unicode/hex escape sequences that confuse the Gemini prompt
     const sanitizeText = (text: string): string => {
       if (!text) return text;
       return text
@@ -119,9 +131,10 @@ serve(async (req) => {
 
     const genAI = new GoogleGenerativeAI(geminiApiKey);
 
-    // Helper function to try generating content with different models
+    /**
+     * Attempts Gemini content generation with model fallback on 404 errors.
+     */
     const tryGenerateContent = async (prompt: string) => {
-      // Use gemini-pro to avoid free tier quota issues
       const modelNames = ["gemini-pro"];
 
       for (const modelName of modelNames) {
@@ -177,7 +190,7 @@ IMPORTANT: Return ONLY the optimized resume text. Do not include explanations, m
         optimizedText = optimizedText.replace(/^```[a-z]*\n?/, "").replace(/\n?```$/, "");
       }
 
-      // Store optimized version in analysis
+      // Merge optimised text and metadata into the existing analysis_result JSONB
       const { error: updateError } = await supabase
         .from("resume_analyses")
         .update({

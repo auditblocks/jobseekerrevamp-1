@@ -1,3 +1,11 @@
+/**
+ * @file Analytics.tsx
+ * @description Analytics dashboard showing email outreach performance metrics.
+ * Renders key stat cards, a 7-day daily trend line chart, a sent-vs-opened pie chart,
+ * and a top-5 domain performance bar chart. All data is derived from email_tracking
+ * records and refreshed via Supabase Realtime subscriptions.
+ */
+
 import { Helmet } from "react-helmet-async";
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
@@ -51,6 +59,11 @@ interface DomainPerformance {
   openRate: number;
 }
 
+/**
+ * Analytics page component.
+ * Computes daily send/open trends, domain-level open rates, and overall
+ * statistics from the user's email_tracking records.
+ */
 const Analytics = () => {
   const { user } = useAuth();
   const [stats, setStats] = useState<EmailStats>({
@@ -89,7 +102,7 @@ const Analytics = () => {
           openRate: sent > 0 ? Math.round((opened / sent) * 1000) / 10 : 0,
         });
 
-        // Calculate daily stats for last 7 days
+        // Build a 7-day sliding window, bucketing emails by sent_at date
         const dailyData: DailyStats[] = [];
         for (let i = 6; i >= 0; i--) {
           const date = subDays(new Date(), i);
@@ -110,7 +123,7 @@ const Analytics = () => {
         }
         setDailyStats(dailyData);
 
-        // Calculate domain performance
+        // Aggregate open rates per domain, keeping only the top 5 by volume
         const domainMap = new Map<string, { total: number; opened: number }>();
         emails.forEach((email) => {
           const domain = email.domain || "unknown";
@@ -164,6 +177,7 @@ const Analytics = () => {
     };
   }, [user?.id]);
 
+  // Pie chart data: filter out zero-value slices so the chart renders cleanly
   const notOpened = Math.max(0, stats.totalSent - stats.opened);
   const statusDistribution = [
     { name: "Opened", value: stats.opened, color: "hsl(200, 80%, 50%)" },

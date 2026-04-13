@@ -1,3 +1,9 @@
+/**
+ * @fileoverview Collapsible sidebar navigation for the superadmin portal.
+ * Organises admin routes into Overview, Content, and Management sections
+ * with active-state highlighting and a "Back to App" footer link.
+ */
+
 import {
   LayoutDashboard,
   Users,
@@ -68,12 +74,17 @@ const managementItems = [
   { title: "Dashboard Config", url: "/admin/dashboard-config", icon: Sliders },
 ];
 
+/**
+ * Renders the admin sidebar using Shadcn's `Sidebar` primitives.
+ * Highlights the active route via prefix matching (exact match for `/admin` root).
+ */
 export function AdminSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
   const location = useLocation();
   const { profile } = useAuth();
 
+  // Exact match for `/admin` root avoids false positives on child routes
   const isActive = (path: string) => {
     if (path === "/admin") {
       return location.pathname === "/admin";

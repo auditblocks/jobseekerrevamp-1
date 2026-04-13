@@ -1,3 +1,10 @@
+/**
+ * @fileoverview Admin Requests page — unified inbox for two request types:
+ * 1. Domain / Recruiter addition requests submitted by users.
+ * 2. Contact-form messages from the homepage, contact page, and app settings.
+ * Admins can review, approve/reject, mark as resolved, and add internal notes.
+ */
+
 import { useEffect, useState, useCallback } from "react";
 import { Helmet } from "react-helmet-async";
 import { AdminLayout } from "@/components/admin/AdminLayout";
@@ -32,6 +39,7 @@ import { FileText, RefreshCw, CheckCircle, XCircle, Clock, Mail } from "lucide-r
 import { toast } from "sonner";
 import { format } from "date-fns";
 
+/** Shape of a domain/recruiter request from `domain_recruiter_requests`. */
 interface DomainRequest {
   id: string;
   request_type: string;
@@ -45,6 +53,7 @@ interface DomainRequest {
   user_id: string | null;
 }
 
+/** Shape of a contact-form submission from `contact_submissions`. */
 interface ContactSubmission {
   id: string;
   user_id: string | null;
@@ -59,6 +68,11 @@ interface ContactSubmission {
   updated_at: string;
 }
 
+/**
+ * Admin page presenting a tabbed view of domain/recruiter requests and
+ * contact messages. Each tab has independent status filters and action dialogs.
+ * @returns {JSX.Element}
+ */
 export default function AdminRequests() {
   const [requests, setRequests] = useState<DomainRequest[]>([]);
   const [contacts, setContacts] = useState<ContactSubmission[]>([]);
@@ -225,6 +239,7 @@ export default function AdminRequests() {
     );
   };
 
+  /** Maps the raw `source` column to a user-friendly display label. */
   const sourceLabel = (s: string) => {
     switch (s) {
       case "home":

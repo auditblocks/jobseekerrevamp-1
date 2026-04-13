@@ -1,3 +1,10 @@
+/**
+ * @fileoverview Rich text editor built on Tiptap (ProseMirror).
+ * Provides a toolbar for text formatting (bold, italic, underline, strike),
+ * lists, text alignment, links, images, tables (with cell merge/split),
+ * and undo/redo. Syncs external value changes while preserving cursor focus.
+ */
+
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import { Table } from '@tiptap/extension-table'
@@ -39,6 +46,7 @@ interface TiptapEditorProps {
     className?: string
 }
 
+/** Sticky toolbar rendering formatting toggles, link/image insertion, table controls, and undo/redo. */
 const MenuBar = ({ editor }: { editor: any }) => {
     if (!editor) {
         return null
@@ -204,6 +212,11 @@ const MenuBar = ({ editor }: { editor: any }) => {
     )
 }
 
+/**
+ * Controlled rich text editor.
+ * Initializes Tiptap with StarterKit + table, link, image, underline, and text-align extensions.
+ * External `value` changes are applied only when the editor is not focused to avoid cursor jumps.
+ */
 const TiptapEditor = ({ value, onChange, className }: TiptapEditorProps) => {
     const editor = useEditor({
         extensions: [

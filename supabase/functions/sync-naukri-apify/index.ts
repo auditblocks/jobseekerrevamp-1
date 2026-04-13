@@ -1,3 +1,19 @@
+/**
+ * @module sync-naukri-apify
+ * @description Supabase Edge Function that synchronises Naukri job listings from
+ * an Apify actor dataset into the `naukri_jobs` table. It supports two modes:
+ *   1. **Full run** – starts the configured Apify actor, polls until completion
+ *      (up to ~2.5 min), then imports the resulting dataset.
+ *   2. **Import-only** – skips actor execution and pulls from the most recent
+ *      successful run's dataset (or an explicit dataset override).
+ *
+ * Each item is mapped via `mapApifyItemToRow`, deduplicated by a SHA-256
+ * `external_key` derived from the apply URL, and upserted. Progress is logged
+ * to `naukri_sync_log`.
+ *
+ * Accepts POST body: { import_only?: boolean, actor_input?: object, desired_results?: number }
+ */
+
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
 import { isAuthorizedAdminRequest } from "../_shared/admin-auth.ts";
@@ -16,6 +32,7 @@ function json(body: unknown, status = 200) {
   });
 }
 
+/** Reads a single integration secret from the admin_integration_secrets table. */
 async function getSecret(
   supabase: ReturnType<typeof createClient>,
   key: string,
@@ -29,6 +46,7 @@ async function getSecret(
   return String(data.secret_value).trim();
 }
 
+/** Apify run statuses that indicate the actor is no longer executing. */
 const TERMINAL_RUN_STATUSES = new Set([
   "SUCCEEDED",
   "FAILED",
@@ -40,6 +58,10 @@ function isTerminalRunStatus(status: string): boolean {
   return TERMINAL_RUN_STATUSES.has(status);
 }
 
+/**
+ * Resolves the Apify dataset to import from. Prefers an explicit override;
+ * otherwise fetches the most recent successful run for the given actor.
+ */
 async function resolveDatasetFromLastSuccess(
   token: string,
   actorId: string,
@@ -75,6 +97,7 @@ async function resolveDatasetFromLastSuccess(
   return { datasetId: String(ds), runId: runId ? String(runId) : null };
 }
 
+/** Fetches the current state of an Apify actor run (used during polling). */
 async function fetchActorRun(
   token: string,
   runId: string,
@@ -121,6 +144,7 @@ async function runActorAndResolveDataset(
     return { error: "Apify start run returned no run id." };
   }
   const runId = String(run.id);
+  // Poll for up to ~85 s (60 s Apify-side wait + 25 s buffer) with 5 s intervals
   const pollDeadline = Date.now() + 85_000;
 
   while (!isTerminalRunStatus(String(run.status ?? ""))) {
@@ -155,6 +179,7 @@ interface SyncBodyOptions {
   actorInput: Record<string, unknown>;
 }
 
+/** Parses the optional JSON body, merging caller overrides with safe defaults. */
 function parseSyncBody(raw: string | null): SyncBodyOptions {
   const defaults: SyncBodyOptions = {
     importOnly: false,
@@ -177,6 +202,7 @@ function parseSyncBody(raw: string | null): SyncBodyOptions {
   }
 }
 
+/** Paginates through the Apify dataset API in batches of 500, up to 20 000 items max. */
 async function fetchAllDatasetItems(
   token: string,
   datasetId: string,
@@ -261,6 +287,7 @@ serve(async (req) => {
 
     let resolved: { datasetId: string; runId: string | null } | { error: string };
 
+    // Decision tree: explicit dataset → import_only (last success) → start a new run
     if (datasetOverride) {
       resolved = await resolveDatasetFromLastSuccess(apifyToken, actorId, datasetOverride);
     } else if (syncOptions.importOnly) {
@@ -303,6 +330,7 @@ serve(async (req) => {
     let duplicateApplyUrlsInDataset = 0;
     const scrapedAt = new Date().toISOString();
 
+    // Map each Apify dataset item → DB row; skip items that lack a title or valid URL
     for (const raw of items) {
       const mapped = mapApifyItemToRow(raw);
       if (!mapped) {

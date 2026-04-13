@@ -1,3 +1,15 @@
+/**
+ * @module bulk-import-recruiters
+ * @description Supabase Edge Function that allows admins to bulk-import recruiter
+ * records from either a public Google Sheets URL or raw CSV data. It validates
+ * the caller's admin/superadmin role, parses the CSV (with RFC-4180 quote handling),
+ * validates each row (email required, name optional), deduplicates against
+ * existing recruiters, and batch-inserts new rows with individual-insert fallback
+ * on batch failure.
+ *
+ * Accepts POST body: { sheet_url?: string, csv_data?: string, file_name?: string, skip_duplicates?: boolean }
+ */
+
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
 
@@ -51,7 +63,8 @@ serve(async (req) => {
       );
     }
 
-    // Check if user is superadmin by checking user_roles and profiles tables
+    // Authorization: check both user_roles (RBAC) and profiles (legacy) tables
+    // to support both admin assignment models
     const { data: roleData } = await supabase
       .from("user_roles")
       .select("role")
@@ -122,6 +135,7 @@ serve(async (req) => {
       csvText = await csvResponse.text();
     }
 
+    // Strip UTF-8 BOM that some spreadsheet tools prepend
     csvText = csvText.replace(/^\uFEFF/, "");
     const csvSize = csvText.length;
     console.log(`Fetched CSV: ${csvSize} bytes`);
@@ -345,7 +359,8 @@ serve(async (req) => {
           .select();
 
         if (insertError) {
-          // If batch insert fails, try individual inserts for this batch
+          // Batch may fail due to a single bad row; fall back to row-by-row insert
+          // so the rest of the batch isn't lost
           console.warn(`Batch ${batchNum} insert failed:`, insertError.message);
           console.warn(`Trying individual inserts for batch ${batchNum}...`);
           
@@ -474,7 +489,11 @@ serve(async (req) => {
   }
 });
 
-// CSV parser with proper quote handling
+/**
+ * RFC-4180 compliant CSV parser. Handles quoted fields containing commas,
+ * newlines, and escaped double-quotes. Returns a 2D array including the
+ * header row at index 0.
+ */
 function parseCSV(csvText: string): string[][] {
   const rows: string[][] = [];
   let currentRow: string[] = [];

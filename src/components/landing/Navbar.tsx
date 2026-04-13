@@ -1,8 +1,15 @@
+/**
+ * @fileoverview Sticky top navigation bar used on secondary landing pages
+ * (e.g. /about, /faq). The hero page uses its own inline nav; this component
+ * provides consistent navigation with in-page hash links via `HomeSectionLink`.
+ */
+
 import { Link } from "react-router-dom";
 import { HomeSectionLink } from "@/components/landing/HomeSectionLink";
 import { Button } from "@/components/ui/button";
 import { Mail, ArrowRight } from "lucide-react";
 
+/** Sticky navbar with logo, section links, sign-in/sign-up CTAs, and responsive desktop layout. */
 const Navbar = () => {
     return (
         <nav className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">

@@ -1,6 +1,13 @@
 /**
- * Parser-agnostic main-content extraction (mirrors scripts/job-scraper.ts selector order).
- * Tests import parse() from node-html-parser and pass the parsed root.
+ * @file html-extract — Parser-agnostic main-content extraction for govt job pages.
+ *
+ * Provides a prioritised list of CSS selectors to locate the "meaningful" content
+ * region on government and job-portal pages. The selector order mirrors
+ * `scripts/job-scraper.ts` so that the Edge Function and the local CLI scraper
+ * produce consistent descriptions.
+ *
+ * Also provides `sanitizeAndWrapHtml` to strip scripts/event handlers before
+ * persisting HTML fragments to the database.
  */
 
 export const MAIN_CONTENT_SELECTORS = [
@@ -36,6 +43,7 @@ export function truncateHtmlFragment(html: string, maxLen: number): string {
  * Returns inner HTML of the first matching region with meaningful content.
  */
 export function extractMainContentHtmlFromRoot(root: HtmlParserRoot): string | null {
+  // Walk selectors in priority order; require >40 chars to skip empty wrapper divs
   for (const sel of MAIN_CONTENT_SELECTORS) {
     const el = root.querySelector(sel);
     if (!el) continue;
@@ -45,6 +53,7 @@ export function extractMainContentHtmlFromRoot(root: HtmlParserRoot): string | n
     }
   }
 
+  // Last resort: use <body> if it has substantial content
   const body = root.querySelector("body");
   if (body) {
     const inner = body.innerHTML?.trim();

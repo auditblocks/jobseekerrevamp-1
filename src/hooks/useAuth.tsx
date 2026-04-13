@@ -1,9 +1,17 @@
+/**
+ * @file useAuth.tsx
+ * Central authentication context and provider for the application.
+ * Manages Supabase auth state, user profile hydration, subscription expiry enforcement,
+ * superadmin role resolution, and banned/suspended account gating.
+ */
+
 import { useState, useEffect, createContext, useContext, ReactNode } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { getAccountAccessDenialMessage } from "@/lib/accountAccess";
 
+/** Shape exposed to consumers via `useAuth()`. */
 interface AuthContextType {
   user: User | null;
   session: Session | null;
@@ -26,6 +34,11 @@ const AuthContext = createContext<AuthContextType>({
   refreshProfile: async () => {},
 });
 
+/**
+ * Provides auth state (user, session, profile, roles) to the entire component tree.
+ * On mount it processes any pending OAuth hash callback, subscribes to Supabase
+ * auth state changes, and eagerly fetches the user profile + superadmin status.
+ */
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
@@ -101,6 +114,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
+  /**
+   * Fetches the user profile, auto-clears expired suspensions, enforces subscription
+   * expiry (downgrades to FREE if past `subscription_expires_at`), and gates
+   * banned / suspended accounts by signing them out immediately.
+   * @returns `false` if the account was denied access; `true` otherwise.
+   */
   const fetchProfile = async (userId: string): Promise<boolean> => {
     const { error: clearSuspErr } = await supabase.rpc("clear_expired_user_suspension", {
       p_user_id: userId,
@@ -115,7 +134,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .eq("id", userId)
       .single();
     
-    // Check if subscription has expired (on-demand check)
+    // On-demand expiry check: if the subscription has lapsed, downgrade to FREE
+    // immediately so the user sees the correct tier without waiting for a cron job.
     if (data && data.subscription_tier !== "FREE" && data.subscription_expires_at) {
       const expiresAt = new Date(data.subscription_expires_at);
       const now = new Date();
@@ -175,6 +195,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return true;
   };
 
+  /**
+   * Determines superadmin status by checking three sources (any truthy = admin):
+   * 1. `user_roles` table (role = "admin")
+   * 2. `profiles.role` column (= "superadmin")
+   * 3. `is_superadmin` RPC (server-side function)
+   */
   const checkSuperadmin = async (userId: string) => {
     try {
       // Check user_roles table
@@ -245,4 +271,5 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 }
 
+/** Convenience hook to consume auth state from any nested component. */
 export const useAuth = () => useContext(AuthContext);

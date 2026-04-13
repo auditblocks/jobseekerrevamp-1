@@ -1,3 +1,10 @@
+/**
+ * @file EmailHistory.tsx
+ * @description Email history page showing all emails sent by the user with real-time
+ * status updates. Supports filtering by search query, status (sent/opened),
+ * domain, and date range. Uses Supabase Realtime for live insert/update events.
+ */
+
 import { Helmet } from "react-helmet-async";
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
@@ -47,6 +54,11 @@ const statusConfig = {
   opened: { icon: Eye, color: "text-accent", bg: "bg-accent/10", label: "Opened" },
 };
 
+/**
+ * Email history list component.
+ * Fetches all email tracking records, subscribes to Realtime changes,
+ * and applies client-side filtering across multiple dimensions.
+ */
 const EmailHistory = () => {
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
@@ -113,11 +125,13 @@ const EmailHistory = () => {
     };
   }, [user?.id]);
 
+  /** Derives display status from the email record—opened_at presence takes priority. */
   const getEmailStatus = (email: EmailRecord): keyof typeof statusConfig => {
     if (email.opened_at) return "opened";
     return "sent";
   };
 
+  // Client-side multi-filter: search, status, domain, and date range
   const filteredEmails = emails.filter((email) => {
     const matchesSearch =
       email.recipient.toLowerCase().includes(searchQuery.toLowerCase()) ||

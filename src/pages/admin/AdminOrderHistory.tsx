@@ -1,3 +1,18 @@
+/**
+ * @fileoverview Admin Order History Page
+ *
+ * Read-only view of all subscription purchase orders across all users.
+ * Fetches from `subscription_history` with profile and plan joins.
+ *
+ * Features:
+ * - Summary cards: total orders, completed orders, total revenue
+ * - Searchable by email, name, Razorpay order/payment ID, or plan name
+ * - Filterable by status (all / success / pending)
+ * - Elite purchase identification (flash_sale plan_id → Elite badge)
+ * - Animated entrance via Framer Motion
+ *
+ * Amounts are stored in rupees (not paise) and formatted with INR locale.
+ */
 import { useEffect, useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { motion } from "framer-motion";
@@ -61,6 +76,12 @@ interface OrderHistoryItem {
   } | null;
 }
 
+/**
+ * Admin page displaying a complete order history across all users.
+ *
+ * Loads all rows from `subscription_history` (descending) with profile and
+ * plan data. Stats are computed client-side from the fetched dataset.
+ */
 const AdminOrderHistory = () => {
   const [orders, setOrders] = useState<OrderHistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -124,8 +145,8 @@ const AdminOrderHistory = () => {
     }
   };
 
+  /** Formats amount in INR locale. Amounts are stored as whole rupees, not paise. */
   const formatCurrency = (amountInRupees: number) => {
-    // Amounts are stored in rupees (999 = ₹999), not paise
     return new Intl.NumberFormat("en-IN", {
       style: "currency",
       currency: "INR",
@@ -142,6 +163,7 @@ const AdminOrderHistory = () => {
     return format(new Date(dateString), "MMM dd, yyyy 'at' hh:mm a");
   };
 
+  /** Returns a coloured Badge with icon for each payment status (completed/pending/failed/refunded). */
   const getStatusBadge = (status: string) => {
     const statusConfig = {
       completed: {

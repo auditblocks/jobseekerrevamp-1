@@ -1,3 +1,20 @@
+/**
+ * @module send-purchase-receipt
+ * @description Supabase Edge Function that generates and sends a branded HTML
+ * purchase receipt email after a successful payment. Supports two receipt types
+ * via `receipt_kind`:
+ *   - **subscription** (default) — includes plan duration, purchase/expiry dates.
+ *   - **ats** — one-time ATS resume scan purchase (no expiry section).
+ *
+ * Email transport priority:
+ *   1. SMTP (if `SMTP_HOST`, `SMTP_USER`, `SMTP_PASS` are configured) — preferred
+ *      for deliverability control.
+ *   2. Resend API (fallback via `RESEND_API_KEY`).
+ *
+ * Called internally by `verify-razorpay-payment` in fire-and-forget mode.
+ *
+ * @requires SMTP_HOST | RESEND_API_KEY  (at least one email transport)
+ */
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { Resend } from "https://esm.sh/resend@2.0.0";
 import nodemailer from "npm:nodemailer@6.9.15";
@@ -57,6 +74,7 @@ function generateInvoiceNumber(): string {
   return `INV-${Date.now()}`;
 }
 
+/** Strips HTML tags and style blocks for the text/plain MIME alternative. */
 function htmlToPlainText(html: string): string {
   return html
     .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, " ")
@@ -130,6 +148,10 @@ async function sendEmailResend(opts: {
   });
 }
 
+/**
+ * Builds the full HTML receipt email. Renders different detail blocks depending
+ * on whether this is a subscription purchase or a one-time ATS scan.
+ */
 function generateReceiptHTML(
   data: ReceiptRequest,
   invoiceNumber: string,
@@ -332,6 +354,7 @@ serve(async (req) => {
       `Payment Receipt - ${invoiceNumber} - ${receiptData.plan_display_name || receiptData.plan_name}`;
     const plainText = htmlToPlainText(emailHTML);
 
+    // Prefer SMTP for full deliverability control; fall back to Resend SaaS API
     if (smtpConfigured()) {
       await sendEmailSmtp({
         to: receiptData.user_email,

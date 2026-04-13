@@ -1,3 +1,13 @@
+/**
+ * @module check-gmail-replies
+ * @description Supabase Edge Function designed to run as a scheduled cron job. It polls
+ * Gmail for unread replies across all users who have connected their Google account.
+ * Unlike the push-based gmail-webhook, this serves as a reliable fallback that catches
+ * any missed notifications. Only processes replies (Re: or In-Reply-To) to existing
+ * conversation threads — unsolicited inbound emails are ignored intentionally.
+ *
+ * @route POST /check-gmail-replies  (typically invoked by pg_cron or external scheduler)
+ */
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
 
@@ -81,7 +91,7 @@ serve(async (req) => {
         const tokens = await tokenResponse.json();
         const accessToken = tokens.access_token;
 
-        // Get unread messages from last 24 hours
+        // Limit the Gmail search to the last 24 hours to bound API calls and avoid re-processing old mail
         const yesterday = new Date();
         yesterday.setDate(yesterday.getDate() - 1);
         const query = `is:inbox is:unread after:${Math.floor(yesterday.getTime() / 1000)}`;
@@ -147,8 +157,8 @@ serve(async (req) => {
             // Skip if it's from the user themselves
             if (senderEmail === userEmail) continue;
 
-            // IMPORTANT: Only process emails if a conversation thread already exists
-            // This ensures we only show replies to emails sent through the app
+            // Only ingest replies to conversations the user initiated via the app.
+            // This prevents random inbound email from cluttering the recruiter inbox.
             const { data: existingThread } = await supabase
               .from("conversation_threads")
               .select("id, total_messages, recruiter_messages_count")
@@ -162,8 +172,8 @@ serve(async (req) => {
               continue;
             }
 
-            // Additional check: Verify this is actually a reply
-            // Check if subject contains "Re:" or if it's part of a Gmail thread
+            // Secondary filter: require reply indicators (Re: prefix, In-Reply-To, or References headers)
+            // to avoid false positives from same-sender but unrelated emails
             const isReply = subjectHeader.value.toLowerCase().startsWith("re:") || 
                             inReplyToHeader || 
                             referencesHeader;
@@ -173,7 +183,7 @@ serve(async (req) => {
               continue;
             }
 
-            // Extract message body
+            // Recursively walk MIME parts; prefer plain text, fall back to HTML or snippet
             let bodyText = "";
             let bodyHtml = "";
 
@@ -270,7 +280,7 @@ serve(async (req) => {
               console.log(`Created conversation message for reply from: ${senderEmail}`);
             }
 
-            // Mark message as read in Gmail to avoid processing again
+            // Remove UNREAD label to prevent reprocessing on next cron invocation
             await fetch(
               `https://gmail.googleapis.com/gmail/v1/users/me/messages/${msg.id}/modify`,
               {

@@ -1,3 +1,13 @@
+/**
+ * @module gmail-webhook
+ * @description Supabase Edge Function that receives Gmail push notifications via
+ * Google Cloud Pub/Sub. When a new email arrives in a connected user's inbox, this
+ * function refreshes the OAuth token, fetches unread messages, extracts sender/body
+ * information, and creates or updates conversation threads in the database.
+ * Incoming messages are de-duplicated by Gmail message ID stored in metadata.
+ *
+ * @route POST /gmail-webhook  (called by Google Cloud Pub/Sub)
+ */
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
 
@@ -59,7 +69,7 @@ serve(async (req) => {
       });
     }
 
-    // Decode the base64 message data
+    // Pub/Sub message data is base64-encoded JSON containing emailAddress and historyId
     const messageData = JSON.parse(
       atob(notification.message.data)
     );
@@ -168,23 +178,21 @@ serve(async (req) => {
 
       if (!fromHeader || !subjectHeader) continue;
 
-      // Extract email from "Name <email@domain.com>" or just "email@domain.com"
+      // Handle both "Display Name <email>" and bare "email" formats
       const fromEmail = fromHeader.value.match(/<(.+)>/) 
         ? fromHeader.value.match(/<(.+)>/)?.[1] 
         : fromHeader.value.trim();
 
       if (!fromEmail) continue;
 
-      // Check if this is a reply (not from the user themselves)
-      // The user's email should be in the "To" header for sent messages
-      // For received messages, the "From" will be different
+      // Filter out the user's own sent messages that appear in the inbox
       const userEmail = emailAddress.toLowerCase();
       const senderEmail = fromEmail.toLowerCase();
 
       // Skip if it's from the user themselves
       if (senderEmail === userEmail) continue;
 
-      // Extract message body
+      // Recursively extract body from MIME parts, preferring plain text over HTML
       let bodyText = "";
       let bodyHtml = "";
 
@@ -202,6 +210,7 @@ serve(async (req) => {
         }
       };
 
+      // Gmail uses URL-safe base64 (-_ instead of +/) so we convert before decoding
       if (message.payload.parts) {
         message.payload.parts.forEach(extractBody);
       } else if (message.payload.body?.data) {
@@ -327,7 +336,7 @@ serve(async (req) => {
         console.log("Created conversation message for reply from:", senderEmail);
       }
 
-      // Mark message as read in Gmail to avoid processing again
+      // Remove UNREAD label so subsequent webhook invocations won't reprocess this message
       await fetch(
         `https://gmail.googleapis.com/gmail/v1/users/me/messages/${msg.id}/modify`,
         {

@@ -1,3 +1,10 @@
+/**
+ * @fileoverview Visual ATS (Applicant Tracking System) score gauge.
+ * Renders an overall score out of 100 with a progress bar and optional
+ * sub-score breakdown for formatting, keywords, sections, and structure.
+ * Thresholds: >=80 Excellent, >=60 Good, >=40 Fair, <40 Needs Improvement.
+ */
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
@@ -12,6 +19,10 @@ interface ATSScoreGaugeProps {
   structureScore?: number;
 }
 
+/**
+ * Renders the ATS compatibility score as a large number with a progress bar.
+ * When `showDetails` is true, also displays sub-scores with pass/warn indicators.
+ */
 const ATSScoreGauge = ({
   score,
   showDetails = false,

@@ -1,3 +1,10 @@
+/**
+ * @fileoverview Admin Exam Questions page — per-job question management.
+ * Reached via `/admin/govt-jobs/:jobId/questions`. Supports manual CRUD
+ * for MCQ and fill-in-the-blank questions, plus AI bulk generation
+ * (90-question sets) via the `generate-exam-questions` Edge Function.
+ */
+
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -27,6 +34,7 @@ import {
     Sparkles,
 } from "lucide-react";
 
+/** Exam question shape — `id` is undefined for new unsaved questions. */
 interface Question {
     id?: string;
     job_id: string;
@@ -37,6 +45,12 @@ interface Question {
     explanation: string | null;
 }
 
+/**
+ * Admin page for managing exam questions tied to a specific government job.
+ * Provides inline editing, manual add/delete, AI bulk generation, and
+ * a "clear all" action. Questions are displayed as cards with answer highlighting.
+ * @returns {JSX.Element}
+ */
 const AdminExamQuestions = () => {
     const { jobId } = useParams();
     const navigate = useNavigate();
@@ -117,6 +131,7 @@ const AdminExamQuestions = () => {
         }
     };
 
+    /** Upserts a question — inserts if no `id`, updates otherwise. */
     const handleSaveQuestion = async () => {
         if (!editingQuestion) return;
         if (!editingQuestion.question_text || !editingQuestion.correct_answer) {
@@ -151,6 +166,7 @@ const AdminExamQuestions = () => {
         }
     };
 
+    /** Invokes the AI Edge Function to generate a full 90-question practice set. */
     const handleAIGenerate = async () => {
         if (!confirm("This will use AI to generate a full 90-question mock set (~90 min practice). Continue?")) return;
 

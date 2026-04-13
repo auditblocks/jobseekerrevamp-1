@@ -1,8 +1,14 @@
+/**
+ * @fileoverview Full-width call-to-action banner promoting the Government Jobs feature.
+ * Purely presentational — navigates to `/government-jobs` on CTA click.
+ */
+
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { ChevronRight, Briefcase, Sparkles } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
+/** Gradient banner with decorative card graphic encouraging users to explore government jobs. */
 const GovtJobCTA = () => {
     const navigate = useNavigate();
     return (

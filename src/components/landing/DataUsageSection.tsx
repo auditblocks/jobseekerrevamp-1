@@ -1,9 +1,16 @@
+/**
+ * @fileoverview Privacy / data-usage transparency section on the landing page.
+ * Explains how the platform interacts with Gmail (sending, tracking, organising)
+ * and highlights what it does NOT do (no personal email access, no data selling).
+ */
+
 import { motion } from "framer-motion";
 import { Shield, Mail, Eye, Lock, CheckCircle2, XCircle, ArrowRight, ExternalLink } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
+/** Three-card data-usage explainer plus "What We Don't Do" / "You're in Control" panels. */
 const DataUsageSection = () => {
   const features = [
     {

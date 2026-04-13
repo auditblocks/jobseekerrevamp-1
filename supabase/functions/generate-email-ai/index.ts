@@ -1,3 +1,13 @@
+/**
+ * @module generate-email-ai
+ * @description Supabase Edge Function that generates personalised cold-email drafts
+ * for job seekers using the Lovable AI gateway (Gemini Pro). Combines the user's
+ * profile (name, title, bio) with recruiter/company context to produce a JSON
+ * payload containing a subject line and email body.
+ *
+ * Requires: LOVABLE_API_KEY, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
+ * Auth: Bearer token (authenticated user)
+ */
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
 
@@ -99,10 +109,9 @@ Generate a compelling cold email subject line and body.`;
     const data = await response.json();
     const content = data.choices?.[0]?.message?.content;
 
-    // Parse JSON from response
+    // The AI may wrap JSON in prose; extract the first JSON object greedily
     let emailContent;
     try {
-      // Try to extract JSON from the response
       const jsonMatch = content.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         emailContent = JSON.parse(jsonMatch[0]);
@@ -110,7 +119,7 @@ Generate a compelling cold email subject line and body.`;
         throw new Error("No JSON found");
       }
     } catch {
-      // Fallback: use the content as body
+      // Graceful degradation: treat raw text as the email body with a generic subject
       emailContent = {
         subject: `Interested in ${domain} opportunities`,
         body: content,

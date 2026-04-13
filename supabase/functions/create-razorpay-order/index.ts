@@ -1,3 +1,20 @@
+/**
+ * @module create-razorpay-order
+ * @description Supabase Edge Function that creates a Razorpay payment order for
+ * subscription purchases. Supports two flows:
+ *   1. **Flash Sale** — validates sale eligibility (active flag + inventory cap)
+ *      and uses the flash-sale price from `flash_sale_config`.
+ *   2. **Regular Plan** — looks up the plan in `subscription_plans` and resolves
+ *      the price server-side (monthly or yearly with 20% discount fallback).
+ *
+ * After creating the Razorpay order, a pending record is inserted into
+ * `subscription_history` so the verify step can reconcile later.
+ *
+ * @requires SUPABASE_URL
+ * @requires SUPABASE_SERVICE_ROLE_KEY
+ * @requires RAZORPAY_KEY_ID
+ * @requires RAZORPAY_KEY_SECRET
+ */
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
 
@@ -79,6 +96,7 @@ serve(async (req) => {
         throw new Error("Flash sale is no longer active");
       }
 
+      // Inventory guard — RPC returns aggregate purchase count to enforce the cap
       const { data: saleStats, error: statsError } = await supabase
         .rpc("get_flash_sale_purchase_stats");
       if (statsError) {
@@ -86,6 +104,7 @@ serve(async (req) => {
         throw new Error("Could not validate flash sale availability. Please try again.");
       }
 
+      // RPC may return a single object or a one-element array depending on PostgREST config
       const stats = Array.isArray(saleStats) ? saleStats[0] : saleStats;
       const purchasedCount = Number(stats?.purchased_count ?? 0);
       const maxPurchases = Number(stats?.max_purchases ?? saleConfig.max_purchases ?? 100);
@@ -110,12 +129,13 @@ serve(async (req) => {
       // SECURITY FIX: price is determined server-side from DB
       amount = plan.price; // default monthly
       if (billing_cycle === 'yearly') {
+        // Prefer explicit yearly_price; fall back to 20% annual discount if column is null
         amount = plan.yearly_price ?? Math.round(plan.price * 12 * 0.8);
       }
       planNameForHistory = plan_id;
     }
 
-    // Create Razorpay order
+    // Create Razorpay order — amount is multiplied by 100 because Razorpay expects paise
     const credentials = btoa(`${razorpayKeyId}:${razorpayKeySecret}`);
     const orderResponse = await fetch("https://api.razorpay.com/v1/orders", {
       method: "POST",
@@ -127,6 +147,8 @@ serve(async (req) => {
         amount: amount * 100, // Convert to paise
         currency: "INR",
         receipt: `order_${Date.now()}`,
+        // Notes are persisted on Razorpay's side and read back during verification
+        // to recover billing_cycle without an extra DB column
         notes: {
           plan_id: planNameForHistory,
           user_id: user.id,

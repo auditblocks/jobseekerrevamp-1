@@ -1,3 +1,22 @@
+/**
+ * @fileoverview Admin Private Jobs (Naukri & LinkedIn) — Apify Integration Page
+ *
+ * Manages two separate Apify-powered scraping pipelines that feed into the
+ * shared `naukri_jobs` table:
+ *
+ * - **Naukri tab** – API token, Actor ID, optional dataset override. Supports
+ *   "Run sync" (starts actor + imports) and "Import only" (skips actor run).
+ * - **LinkedIn tab** – Dedicated or shared token, Actor ID, saved search URLs.
+ *   Same sync/import-only controls.
+ * - **Job Listings tab** – Browse, toggle public visibility, and delete jobs
+ *   via the `AdminPrivateJobsListings` component.
+ *
+ * Daily apply limits per tier are stored in `dashboard_config` and upserted
+ * from this page. Sync logs from both pipelines are shown in a unified table.
+ *
+ * Secrets (API tokens) are stored in `admin_integration_secrets` — a
+ * superadmin-only table with RLS.
+ */
 import { useEffect, useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { AdminLayout } from "@/components/admin/AdminLayout";
@@ -22,6 +41,7 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { AdminPrivateJobsListings } from "@/components/admin/AdminPrivateJobsListings";
 
+/** Secret key identifiers stored in `admin_integration_secrets` for each pipeline. */
 const NAUKRI_SECRET_KEYS = {
   token: "apify_api_token",
   actor: "apify_actor_id",
@@ -102,6 +122,7 @@ type ApifySyncResponse = {
   duplicate_apply_urls_in_dataset?: number;
 };
 
+/** Displays a detailed sync summary toast with dataset counts and dedup info. */
 function toastSyncStats(d: {
   dataset_item_count?: number;
   unique_apply_urls?: number;
@@ -135,6 +156,13 @@ const APPLY_LIMIT_KEYS = [
   "private_apply_promax_max",
 ] as const;
 
+/**
+ * Admin page for Naukri & LinkedIn Apify integrations.
+ *
+ * On mount, loads integration secrets and sync logs. Provides separate
+ * save/sync actions per pipeline. The LinkedIn pipeline can fall back
+ * to the shared Naukri Apify token when no dedicated token is configured.
+ */
 const AdminNaukriJobs = () => {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
@@ -161,6 +189,7 @@ const AdminNaukriJobs = () => {
   const [editLinkedInUrls, setEditLinkedInUrls] = useState("");
   const [logs, setLogs] = useState<SyncLogRow[]>([]);
 
+  /** Loads all Naukri + LinkedIn secrets from `admin_integration_secrets` and derives saved state. */
   const loadSecrets = async () => {
     setLoading(true);
     try {
@@ -302,6 +331,7 @@ const AdminNaukriJobs = () => {
     }
   };
 
+  /** Upserts a single key-value pair in `admin_integration_secrets`. */
   const upsertSecret = async (key: string, value: string) => {
     const { error } = await supabase.from("admin_integration_secrets" as never).upsert(
       {
@@ -354,10 +384,12 @@ const AdminNaukriJobs = () => {
     }
   };
 
+  // Gate sync buttons: require at minimum a token and either an actor or dataset ID.
   const canRunNaukriSync =
     savedConfig.hasToken &&
     (savedConfig.actorId.trim().length > 0 || savedConfig.datasetId.trim().length > 0);
 
+  // LinkedIn can use either its own token or fall back to the shared Naukri token.
   const linkedInEffectiveToken =
     savedLinkedIn.hasDedicatedToken || savedLinkedIn.hasSharedTokenFallback;
 
@@ -381,6 +413,10 @@ const AdminNaukriJobs = () => {
     return msg;
   };
 
+  /**
+   * Shared helper to invoke a sync edge function with a fresh session token.
+   * Refreshes the auth session first to prevent stale-token errors on long admin sessions.
+   */
   const runEdgeSync = async (
     fnName: "sync-naukri-apify" | "sync-linkedin-apify",
     body: Record<string, unknown>,

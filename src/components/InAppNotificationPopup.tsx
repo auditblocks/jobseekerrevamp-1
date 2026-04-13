@@ -1,3 +1,10 @@
+/**
+ * @fileoverview Floating in-app notification popup.
+ * Fetches unread notifications from `user_notifications` and subscribes to
+ * Supabase Realtime inserts. Shows one notification at a time with dismiss/next
+ * navigation and a "View All" link to the notifications page.
+ */
+
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
@@ -15,6 +22,11 @@ interface Notification {
   created_at: string;
 }
 
+/**
+ * Animated toast-style popup anchored to the bottom-right corner.
+ * Cycles through up to 5 unread notifications; dismissing marks each as read.
+ * Subscribes to Realtime so new notifications appear instantly.
+ */
 export function InAppNotificationPopup() {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -76,6 +88,7 @@ export function InAppNotificationPopup() {
     };
   }, [user]);
 
+  /** Marks the current notification as read and advances to the next, or hides the popup. */
   const handleDismiss = async () => {
     if (notifications[currentIndex]) {
       // Mark current notification as read
@@ -97,6 +110,7 @@ export function InAppNotificationPopup() {
     navigate("/notifications");
   };
 
+  /** Returns a colored icon matching the notification type (success, warning, promo, info). */
   const getTypeIcon = (type: string) => {
     switch (type) {
       case "success":

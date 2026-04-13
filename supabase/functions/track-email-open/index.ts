@@ -1,7 +1,17 @@
+/**
+ * @module track-email-open
+ * @description Supabase Edge Function that handles email engagement tracking via a
+ * transparent tracking pixel. Supports multiple event types (open, click, reply,
+ * bounce, delivered) and updates both individual email tracking records and
+ * campaign-level aggregate counters. Returns a 1x1 GIF for open events and
+ * performs a 302 redirect for click events.
+ *
+ * @route GET /track-email-open?id=<trackingId>&event=<eventType>&url=<redirectUrl>
+ */
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
 
-// 1x1 transparent GIF pixel
+// 1x1 transparent GIF pixel used as a tracking beacon in emails
 const PIXEL = new Uint8Array([
   0x47, 0x49, 0x46, 0x38, 0x39, 0x61, 0x01, 0x00,
   0x01, 0x00, 0x80, 0x00, 0x00, 0xff, 0xff, 0xff,
@@ -106,7 +116,8 @@ serve(async (req) => {
     }
 
     if (Object.keys(updateData).length > 0) {
-      // Check if this is a campaign recipient tracking
+      // Determine if this tracking ID belongs to a campaign recipient or a standalone email.
+      // Campaign recipients follow a separate update path with aggregate counter logic.
       const { data: campaignRecipient } = await supabase
         .from("email_campaign_recipients")
         .select("id, campaign_id, opened_at")
@@ -114,7 +125,7 @@ serve(async (req) => {
         .maybeSingle();
 
       if (campaignRecipient && eventType === "open" && !campaignRecipient.opened_at) {
-        // Update campaign recipient
+        // Only count the first open per recipient to avoid inflating campaign metrics
         await supabase
           .from("email_campaign_recipients")
           .update({
@@ -139,7 +150,8 @@ serve(async (req) => {
             .eq("id", campaignRecipient.campaign_id);
         }
       } else if (!campaignRecipient) {
-        // For open events, only update if not already opened
+        // Standalone (non-campaign) email tracking.
+        // For opens, guard with `opened_at IS NULL` to prevent duplicate counting.
         if (eventType === "open") {
           const { error } = await supabase
             .from("email_tracking")
@@ -167,7 +179,8 @@ serve(async (req) => {
         }
       }
 
-      // Also update conversation_messages if linked
+      // Propagate status changes to the conversation_messages table
+      // so the UI reflects the latest engagement state inline
       const { data: trackingData } = await supabase
         .from("email_tracking")
         .select("email_id")

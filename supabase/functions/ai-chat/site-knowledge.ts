@@ -1,4 +1,13 @@
 /**
+ * @module site-knowledge
+ * @description Static knowledge base injected into the ai-chat system prompt.
+ * Contains product facts, route map, support channels, safety guardrails, and
+ * rules for handling live listing snapshots passed in the user context.
+ *
+ * Keep this file in sync with any route or feature changes in the main app.
+ */
+
+/**
  * Curated facts about JobSeeker (startworking.in) for the public chatbot.
  * Update when routes or major features change.
  */
@@ -42,6 +51,7 @@ export const SITE_KNOWLEDGE = `
 - Do not invent features, partners, or guarantees not described above. If unsure, say you are not sure and suggest **/faq**, **/contact**, or support email.
 `;
 
+/** Guardrails that prevent the chatbot from overstepping its scope. */
 export const CHATBOT_SAFETY_RULES = `
 ## Response rules
 - Prefer short, clear answers. Use bullet lists for navigation or steps when helpful.
@@ -50,6 +60,7 @@ export const CHATBOT_SAFETY_RULES = `
 - Stay helpful for general job-search advice and how to use the product at a high level.
 `;
 
+/** Rules for answering questions when the frontend injects live job-listing data. */
 export const LISTING_SNAPSHOT_RULES = `
 ## Live listing data (when present)
 If the user message context includes a section starting with **LISTING DATA FOR THIS PAGE**, that block is a live snapshot from the user’s current screen (and related totals). You MUST:

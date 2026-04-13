@@ -1,10 +1,18 @@
-/** Map Apify curious_coder~linkedin-jobs-scraper dataset items to naukri_jobs row shape. */
+/**
+ * @module map-linkedin-item
+ * @description Best-effort mapper that normalises Apify LinkedIn scraper dataset
+ * items (primarily curious_coder~linkedin-jobs-scraper) into the `naukri_jobs`
+ * row shape. Handles HTML descriptions by stripping tags, combines salary info
+ * arrays, and derives experience text from seniority + employment type fields.
+ * Items without a valid title + HTTP URL are rejected (return null).
+ */
 
 function truncate(s: string, max: number): string {
   if (s.length <= max) return s;
   return s.slice(0, max - 1) + "…";
 }
 
+/** Strips script/style blocks first, then all remaining HTML tags. */
 function stripHtml(html: string): string {
   return html
     .replace(/<script[\s\S]*?<\/script>/gi, "")
@@ -41,6 +49,7 @@ function pickHttpUrl(obj: Record<string, unknown>, keys: string[]): string | nul
   return null;
 }
 
+/** Coerces skills into an array – handles arrays, comma/pipe-delimited strings, and objects. */
 function normalizeSkills(raw: unknown): unknown {
   if (raw === null || raw === undefined) return [];
   if (Array.isArray(raw)) return raw;
@@ -67,6 +76,10 @@ export interface MappedLinkedInJob {
   raw_item: Record<string, unknown>;
 }
 
+/**
+ * Maps a single raw Apify dataset item to a `MappedLinkedInJob`. Returns null
+ * when mandatory fields (title, valid HTTP job URL) are missing.
+ */
 export function mapLinkedInItemToRow(item: unknown): MappedLinkedInJob | null {
   if (!item || typeof item !== "object") return null;
   const o = item as Record<string, unknown>;
@@ -91,6 +104,7 @@ export function mapLinkedInItemToRow(item: unknown): MappedLinkedInJob | null {
     if (!Number.isNaN(t)) posted_at = new Date(t).toISOString();
   }
 
+  // Prefer plain text description; fall back to stripping HTML if only HTML is available
   let summary: string | null = null;
   const descText = pickString(o, ["descriptionText", "description", "snippet"]);
   if (descText) {
@@ -103,6 +117,7 @@ export function mapLinkedInItemToRow(item: unknown): MappedLinkedInJob | null {
     }
   }
 
+  // LinkedIn sometimes provides salary as an array of parts (e.g. ["$100K", "per year"])
   let salary_text: string | null = null;
   const si = o.salaryInfo;
   if (Array.isArray(si) && si.length) {
@@ -113,6 +128,7 @@ export function mapLinkedInItemToRow(item: unknown): MappedLinkedInJob | null {
     salary_text = pickString(o, ["salary", "salaryText"]);
   }
 
+  // Combine seniority level + employment type as a single experience descriptor
   const seniority = pickString(o, ["seniorityLevel", "seniority"]);
   const employment = pickString(o, ["employmentType", "employment"]);
   const experience_text = [seniority, employment].filter(Boolean).join(" · ") || null;
@@ -140,6 +156,7 @@ export function mapLinkedInItemToRow(item: unknown): MappedLinkedInJob | null {
   };
 }
 
+/** Generates a deterministic SHA-256 hex digest of the URL, used as upsert key in naukri_jobs. */
 export async function externalKeyFromUrl(applyUrl: string): Promise<string> {
   const enc = new TextEncoder().encode(applyUrl);
   const buf = await crypto.subtle.digest("SHA-256", enc);

@@ -1,3 +1,12 @@
+/**
+ * @file Settings.tsx
+ * @description User settings page with tabbed sections: Profile (personal info + photo upload),
+ * Resume (multi-file upload with drag-and-drop, primary resume selection),
+ * Notifications (toggle preferences persisted in profile.preferences JSON),
+ * Subscription (current plan + upgrade via embedded Razorpay checkout),
+ * and Contact us (support form).
+ */
+
 import { Helmet } from "react-helmet-async";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { motion } from "framer-motion";
@@ -87,6 +96,10 @@ interface Resume {
   created_at: string;
 }
 
+/**
+ * Settings page component — consolidates user account management into a single
+ * tabbed view. Each tab lazy-loads its data from Supabase on mount.
+ */
 const Settings = () => {
   const navigate = useNavigate();
   const { user, isElite } = useAuth();
@@ -303,6 +316,10 @@ const Settings = () => {
     }
   };
 
+  /**
+   * Validates file type/size, uploads to Supabase Storage, and creates a
+   * user_resumes row. The first uploaded resume is automatically marked primary.
+   */
   const uploadResumeFile = async (file: File) => {
     if (!user?.id) return;
 
@@ -393,6 +410,7 @@ const Settings = () => {
     }
   }, [user?.id, resumes.length]);
 
+  /** Two-step primary toggle: unsets all, then sets the chosen one — ensures single primary. */
   const handleSetPrimary = async (resumeId: string) => {
     if (!user?.id) return;
 
@@ -417,6 +435,7 @@ const Settings = () => {
     }
   };
 
+  /** Deletes the storage object and the DB row, then refreshes the local list. */
   const handleDeleteResume = async (resumeId: string, fileUrl: string) => {
     if (!user?.id) return;
 
@@ -441,6 +460,7 @@ const Settings = () => {
     }
   };
 
+  /** Merges notification toggles into the existing preferences JSON column on profiles. */
   const handleSaveNotifications = async () => {
     if (!user?.id) return;
 
@@ -472,6 +492,7 @@ const Settings = () => {
     }
   };
 
+  /** Opens Razorpay checkout for the selected plan/cycle. Identical flow to the Subscription page. */
   const handleUpgradePlan = async (plan: SubscriptionPlan, billingCycle: "monthly" | "yearly") => {
     if (!user?.id || plan.price === 0) return;
 

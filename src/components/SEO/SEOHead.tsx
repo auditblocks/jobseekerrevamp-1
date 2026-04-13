@@ -1,3 +1,9 @@
+/**
+ * @fileoverview Centralized SEO meta-tag component using `react-helmet-async`.
+ * Sets primary meta, Open Graph, and Twitter Card tags for each page.
+ * Supports canonical URLs, robots directives, and article date metadata.
+ */
+
 import { Helmet } from "react-helmet-async";
 
 interface SEOHeadProps {
@@ -14,6 +20,12 @@ interface SEOHeadProps {
   dateModified?: string;
 }
 
+/**
+ * Injects `<head>` meta tags for SEO (title, description, OG, Twitter Card).
+ * Automatically prepends the base URL to canonical and image paths.
+ * @param noindex - When true, tells crawlers not to index the page.
+ * @param nofollow - When true, tells crawlers not to follow outbound links.
+ */
 const SEOHead = ({
   title,
   description,

@@ -1,3 +1,11 @@
+/**
+ * @file Recruiters.tsx
+ * @description Recruiter directory page. Lists recruiters from the database with
+ * server-side pagination and client-side filtering by domain, tier, and search query.
+ * Access to recruiter contact info is gated by the user's subscription tier—locked
+ * recruiters prompt an upgrade CTA.
+ */
+
 import { Helmet } from "react-helmet-async";
 import { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
@@ -50,6 +58,11 @@ const tierConfig = {
 
 const PAGE_SIZE = 12;
 
+/**
+ * Recruiter browsing page component.
+ * Implements debounced search, domain/tier pill filters, server-side pagination,
+ * and subscription-tier-based access control for recruiter contact details.
+ */
 const Recruiters = () => {
   const navigate = useNavigate();
   const { profile, isSuperadmin, loading: authLoading } = useAuth();
@@ -167,23 +180,28 @@ const Recruiters = () => {
     fetchRecruiters(page);
   }, [page, fetchRecruiters]);
 
-  // Robust Level Logic
+  /**
+   * Normalises various tier string representations into a numeric level.
+   * Handles inconsistent DB values like "Pro Max", "PRO_MAX", "PROMAX".
+   * @returns 0 = FREE, 1 = PRO, 2 = PRO_MAX
+   */
   const getTierLevel = (tier: string | null): number => {
-    const t = (tier || "").trim().toUpperCase().replace(/\s+/g, "_"); // "Pro Max" -> "PRO_MAX"
+    const t = (tier || "").trim().toUpperCase().replace(/\s+/g, "_");
     if (t === "PRO_MAX" || t === "PROMAX") return 2;
-    // Map "PRO PLAN" etc to Level 1
     if (t === "PRO" || t === "PRO_PLAN" || t === "PROPLAN") return 1;
-    return 0; // FREE or unknown
+    return 0;
   };
 
+  /**
+   * Determines whether the current user can view a recruiter's contact info.
+   * Superadmins bypass all restrictions; otherwise user tier must be >= recruiter tier.
+   */
   const c_canAccessRecruiter = (tier: string | null) => {
-    // Admin always accesses everything
     if (isSuperadmin) return true;
 
     const recruiterLevel = getTierLevel(tier);
     const userLevel = getTierLevel(profile?.subscription_tier);
 
-    // Logic: User Level must be >= Recruiter Level
     return userLevel >= recruiterLevel;
   };
 

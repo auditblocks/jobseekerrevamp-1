@@ -1,3 +1,19 @@
+/**
+ * @module admin-delete-user
+ * @description Supabase Edge Function that allows a **superadmin** to permanently
+ * delete another user. The function performs a multi-layered authorization check
+ * (user_roles table → profiles.role → auth metadata) before proceeding.
+ *
+ * Deletion strategy:
+ *   - If the target exists in Supabase Auth → call the Auth Admin DELETE API, which
+ *     cascades to remove the profile row (via FK / trigger).
+ *   - If the Auth account is already gone (orphaned profile) → delete the profile
+ *     row directly so the admin dashboard stays clean.
+ *   - Self-deletion is blocked to prevent accidental lockout.
+ *
+ * @requires SUPABASE_URL
+ * @requires SUPABASE_SERVICE_ROLE_KEY
+ */
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
 
@@ -6,6 +22,13 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+/**
+ * Multi-source superadmin check. Returns true if the caller is an admin in ANY of:
+ *   1. `user_roles` table (role = 'admin')
+ *   2. `profiles` table (role = 'superadmin')
+ *   3. Supabase Auth user_metadata or app_metadata (role = 'superadmin')
+ * This redundancy ensures authorization works even when one source is out-of-sync.
+ */
 async function isCallerSuperadmin(
   service: ReturnType<typeof createClient>,
   callerId: string
@@ -96,6 +119,8 @@ serve(async (req) => {
       );
     }
 
+    // Check if the target user still has an Auth account; they might only have
+    // an orphaned profile row if a previous partial deletion occurred
     const { data: targetAuth, error: targetLookupErr } =
       await service.auth.admin.getUserById(user_id);
     if (
@@ -111,6 +136,7 @@ serve(async (req) => {
 
     const authUserPresent = !!targetAuth?.user;
 
+    // Orphaned profile path — Auth account is already gone, clean up the DB row
     if (!authUserPresent) {
       const { error: profDelErr } = await service
         .from("profiles")
@@ -136,6 +162,8 @@ serve(async (req) => {
       );
     }
 
+    // Use the raw Auth Admin REST API (not the JS SDK method) because the SDK's
+    // deleteUser may not cascade correctly in all Supabase versions
     const baseUrl = supabaseUrl.replace(/\/$/, "");
     const delUrl = `${baseUrl}/auth/v1/admin/users/${encodeURIComponent(user_id)}`;
     const delRes = await fetch(delUrl, {
@@ -169,6 +197,8 @@ serve(async (req) => {
       }
       console.error("admin-delete-user auth API:", delRes.status, detail);
 
+      // Race condition guard: if Auth says 404 after we just confirmed the user
+      // existed, re-check and clean up the profile to avoid stale orphan rows
       const looksNotFound =
         delRes.status === 404 ||
         /user not found/i.test(detail) ||

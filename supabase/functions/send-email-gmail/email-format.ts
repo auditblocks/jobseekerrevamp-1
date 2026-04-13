@@ -1,3 +1,13 @@
+/**
+ * @file email-format — MIME message construction and encoding helpers for Gmail API.
+ *
+ * Converts plain-text email bodies to styled HTML, attaches a tracking pixel,
+ * and builds RFC 822 compliant MIME messages (with optional file attachments)
+ * ready for the Gmail `messages.send` endpoint.
+ *
+ * Uses Deno std `base64` for encoding to avoid JS engine `btoa` size limits
+ * when handling large resume attachments.
+ */
 import { encode as encodeBase64 } from "https://deno.land/std@0.190.0/encoding/base64.ts";
 
 /** Escape HTML entities for safe insertion into HTML email bodies. */
@@ -18,6 +28,7 @@ function isLikelyUrlSegment(part: string): boolean {
  * Turn plain-text (with newlines) into readable HTML: paragraphs, line breaks, clickable links.
  */
 export function formatPlainTextToHtml(text: string): string {
+  // Split on URLs so they can be converted to clickable <a> tags while the rest is escaped
   const URL_SPLIT = /(https?:\/\/[^\s]+|www\.[^\s]+)/gi;
   const parts = text.split(URL_SPLIT);
 
@@ -42,6 +53,7 @@ export function wrapHtmlWithTrackingPixel(innerHtml: string, trackingPixelUrl: s
   return `${innerHtml}<p style="margin:0;font-size:1px;line-height:0;"><img src="${escapeHtml(trackingPixelUrl)}" width="1" height="1" style="display:none;" alt="" /></p>`;
 }
 
+/** Encode a Unicode subject line per RFC 2047 (=?utf-8?B?...?=) for MIME headers. */
 export function encodeRfc2047Subject(subject: string): string {
   return `=?utf-8?B?${btoa(unescape(encodeURIComponent(subject)))}?=`;
 }
@@ -62,6 +74,11 @@ export interface MimeAttachment {
   base64Body: string;
 }
 
+/**
+ * Assemble a complete RFC 822 MIME message string.
+ * When there are no attachments a simple text/html message is returned;
+ * otherwise a multipart/mixed message is built with each attachment as a part.
+ */
 export function buildGmailRawMessage(opts: {
   to: string;
   subject: string;

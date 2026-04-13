@@ -1,3 +1,10 @@
+/**
+ * @fileoverview Resume ATS analysis component.
+ * Invokes the `analyze-resume` edge function, displays the ATS score gauge,
+ * keyword match results, optimization suggestions, strengths, and weaknesses.
+ * Optionally accepts a job description for targeted keyword matching.
+ */
+
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -26,6 +33,13 @@ interface Analysis {
   created_at: string;
 }
 
+/**
+ * Analyzes a selected resume for ATS compatibility.
+ * Loads the most recent analysis on mount, and allows triggering a new analysis
+ * with an optional job description for keyword matching.
+ * @param resumeId - The resume to analyze; `null` shows a placeholder prompt.
+ * @param onAnalysisComplete - Optional callback fired after a successful analysis run.
+ */
 const ResumeAnalysis = ({ resumeId, onAnalysisComplete }: ResumeAnalysisProps) => {
   const [jobDescription, setJobDescription] = useState("");
   const [analyzing, setAnalyzing] = useState(false);
@@ -40,6 +54,7 @@ const ResumeAnalysis = ({ resumeId, onAnalysisComplete }: ResumeAnalysisProps) =
     }
   }, [resumeId]);
 
+  /** Fetches the most recent analysis record for this resume, tolerating "not found" gracefully. */
   const loadLatestAnalysis = async () => {
     if (!resumeId) return;
 
@@ -81,6 +96,7 @@ const ResumeAnalysis = ({ resumeId, onAnalysisComplete }: ResumeAnalysisProps) =
     }
   };
 
+  /** Refreshes auth, calls the `analyze-resume` edge function via direct fetch, and persists results. */
   const handleAnalyze = async () => {
     if (!resumeId) {
       toast.error("Please select a resume first");

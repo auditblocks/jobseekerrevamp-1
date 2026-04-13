@@ -1,3 +1,21 @@
+/**
+ * @module generate-exam-questions
+ * @description Supabase Edge Function that generates AI-powered practice question
+ * sets for Indian government job exams. The generation pipeline:
+ *
+ *   1. Authenticate the user and enforce the entitlement gate — PRO_MAX users get
+ *      unrestricted access; lower tiers must have the job in their tracker.
+ *   2. Fetch exam configuration (`master_exams`) and previous-year questions (PYQs)
+ *      to seed the AI prompt with real section distributions & difficulty ratios.
+ *   3. Generate questions in batches of 15 (to stay within LLM token limits) using
+ *      the first available AI provider: OpenRouter → Gemini SDK → Lovable gateway.
+ *   4. Parse the JSON responses with fallback regex extraction, then persist all
+ *      questions to `exam_questions`.
+ *
+ * @requires SUPABASE_URL
+ * @requires SUPABASE_SERVICE_ROLE_KEY
+ * @requires OPENROUTER_API_KEY | GEMINI_API_KEY | LOVABLE_API_KEY  (at least one)
+ */
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
 import { GoogleGenerativeAI } from "https://esm.sh/@google/generative-ai@0.21.0";
@@ -75,6 +93,8 @@ serve(async (req) => {
         const { jobId, examName, postName, organization, count, masterExamId } = body;
 
         // --- Tier + entitlement gate ---
+        // PRO_MAX users can generate for any job; lower tiers must have explicitly
+        // tracked the job — this prevents abuse of the AI generation quota
         const { data: profile } = await supabase
             .from("profiles")
             .select("subscription_tier")
@@ -127,6 +147,7 @@ serve(async (req) => {
             }
         }
 
+        // Clamp question count to [1, 120] to prevent prompt abuse or excessively long runs
         const rawCount = count ?? config?.total_questions ?? 10;
         const totalCount = Math.min(120, Math.max(1, Math.floor(Number(rawCount)) || 10));
         const sectionInfo = config?.section_distribution
@@ -142,6 +163,8 @@ serve(async (req) => {
             : "No specific PYQ data available in DB. Use your internal knowledge of the last 5 years of this exam to identify high-frequency topics, topic weightage, difficulty trends, and repeated question patterns.";
 
         // --- BATCH GENERATION LOGIC ---
+        // Generate in batches of 15 to stay within most LLMs' reliable output token
+        // window; larger batches risk truncated JSON and wasted API calls
         const BATCH_SIZE = 15;
         const allQuestions: any[] = [];
         const iterations = Math.ceil(totalCount / BATCH_SIZE);
@@ -170,7 +193,7 @@ Respond ONLY with the JSON array.`;
 
             let content = "";
 
-            // AI Selection logic
+            // AI provider waterfall: OpenRouter (preferred) → Gemini SDK → Lovable gateway
             if (openRouterApiKey) {
                 const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
                     method: "POST",
@@ -226,17 +249,17 @@ Respond ONLY with the JSON array.`;
             }
 
             // --- Robust Parsing for this Batch ---
+            // LLMs sometimes wrap JSON in markdown fences or include preamble text;
+            // we strip fences first and fall back to regex extraction if JSON.parse fails
             let batchQuestions = [];
             try {
                 let cleanedContent = content.trim();
-                // Remove markdown code blocks
                 cleanedContent = cleanedContent.replace(/^```json\n?/, "").replace(/\n?```$/, "");
                 cleanedContent = cleanedContent.replace(/^```\n?/, "").replace(/\n?```$/, "");
 
                 try {
                     batchQuestions = JSON.parse(cleanedContent);
                 } catch (e) {
-                    // Fallback to regex if direct parse fails
                     const jsonMatch = cleanedContent.match(/\[\s*\{[\s\S]*\}\s*\]/);
                     if (jsonMatch) {
                         batchQuestions = JSON.parse(jsonMatch[0]);

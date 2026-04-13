@@ -1,3 +1,21 @@
+/**
+ * @fileoverview Admin Subscription Management Page
+ *
+ * Two-tab admin interface:
+ *
+ * **Subscriptions tab:**
+ * - Summary stats (total orders, active subs, revenue)
+ * - CRUD for subscription plans stored in `subscription_plans`
+ * - Recent order history from `subscription_history` (last 50 orders)
+ *   with user/plan joins and Elite member badges
+ *
+ * **ATS Scan Pricing tab:**
+ * - ATS resume scan stats (total/paid/revenue from `resume_analyses`)
+ * - Configurable per-scan price stored in `ats_scan_settings`
+ *
+ * Plan creation/editing includes auto-computed yearly pricing based on
+ * the monthly price and discount percentage.
+ */
 import { useEffect, useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { AdminLayout } from "@/components/admin/AdminLayout";
@@ -81,6 +99,13 @@ const defaultPlan: Partial<SubscriptionPlan> = {
   yearly_price: 0,
 };
 
+/**
+ * Admin page for subscription plan management, order history, and ATS scan pricing.
+ *
+ * Loads subscription history (with profile/plan joins), plan definitions, and
+ * ATS scan analytics on mount. Plans can be created/edited via a dialog with
+ * auto-computed yearly pricing.
+ */
 export default function AdminSubscriptions() {
   const [subscriptions, setSubscriptions] = useState<SubscriptionHistory[]>([]);
   const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
@@ -175,7 +200,7 @@ export default function AdminSubscriptions() {
       if (historyError) throw historyError;
       setSubscriptions(historyData || []);
 
-      // Calculate stats
+      // Derive summary stats from completed orders only (active = not yet expired)
       const completedSubs = (historyData || []).filter((s) => s.status === "completed");
       setStats({
         total: (historyData || []).length,
@@ -221,6 +246,10 @@ export default function AdminSubscriptions() {
     setIsEditOpen(true);
   };
 
+  /**
+   * Creates or updates a subscription plan. Yearly price is auto-computed from
+   * `price * 12 * (1 - discount%)`. Uses existence check to decide insert vs update.
+   */
   const handleSavePlan = async () => {
     if (!editingPlan) return;
     

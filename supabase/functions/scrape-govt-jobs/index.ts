@@ -1,3 +1,15 @@
+/**
+ * @file scrape-govt-jobs — Supabase Edge Function
+ *
+ * Admin-only endpoint that orchestrates government job scraping from multiple
+ * configurable sources (UPSC, FreeJobAlert, SSC, etc.). For each source it:
+ *   1. Fetches the listing page and extracts individual job links via a source adapter.
+ *   2. Scrapes detail pages and upserts structured `govt_jobs` rows.
+ *   3. Optionally triggers AI-based exam question generation for newly scraped jobs.
+ *
+ * Accepts `source`, `limit`, `forceRegenerate`, and `generateExams` in the
+ * JSON body. Returns per-source counters and a processed-jobs manifest.
+ */
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
 import { extractActiveExamLinks, scrapeUpscDetail, type GovtJobPayload } from "./adapters/upsc_v1.ts";
@@ -59,6 +71,8 @@ serve(async (req) => {
     const forceRegenerate = body?.forceRegenerate === true;
     const sourceParam = typeof body?.source === "string" ? body.source.trim().toLowerCase() : "";
     const generateExamsExplicit = body?.generateExams;
+    // Exam generation is gated: auto-enabled only for small batches (<=10) to
+    // avoid runaway AI costs; explicitly opt-in allows up to 25 per invocation.
     const allowExamGeneration =
       (generateExamsExplicit === true &&
         listingLimit !== null &&
@@ -134,10 +148,12 @@ serve(async (req) => {
 
         for (const link of examLinks) {
           try {
+            // Throttle requests to avoid being rate-limited by the source site
             await delay(source.requestDelayMs);
             const detailHtml = await fetchHtml(link);
             const payload = await scrapeDetailForSource(source, detailHtml, link);
 
+            // Check if this job already exists (by slug) to distinguish insert vs update
             const { data: existing, error: existingError } = await supabase
               .from("govt_jobs")
               .select("id")
@@ -154,6 +170,7 @@ serve(async (req) => {
               countersBump(globalCounters, bySource, source.key, "inserted");
             }
 
+            // Re-fetch the job row to get its DB-assigned id for exam question generation
             const { data: jobData, error: jobError } = await supabase
               .from("govt_jobs")
               .select("id")
@@ -161,6 +178,7 @@ serve(async (req) => {
               .maybeSingle();
             if (jobError || !jobData?.id) throw jobError ?? new Error("Unable to retrieve inserted job");
 
+            // Skip exam generation if questions already exist (unless force-regenerate)
             const { count: questionCount, error: countError } = await supabase
               .from("exam_questions")
               .select("id", { count: "exact", head: true })
@@ -180,6 +198,7 @@ serve(async (req) => {
               continue;
             }
 
+            // Resolve which master_exam template to use for AI question generation
             const masterExamId = await resolveMasterExamId(
               supabase,
               payload.exam_name,
@@ -196,6 +215,7 @@ serve(async (req) => {
               continue;
             }
 
+            // Delegate to the generate-exam-questions Edge Function using service role auth
             const fnResp = await fetch(`${supabaseUrl}/functions/v1/generate-exam-questions`, {
               method: "POST",
               headers: {
@@ -257,6 +277,7 @@ serve(async (req) => {
   }
 });
 
+/** Resolve which source configs to scrape based on the caller's `source` param ("all" or a specific key). */
 function resolveSourcesToRun(sourceParam: string): GovtJobSourceConfig[] {
   if (!sourceParam || sourceParam === "all") {
     return listEnabledSources();
@@ -272,6 +293,7 @@ function resolveSourcesToRun(sourceParam: string): GovtJobSourceConfig[] {
   return [cfg];
 }
 
+/** Increment a counter in both the global summary and the per-source breakdown. */
 function countersBump(
   global: {
     inserted: number;
@@ -288,6 +310,7 @@ function countersBump(
   if (bySource[sourceKey]) bySource[sourceKey][field] += 1;
 }
 
+/** Dispatch to the correct adapter's link-extraction logic based on `source.adapter`. */
 async function extractLinksForSource(source: GovtJobSourceConfig, listingHtml: string): Promise<string[]> {
   switch (source.adapter) {
     case "upsc_v1":
@@ -301,6 +324,7 @@ async function extractLinksForSource(source: GovtJobSourceConfig, listingHtml: s
   }
 }
 
+/** Dispatch to the correct adapter's detail-scraping logic. */
 async function scrapeDetailForSource(
   source: GovtJobSourceConfig,
   html: string,
@@ -318,6 +342,10 @@ async function scrapeDetailForSource(
   }
 }
 
+/**
+ * Normalise the caller-provided `limit` into a concrete number or `null` (unlimited).
+ * Defaults to 120 if omitted; clamps within [1, MAX_JOBS_PER_SOURCE].
+ */
 function parseListingLimit(raw: unknown): number | null {
   if (raw === undefined || raw === null) return 120;
   if (typeof raw === "string") {
@@ -331,6 +359,10 @@ function parseListingLimit(raw: unknown): number | null {
   return Math.max(1, Math.min(Math.floor(n), MAX_JOBS_PER_SOURCE));
 }
 
+/**
+ * Resolve the `master_exams` row id to associate with a scraped job.
+ * Strategy: exact name match → category fallback → env-var default.
+ */
 async function resolveMasterExamId(
   supabase: ReturnType<typeof createClient>,
   examName: string | null,
@@ -363,6 +395,7 @@ async function resolveMasterExamId(
   return Deno.env.get("DEFAULT_MASTER_EXAM_ID") || null;
 }
 
+/** Fetch a page's raw HTML with a descriptive User-Agent to be transparent with govt sites. */
 async function fetchHtml(url: string): Promise<string> {
   const res = await fetch(url, {
     headers: {
@@ -373,6 +406,7 @@ async function fetchHtml(url: string): Promise<string> {
   return await res.text();
 }
 
+/** Safely parse the request body as JSON; returns `{}` on invalid/missing body. */
 async function safeJson(req: Request): Promise<Record<string, unknown>> {
   try {
     return (await req.json()) as Record<string, unknown>;
@@ -381,6 +415,7 @@ async function safeJson(req: Request): Promise<Record<string, unknown>> {
   }
 }
 
+/** Shorthand: serialize a value to a JSON Response with CORS headers. */
 function json(payload: unknown, status = 200): Response {
   return new Response(JSON.stringify(payload), {
     status,

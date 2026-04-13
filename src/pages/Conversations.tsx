@@ -1,3 +1,11 @@
+/**
+ * @file Conversations.tsx
+ * @description Email conversation management page with a split-pane layout.
+ * The left pane lists threaded conversations with recruiters (searchable, filterable
+ * by status and stars), and the right pane shows the message timeline with
+ * an inline reply composer that sends via Gmail.
+ */
+
 import { Helmet } from "react-helmet-async";
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
@@ -49,6 +57,11 @@ interface ConversationMessage {
   status: string | null;
 }
 
+/**
+ * Conversations page component.
+ * Manages a list of recruiter threads and their messages, supports starring,
+ * filtering, and sending replies through the Gmail integration.
+ */
 const Conversations = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -233,12 +246,10 @@ const Conversations = () => {
     return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
   };
 
-  // Engagement score calculation:
-  // - Base: 10 points
-  // - Each recruiter message: +20 points
-  // - Each user message response: +10 points
-  // - Recency: +20 points if activity within 7 days
-  // - Max: 100 points
+  /**
+   * Heuristic engagement score (0–100) for a conversation thread.
+   * Weighted: base 10 + recruiter msgs × 20 + user msgs × 10 + recency bonus 20.
+   */
   const calculateEngagement = (thread: ConversationThread): number => {
     let score = 10; // Base score
 

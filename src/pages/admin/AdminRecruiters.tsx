@@ -1,3 +1,18 @@
+/**
+ * @fileoverview Admin Recruiter Management Page
+ *
+ * Full CRUD interface for the `recruiters` table. Supports:
+ * - Single recruiter add via dialog form
+ * - Bulk import from Google Sheets URL or CSV file upload
+ * - Duplicate email detection with one-click deduplication (keeps newest row per email)
+ * - Tier management (FREE / PRO / PRO_MAX) per recruiter
+ * - Search, domain, tier, and duplicate-only filtering with client-side pagination
+ * - CSV export of filtered results
+ * - "Delete All" with double confirmation for full table wipes
+ *
+ * All recruiter rows are fetched client-side in 1000-row batches to bypass
+ * Supabase's default row limit.
+ */
 import { useEffect, useMemo, useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { AdminLayout } from "@/components/admin/AdminLayout";
@@ -64,6 +79,13 @@ interface Domain {
   display_name: string;
 }
 
+/**
+ * Admin page for managing the recruiter database.
+ *
+ * Fetches the full recruiter list in paginated batches on mount (bypassing
+ * Supabase's 1000-row default). Duplicate detection is computed client-side
+ * via normalised email keys using `useMemo`.
+ */
 export default function AdminRecruiters() {
   const [recruiters, setRecruiters] = useState<Recruiter[]>([]);
   const [domains, setDomains] = useState<Domain[]>([]);
@@ -197,6 +219,7 @@ export default function AdminRecruiters() {
     }
   };
 
+  // Build a Set of normalised emails that appear more than once, used for badge display.
   const duplicateEmailKeys = useMemo(() => {
     const counts = new Map<string, number>();
     for (const r of recruiters) {
@@ -231,6 +254,10 @@ export default function AdminRecruiters() {
 
   const isDuplicateEmailRow = (email: string) => duplicateEmailKeys.has(normalizeRecruiterEmail(email));
 
+  /**
+   * Removes duplicate recruiter rows, keeping the newest entry per email
+   * (by `created_at`, then by id as tiebreaker). Deletes in 100-row batches.
+   */
   const deleteDuplicateRecruiters = async () => {
     const byEmail = new Map<string, Recruiter[]>();
     for (const r of recruiters) {
@@ -281,6 +308,7 @@ export default function AdminRecruiters() {
     }
   };
 
+  /** Wipes the entire recruiter table after a double-confirmation (confirm + typed prompt). */
   const deleteAllRecruiters = async () => {
     const confirmMessage = `Are you sure you want to delete ALL ${recruiters.length} recruiters? This action cannot be undone!`;
     if (!confirm(confirmMessage)) return;
@@ -323,6 +351,10 @@ export default function AdminRecruiters() {
     }
   };
 
+  /**
+   * Triggers the `bulk-import-recruiters` edge function with either a Google Sheets URL
+   * or raw CSV data. Handles both structured and unstructured error responses from the function.
+   */
   const handleBulkImport = async () => {
     if (bulkImportMode === "sheet" && !bulkImportSheetUrl.trim()) {
       toast.error("Please enter a Google Sheets URL");
@@ -600,6 +632,7 @@ export default function AdminRecruiters() {
     setCurrentPage(1);
   }, [searchQuery, domainFilter, tierFilter, duplicateFilter]);
 
+  /** Maps subscription tier to Tailwind badge colour classes. */
   const getTierColor = (tier: string | null) => {
     switch (tier) {
       case "PRO_MAX":

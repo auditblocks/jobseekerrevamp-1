@@ -1,3 +1,9 @@
+/**
+ * @fileoverview Invisible wrapper component that activates session-level
+ * user activity tracking. Automatically ends the tracking session on logout
+ * by detecting the auth state transition from authenticated to unauthenticated.
+ */
+
 import { useEffect, useRef } from "react";
 import { useActivityTracking } from "@/hooks/useActivityTracking";
 import { useAuth } from "@/hooks/useAuth";

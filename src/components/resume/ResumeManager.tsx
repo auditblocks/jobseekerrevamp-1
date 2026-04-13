@@ -1,3 +1,9 @@
+/**
+ * @fileoverview Resume management dashboard component.
+ * Aggregates resumes from both `resumes` and `user_resumes` Supabase tables,
+ * deduplicates by file URL, and provides CRUD actions (set active, analyze, delete).
+ */
+
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -25,6 +31,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
+/** Normalized resume record used across the manager UI. */
 interface Resume {
   id: string;
   name: string;
@@ -42,6 +49,11 @@ interface ResumeManagerProps {
   refreshTrigger?: number; // Add refresh trigger prop
 }
 
+/**
+ * Displays a table of the user's uploaded resumes with actions to
+ * set active, analyze, or delete each entry.
+ * Merges records from both `resumes` and `user_resumes` tables and deduplicates by file URL.
+ */
 const ResumeManager = ({ onAnalyze, onResumeSelect, refreshTrigger }: ResumeManagerProps) => {
   const [resumes, setResumes] = useState<Resume[]>([]);
   const [loading, setLoading] = useState(true);
@@ -134,6 +146,7 @@ const ResumeManager = ({ onAnalyze, onResumeSelect, refreshTrigger }: ResumeMana
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, []);
 
+  /** Marks one resume as active by deactivating all others first (single-active constraint). */
   const handleSetActive = async (resumeId: string) => {
     try {
       // Set all resumes as inactive first
@@ -158,6 +171,7 @@ const ResumeManager = ({ onAnalyze, onResumeSelect, refreshTrigger }: ResumeMana
     }
   };
 
+  /** Deletes the resume file from storage then removes the database record. */
   const handleDelete = async () => {
     if (!resumeToDelete) return;
 
@@ -196,6 +210,7 @@ const ResumeManager = ({ onAnalyze, onResumeSelect, refreshTrigger }: ResumeMana
     }
   };
 
+  /** Converts raw byte count to a human-readable size string (e.g. "1.25 MB"). */
   const formatFileSize = (bytes: number) => {
     if (bytes === 0) return "0 Bytes";
     const k = 1024;

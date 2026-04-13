@@ -1,3 +1,14 @@
+/**
+ * @module ai-chat
+ * @description Supabase Edge Function that powers the public "JobSeeker AI" chatbot.
+ * Streams responses via SSE using either OpenRouter (preferred) or the Lovable AI
+ * gateway as a fallback. Injects curated site knowledge, safety rules, and live
+ * listing context into the system prompt. Optionally logs user messages to
+ * `chatbot_conversations` for authenticated visitors.
+ *
+ * Requires: OPENROUTER_API_KEY or LOVABLE_API_KEY, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
+ * Auth: Optional Bearer token (unauthenticated visitors can still use the chatbot)
+ */
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
 import { CHATBOT_SAFETY_RULES, LISTING_SNAPSHOT_RULES, SITE_KNOWLEDGE } from "./site-knowledge.ts";
@@ -25,6 +36,7 @@ serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    // Prefer OpenRouter when available; fall back to Lovable gateway
     const openRouterKey = Deno.env.get("OPENROUTER_API_KEY")?.trim();
     const lovableApiKey = Deno.env.get("LOVABLE_API_KEY")?.trim();
     const useOpenRouter = !!openRouterKey;
@@ -35,6 +47,7 @@ serve(async (req) => {
     const authHeader = req.headers.get("Authorization");
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+    // Auth is optional: anonymous visitors can still chat, but we log messages for signed-in users
     let userId: string | null = null;
     if (authHeader) {
       const token = authHeader.replace("Bearer ", "");
@@ -122,6 +135,7 @@ ${context ? `\n## Current page context\n${context}\n` : ""}`;
       throw new Error("Failed to get AI response");
     }
 
+    // Persist the latest user message for analytics/debugging (fire-and-forget)
     if (userId && messages.length > 0) {
       const lastMessage = messages[messages.length - 1];
       if (lastMessage.role === "user") {
@@ -132,6 +146,7 @@ ${context ? `\n## Current page context\n${context}\n` : ""}`;
       }
     }
 
+    // Proxy the upstream SSE stream directly to the client for low-latency streaming
     return new Response(response.body, {
       headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
     });

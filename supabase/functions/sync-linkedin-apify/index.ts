@@ -1,3 +1,15 @@
+/**
+ * @module sync-linkedin-apify
+ * @description Supabase Edge Function that synchronises LinkedIn job listings from
+ * an Apify actor (default: curious_coder~linkedin-jobs-scraper) into the
+ * `naukri_jobs` table with `source = "linkedin"`. Supports both full actor runs
+ * and import-only mode (pulling from an existing dataset). LinkedIn search URLs
+ * are loaded from `admin_integration_secrets` and can be overridden via the
+ * request body. Uses a dedicated or shared Apify API token.
+ *
+ * Accepts POST body: { import_only?: boolean, actor_input?: { urls?: string[], ... } }
+ */
+
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
 import { isAuthorizedAdminRequest } from "../_shared/admin-auth.ts";
@@ -16,6 +28,7 @@ function json(body: unknown, status = 200) {
   });
 }
 
+/** Reads a single integration secret from the admin_integration_secrets table. */
 async function getSecret(
   supabase: ReturnType<typeof createClient>,
   key: string,
@@ -29,6 +42,7 @@ async function getSecret(
   return String(data.secret_value).trim();
 }
 
+/** Parses newline-separated LinkedIn search URLs stored as a single secret value. */
 function parseLinkedInSearchUrlsFromSecret(raw: string): string[] {
   if (!raw.trim()) return [];
   return raw
@@ -37,6 +51,7 @@ function parseLinkedInSearchUrlsFromSecret(raw: string): string[] {
     .filter((s) => s.length > 0 && /^https?:\/\//i.test(s));
 }
 
+/** Apify run statuses that indicate the actor is no longer executing. */
 const TERMINAL_RUN_STATUSES = new Set([
   "SUCCEEDED",
   "FAILED",
@@ -48,6 +63,10 @@ function isTerminalRunStatus(status: string): boolean {
   return TERMINAL_RUN_STATUSES.has(status);
 }
 
+/**
+ * Resolves the Apify dataset to import from. Prefers an explicit override;
+ * otherwise fetches the most recent successful run for the LinkedIn actor.
+ */
 async function resolveDatasetFromLastSuccess(
   token: string,
   actorId: string,
@@ -86,6 +105,7 @@ async function resolveDatasetFromLastSuccess(
   return { datasetId: String(ds), runId: runId ? String(runId) : null };
 }
 
+/** Fetches the current state of an Apify actor run (used during polling). */
 async function fetchActorRun(
   token: string,
   runId: string,
@@ -104,6 +124,7 @@ async function fetchActorRun(
   return j.data;
 }
 
+/** Starts the LinkedIn Apify actor, waits up to ~2.5 min for completion, then returns the dataset ID. */
 async function runActorAndResolveDataset(
   token: string,
   actorId: string,
@@ -131,6 +152,7 @@ async function runActorAndResolveDataset(
     return { error: "Apify start run returned no run id." };
   }
   const runId = String(run.id);
+  // Poll for up to ~85 s (60 s Apify-side wait + 25 s buffer) with 5 s intervals
   const pollDeadline = Date.now() + 85_000;
 
   while (!isTerminalRunStatus(String(run.status ?? ""))) {
@@ -165,6 +187,7 @@ interface LinkedInSyncBodyOptions {
   actorInput: Record<string, unknown>;
 }
 
+/** Parses the optional JSON body, merging caller overrides with secret-sourced search URLs. */
 function parseLinkedInSyncBody(raw: string | null, urlsFromSecret: string[]): LinkedInSyncBodyOptions {
   const baseUrls = [...urlsFromSecret];
   const defaults: LinkedInSyncBodyOptions = {
@@ -189,6 +212,7 @@ function parseLinkedInSyncBody(raw: string | null, urlsFromSecret: string[]): Li
   }
 }
 
+/** Paginates through the Apify dataset API in batches of 500, up to 20 000 items max. */
 async function fetchAllDatasetItems(
   token: string,
   datasetId: string,
@@ -265,6 +289,7 @@ serve(async (req) => {
   };
 
   try {
+    // LinkedIn can use its own Apify token or fall back to the shared one
     const linkedinOverrideToken = await getSecret(supabase, "apify_linkedin_api_token");
     const sharedToken = await getSecret(supabase, "apify_api_token");
     const apifyToken = linkedinOverrideToken || sharedToken;
@@ -278,6 +303,7 @@ serve(async (req) => {
       );
     }
 
+    // Default to the community LinkedIn scraper if no custom actor is configured
     const actorRaw = await getSecret(supabase, "apify_linkedin_actor_id");
     const actorId = actorRaw || "curious_coder~linkedin-jobs-scraper";
     const datasetOverride = await getSecret(supabase, "apify_linkedin_dataset_id");
@@ -299,6 +325,7 @@ serve(async (req) => {
 
     let resolved: { datasetId: string; runId: string | null } | { error: string };
 
+    // Decision tree: explicit dataset → import_only (last success) → start a new run
     if (datasetOverride) {
       resolved = await resolveDatasetFromLastSuccess(apifyToken, actorId, datasetOverride);
     } else if (syncOptions.importOnly) {
@@ -341,6 +368,7 @@ serve(async (req) => {
     let duplicateApplyUrlsInDataset = 0;
     const scrapedAt = new Date().toISOString();
 
+    // Map each Apify dataset item → DB row; skip items that lack a title or valid URL
     for (const raw of items) {
       const mapped = mapLinkedInItemToRow(raw);
       if (!mapped) {

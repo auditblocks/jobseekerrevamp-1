@@ -1,3 +1,9 @@
+/**
+ * @file CancellationsAndRefunds.tsx
+ * @description Static legal page detailing the cancellation process, 7-day money-back
+ * guarantee, refund eligibility criteria, and processing timelines. Marked as noindex.
+ */
+
 import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,6 +12,7 @@ import { useNavigate } from "react-router-dom";
 import SEOHead from "@/components/SEO/SEOHead";
 import StructuredData from "@/components/SEO/StructuredData";
 
+/** Cancellations & Refunds page component. Renders refund policy content. */
 const CancellationsAndRefunds = () => {
   const navigate = useNavigate();
 

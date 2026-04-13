@@ -1,3 +1,9 @@
+/**
+ * @fileoverview Admin Domain Management page — CRUD for job domains/categories.
+ * Each domain is a classification bucket (e.g. Technology, Finance) that recruiters
+ * are grouped under. Includes recruiter-count enrichment and active/inactive toggling.
+ */
+
 import { useEffect, useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { AdminLayout } from "@/components/admin/AdminLayout";
@@ -27,6 +33,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Globe, Plus, RefreshCw, Users } from "lucide-react";
 import { toast } from "sonner";
 
+/** Domain row from the `domains` table, extended with a computed recruiter count. */
 interface Domain {
   id: string;
   name: string;
@@ -37,6 +44,12 @@ interface Domain {
   recruiter_count?: number;
 }
 
+/**
+ * Admin page for managing job domains. Supports adding new domains, toggling
+ * active/inactive status, and deletion. Displays recruiter counts per domain
+ * by cross-referencing the `recruiters` table.
+ * @returns {JSX.Element}
+ */
 export default function AdminDomains() {
   const [domains, setDomains] = useState<Domain[]>([]);
   const [loading, setLoading] = useState(true);
@@ -61,7 +74,8 @@ export default function AdminDomains() {
 
       if (error) throw error;
 
-      // Get recruiter counts per domain
+      // Separately query recruiters and aggregate counts client-side
+      // to avoid a complex join that Supabase JS doesn't natively support
       const { data: recruiters } = await supabase
         .from("recruiters")
         .select("domain");
@@ -87,6 +101,7 @@ export default function AdminDomains() {
     }
   };
 
+  /** Inserts a new domain, normalising the internal name to snake_case. */
   const addDomain = async () => {
     try {
       const { error } = await supabase.from("domains").insert({

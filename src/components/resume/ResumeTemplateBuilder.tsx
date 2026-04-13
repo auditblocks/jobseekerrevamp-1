@@ -1,3 +1,10 @@
+/**
+ * @fileoverview Interactive resume builder dialog.
+ * Provides tabbed forms for editing personal info, summary, work experience,
+ * education, skills, projects, certifications, and languages.
+ * On preview, passes the structured data to `ResumeTemplates` for template selection.
+ */
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,6 +33,12 @@ interface ResumeTemplateBuilderProps {
   profilePhotoUrl?: string | null;
 }
 
+/**
+ * Multi-tab dialog for building/editing a resume from scratch or from pre-parsed data.
+ * Validates required fields before allowing template preview/download.
+ * @param initialData - Pre-populated resume data (e.g. from a parsed upload).
+ * @param profilePhotoUrl - User's profile photo URL passed through to templates.
+ */
 export const ResumeTemplateBuilder = ({
   open,
   onOpenChange,
@@ -253,6 +266,7 @@ export const ResumeTemplateBuilder = ({
     }));
   };
 
+  /** Ensures minimum required fields (name, email, 1 experience, 1 education) are filled before preview. */
   const validateData = (): boolean => {
     if (!resumeData.personalInfo.name.trim()) {
       toast.error("Please enter your name");
@@ -278,7 +292,7 @@ export const ResumeTemplateBuilder = ({
     setShowTemplates(true);
   };
 
-  // Convert structured data to resume text format for template rendering
+  /** Serializes the structured form data into a plain-text resume format for the template renderer. */
   const convertToResumeText = (): string => {
     let text = `${resumeData.personalInfo.name}\n`;
     if (resumeData.professionalTitle) {

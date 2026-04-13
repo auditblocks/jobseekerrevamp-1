@@ -1,3 +1,14 @@
+/**
+ * @file FreeJobAlert v1 adapter — scrapes freejobalert.com government job listings.
+ *
+ * Exports two main functions:
+ *  - `extractFreejobalertArticleLinks` — collects article detail URLs from the listing page.
+ *  - `scrapeFreejobalertDetail` — parses a detail page into a `GovtJobPayload`.
+ *
+ * FreeJobAlert pages use an HTML table "overview" layout with header/value pairs
+ * (Company Name, Start Date, Last Date, etc.) that are extracted via `extractOverviewCell`.
+ * State codes are inferred from the organization/post name to support state-wise filtering.
+ */
 import type { GovtJobSourceConfig } from "../sources.ts";
 import type { GovtJobPayload } from "./upsc_v1.ts";
 import { extractDescriptionForGovtJob } from "../../_shared/govt-scrape/html.ts";
@@ -19,11 +30,17 @@ export function extractFreejobalertArticleLinks(html: string, baseUrl: string): 
   return [...found];
 }
 
+/**
+ * Parse a single FreeJobAlert article page into a `GovtJobPayload`.
+ * Extracts structured fields from the overview table and derives metadata
+ * (state code, slug, tags) for filtering and SEO.
+ */
 export function scrapeFreejobalertDetail(
   html: string,
   url: string,
   source: GovtJobSourceConfig,
 ): GovtJobPayload {
+  // Prefer <h1> over <title> since <title> often has a "- FreeJobAlert" suffix
   const title = cleanupText(extractFirst(html, /<title[^>]*>([\s\S]*?)<\/title>/i) || "");
   const shortTitle = title.replace(/\s*-\s*FreeJobAlert.*$/i, "").trim();
   const h1 = cleanupText(extractFirst(html, /<h1[^>]*>([\s\S]*?)<\/h1>/i) || "");
@@ -33,6 +50,7 @@ export function scrapeFreejobalertDetail(
 
   const organization = board ? cleanupText(board).slice(0, 200) : source.organization;
 
+  // Advt No cells sometimes contain only a dash/em-dash when not available — treat as null
   const advtNo =
     cleanupText(extractOverviewCell(html, /Advt No/i) || "").replace(/^[\u2013\-–—]\s*$/, "").trim() || null;
 
@@ -63,6 +81,7 @@ export function scrapeFreejobalertDetail(
     }
   }
 
+  // Build a unique slug using post name + org + year + article ID to prevent collisions
   const articleId = extractTrailingNumericId(url);
   const yearHint = extractYear(postName) || extractYear(title) || new Date().getFullYear();
   const stateCode = inferStateCode(organization, postName);
@@ -124,6 +143,11 @@ function formatLocation(stateCode: string | null): string {
   return stateCode;
 }
 
+/**
+ * Infer Indian state/UT code from the recruitment board or post name.
+ * Matches state PSC abbreviations and full names; falls back to "IN" for
+ * central bodies (SSC, UPSC, RRB, etc.). Returns null if unrecognised.
+ */
 function inferStateCode(board: string, post: string): string | null {
   const t = `${board} ${post}`.toUpperCase();
 
@@ -168,6 +192,10 @@ function extractTrailingNumericId(url: string): string | null {
   return m ? m[1] : null;
 }
 
+/**
+ * Best-effort extraction of the "Apply Online" link from the page.
+ * Priority: explicit "Apply Online" anchor → RRB apply domain → any govt/apply-like URL.
+ */
 function extractApplyUrl(html: string): string | null {
   const applyHere = /<a[^>]+href="([^"]+)"[^>]*>\s*Apply Online\s*<\/a>/i.exec(html);
   if (applyHere?.[1]) return normalizeUrl(applyHere[1]);
@@ -181,6 +209,7 @@ function extractApplyUrl(html: string): string | null {
   return anyHttps ? normalizeUrl(anyHttps) : null;
 }
 
+/** Extract the value cell adjacent to a header cell in FreeJobAlert's overview table rows. */
 function extractOverviewCell(html: string, header: RegExp): string | null {
   const pattern = new RegExp(
     `<tr[^>]*>\\s*<t[dh][^>]*>\\s*${header.source}[^<]*</t[dh]>\\s*<t[dh][^>]*>([\\s\\S]*?)</t[dh]>`,
@@ -190,6 +219,7 @@ function extractOverviewCell(html: string, header: RegExp): string | null {
   return m ? stripTags(m[1]) : null;
 }
 
+/** Convert dd-mm-yyyy / dd.mm.yyyy / dd/mm/yyyy to ISO yyyy-mm-dd. */
 function parseDashedDateToIso(raw: string | null): string | null {
   if (!raw) return null;
   const text = cleanupText(raw);

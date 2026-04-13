@@ -1,3 +1,13 @@
+/**
+ * @module create-ats-scan-order
+ * @description Supabase Edge Function that initiates a Razorpay payment order for the
+ * ATS resume scan feature. Fetches the scan price from `ats_scan_settings` (server-side)
+ * instead of trusting the client, verifies the analysis belongs to the authenticated user,
+ * guards against duplicate payments, and returns the Razorpay order details needed by
+ * the frontend checkout widget.
+ *
+ * @route POST /create-ats-scan-order  (authenticated, expects { analysis_id })
+ */
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
 
@@ -60,7 +70,7 @@ serve(async (req) => {
       throw new Error("Missing analysis_id");
     }
 
-    // SECURITY FIX: Fetch price from settings instead of trusting client
+    // Derive the price server-side to prevent client-side price manipulation
     const { data: settingsData, error: settingsError } = await supabase
       .from("ats_scan_settings")
       .select("setting_value")
@@ -104,7 +114,7 @@ serve(async (req) => {
       );
     }
 
-    // Create Razorpay order
+    // Razorpay expects amount in paise (smallest currency unit for INR)
     const credentials = btoa(`${razorpayKeyId}:${razorpayKeySecret}`);
     const orderResponse = await fetch("https://api.razorpay.com/v1/orders", {
       method: "POST",

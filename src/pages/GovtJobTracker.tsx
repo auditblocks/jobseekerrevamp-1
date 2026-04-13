@@ -1,3 +1,12 @@
+/**
+ * @file GovtJobTracker.tsx
+ * @description Personal government job tracker — a table view where users manage the
+ * lifecycle of each tracked job (application status, payment, admit card, exam date, result).
+ * Supports inline status updates via dropdowns, a full edit dialog, CSV export,
+ * and links to practice tests for tracked jobs. Deletion is gated by subscription tier
+ * (canDeleteTrackerRow policy). Joined data from govt_jobs enriches the organization label.
+ */
+
 import { Helmet } from "react-helmet-async";
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -67,6 +76,7 @@ interface TrackedJob {
     govt_jobs?: GovtJobJoinRow | GovtJobJoinRow[] | null;
 }
 
+/** Extracts a normalized category input from either the joined govt_jobs data or the tracker row itself. */
 function categoryInputFromRow(job: TrackedJob): GovtJobCategoryInput {
     const gj = Array.isArray(job.govt_jobs) ? job.govt_jobs[0] : job.govt_jobs;
     return {
@@ -115,6 +125,7 @@ function examDateToInputValue(iso: string | null): string {
     return isValid(d) ? format(d, "yyyy-MM-dd") : "";
 }
 
+/** Job tracker dashboard with table view, inline status updates, edit dialog, and CSV export. */
 const GovtJobTracker = () => {
     const navigate = useNavigate();
     const { user, profile } = useAuth();
@@ -186,6 +197,7 @@ const GovtJobTracker = () => {
         }
     };
 
+    /** Exports the full tracker as a CSV file download (client-side generation). */
     const handleExportCSV = () => {
         if (trackedJobs.length === 0) {
             toast.error("No data to export");
@@ -216,6 +228,7 @@ const GovtJobTracker = () => {
         document.body.removeChild(link);
     };
 
+    /** Maps status values to Tailwind color classes for badges and select triggers. */
     const getStatusColor = (status: string) => {
         switch (status.toLowerCase()) {
             case 'applied':

@@ -1,8 +1,12 @@
 /**
+ * @file govtJobCategory.ts
  * Derives recruiting board, exam line, and display tags from govt job fields.
  * Fixes duplicate "UPSC" + "upsc" badges and mis-labelling when post titles imply SSC/RRB/etc.
+ *
+ * Used by job cards, tracker rows, and filter chips to produce consistent category labels.
  */
 
+/** Minimal fields needed to categorise a govt job listing. */
 export interface GovtJobCategoryInput {
   post_name: string;
   organization: string;
@@ -10,6 +14,7 @@ export interface GovtJobCategoryInput {
   tags?: string[] | null;
 }
 
+/** Normalise a string for case-insensitive comparison against regex rules. */
 function norm(s: string): string {
   return s.trim().toUpperCase();
 }
@@ -107,6 +112,7 @@ export function trackerOrganizationLabel(input: GovtJobCategoryInput): string {
   return line || board;
 }
 
+/** Returns true when the source_key adds no information beyond the already-inferred board. */
 function sourceKeyRedundantWithBoard(sourceKey: string | null | undefined, board: string): boolean {
   const k = (sourceKey || "").trim().toLowerCase().replace(/_/g, "-");
   if (!k) return true;
@@ -118,6 +124,7 @@ function sourceKeyRedundantWithBoard(sourceKey: string | null | undefined, board
   return false;
 }
 
+/** Title-cases a source_key slug for display as a secondary badge. */
 function formatSourceKeyBadge(sourceKey: string | null | undefined): string | null {
   const k = (sourceKey || "").trim().toLowerCase();
   if (!k) return null;
@@ -149,6 +156,7 @@ export function getGovtJobCategoryBadges(input: GovtJobCategoryInput): {
   return { primary: board, secondary: null };
 }
 
+/** Tags that are too broad to be useful at the top of the chip list. */
 const GENERIC_TAGS = new Set([
   "government-job",
   "govt-job",
@@ -158,6 +166,7 @@ const GENERIC_TAGS = new Set([
   "india",
 ]);
 
+/** Converts a human exam line (e.g. "Civil Services") to a slug tag ("civil-services"). */
 function examLineToTag(line: string): string {
   return line
     .toLowerCase()

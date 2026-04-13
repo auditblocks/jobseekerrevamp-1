@@ -1,3 +1,9 @@
+/**
+ * @fileoverview Admin Notifications page — allows admins to compose and broadcast
+ * in-app notifications to users segmented by subscription tier (all / free / pro).
+ * Campaign history is persisted in the `notification_campaigns` table.
+ */
+
 import { useEffect, useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { AdminLayout } from "@/components/admin/AdminLayout";
@@ -34,6 +40,7 @@ import { Bell, Plus, RefreshCw, Send, Users } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
+/** Shape of a notification campaign record from the `notification_campaigns` table. */
 interface Campaign {
   id: string;
   subject: string;
@@ -46,6 +53,11 @@ interface Campaign {
   created_at: string | null;
 }
 
+/**
+ * Admin page for sending in-app notifications to user segments.
+ * Provides a creation dialog and a history table of past campaigns.
+ * @returns {JSX.Element}
+ */
 export default function AdminNotifications() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
@@ -80,6 +92,10 @@ export default function AdminNotifications() {
     }
   };
 
+  /**
+   * Creates a campaign record, resolves the target audience, fans out individual
+   * `user_notifications` rows, and marks the campaign as completed.
+   */
   const sendNotification = async () => {
     if (!newNotification.title || !newNotification.message) {
       toast.error("Please fill in all required fields");
@@ -92,7 +108,7 @@ export default function AdminNotifications() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
-      // Map UI target to valid database target_type
+      // Map friendly UI labels ("all"/"free"/"pro") → DB enum + JSON filter
       const targetType = newNotification.target === "all" ? "all" : "subscription_tier";
       const targetFilters = newNotification.target === "free" 
         ? { subscription_tier: "FREE" }
@@ -168,6 +184,7 @@ export default function AdminNotifications() {
     }
   };
 
+  /** Returns a colour-coded status badge for the campaign table. */
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "completed":
@@ -181,6 +198,7 @@ export default function AdminNotifications() {
     }
   };
 
+  /** Resolves a human-readable audience label from the campaign's target metadata. */
   const getTargetLabel = (targetType: string, targetFilters?: any) => {
     if (targetType === "all") return "All Users";
     if (targetType === "subscription_tier") {

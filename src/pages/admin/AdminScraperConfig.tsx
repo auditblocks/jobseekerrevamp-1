@@ -1,3 +1,18 @@
+/**
+ * @fileoverview Admin Recruiter Scraper Configuration Page
+ *
+ * Manages the Firecrawl-based web scraping pipeline that automatically
+ * discovers and ingests recruiter contacts. Organised into three tabs:
+ *
+ * - **Configuration** – enable/disable scraper, set target countries,
+ *   custom search queries, daily quota, and trigger manual runs.
+ * - **Schedule** – configure recurring auto-scrape days/times (UTC).
+ * - **Scraping Logs** – view run history, stop in-progress jobs, view
+ *   detailed recruiter reports, and export results as CSV.
+ *
+ * Real-time progress is streamed via Supabase Realtime (postgres_changes
+ * on `scraping_logs`).
+ */
 import { useEffect, useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { AdminLayout } from "@/components/admin/AdminLayout";
@@ -121,6 +136,13 @@ const COUNTRY_OPTIONS = [
   { code: 'AE', name: 'UAE' },
 ];
 
+/**
+ * Admin page for managing the Firecrawl recruiter scraper.
+ *
+ * Subscribes to Supabase Realtime on `scraping_logs` so that in-progress
+ * scrapes update the UI live (progress bar, record counts). If no config
+ * row exists, one is bootstrapped with sensible defaults on first load.
+ */
 export default function AdminScraperConfig() {
   const [configs, setConfigs] = useState<ScraperConfig[]>([]);
   const [logs, setLogs] = useState<ScrapingLog[]>([]);
@@ -136,6 +158,8 @@ export default function AdminScraperConfig() {
     fetchData();
   }, []);
 
+  // Subscribe to real-time scraping_logs changes so in-progress runs
+  // reflect live progress/phase/record counts without manual refresh.
   useEffect(() => {
     const channel = supabase
       .channel("scraping-progress-admin")
@@ -172,7 +196,7 @@ export default function AdminScraperConfig() {
       if (configsRes.error) throw configsRes.error;
       if (logsRes.error) throw logsRes.error;
 
-      // If no config exists, create a default one
+      // Bootstrap a default config row when the table is empty (first-time setup)
       if (!configsRes.data || configsRes.data.length === 0) {
         const { data: newConfig, error } = await supabase
           .from('scraper_config')
@@ -254,6 +278,7 @@ export default function AdminScraperConfig() {
     });
   };
 
+  /** Invokes the `scrape-recruiters` edge function with the current config's parameters. */
   const runManualScrape = async (config: ScraperConfig) => {
     setScraping(true);
     try {
@@ -283,6 +308,7 @@ export default function AdminScraperConfig() {
     }
   };
 
+  /** Requests a graceful stop by marking the log row as "stopped"; the edge function polls this. */
   const stopScrape = async (logId: string) => {
     try {
       setStoppingLogId(logId);
@@ -318,9 +344,11 @@ export default function AdminScraperConfig() {
     }
   };
 
+  // Metadata shape changed across versions; check both `scraped_recruiters` and `recruiters`.
   const getLogRecruiters = (log: ScrapingLog) =>
     log.metadata?.scraped_recruiters || log.metadata?.recruiters || [];
 
+  /** Generates and downloads a CSV file of scraped recruiters from a given log entry. */
   const exportReportCsv = (log: ScrapingLog) => {
     const recruiters = getLogRecruiters(log);
     if (recruiters.length === 0) {

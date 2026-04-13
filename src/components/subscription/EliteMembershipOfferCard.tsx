@@ -1,3 +1,10 @@
+/**
+ * @fileoverview Inline Elite Membership offer card rendered on the subscription page.
+ * Displays the current flash-sale config (price, features, countdown) and handles
+ * the full Razorpay checkout + verification flow for Elite upgrades.
+ * Supports two layout variants: "hero" (full-width) and "compact" (sidebar-friendly).
+ */
+
 import { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import { differenceInSeconds } from "date-fns";
@@ -13,6 +20,7 @@ import { parseSupabaseFunctionInvokeError } from "@/lib/razorpay-verify";
 
 type FlashSaleConfig = Database["public"]["Tables"]["flash_sale_config"]["Row"];
 
+/** Converts a duration in days to a human-friendly "X-Year Y-Month" label. */
 function formatDurationLabel(days: number): string {
   const years = Math.floor(days / 365);
   const months = Math.round((days % 365) / 30);
@@ -21,6 +29,7 @@ function formatDurationLabel(days: number): string {
   return `${months}-Month`;
 }
 
+/** Checks if the sale is both admin-enabled and before the end time. */
 function isOfferWindowOpen(config: FlashSaleConfig): boolean {
   if (!config.is_active) return false;
   return new Date(config.end_time) > new Date();
@@ -28,11 +37,18 @@ function isOfferWindowOpen(config: FlashSaleConfig): boolean {
 
 type Variant = "hero" | "compact";
 
+/** @interface EliteMembershipOfferCardProps */
 interface EliteMembershipOfferCardProps {
+  /** "hero" for full-width subscription page; "compact" for sidebar widgets */
   variant?: Variant;
   className?: string;
 }
 
+/**
+ * Renders an Elite membership offer card with live countdown, purchase progress bar,
+ * feature list, and Razorpay checkout CTA.
+ * Hidden for Elite members and unauthenticated visitors.
+ */
 export function EliteMembershipOfferCard({
   variant = "hero",
   className,
@@ -106,6 +122,7 @@ export function EliteMembershipOfferCard({
     return () => clearInterval(id);
   }, [config]);
 
+  /** Creates a Razorpay order via edge function, opens the checkout modal, and verifies the payment. */
   const handleCheckout = useCallback(async () => {
     if (purchasedCount >= maxPurchases) {
       toast.error("This flash sale is sold out");

@@ -1,3 +1,13 @@
+/**
+ * @file GovtJobs.tsx
+ * @description Public + authenticated listing page for government job notifications.
+ * Supports search, state/region filter, pagination, and per-card "Add to Tracker"
+ * (which also unlocks the practice test for that job). Practice-slot limits are
+ * enforced per subscription tier via the govtPracticePolicy helpers.
+ * Renders inside DashboardLayout for logged-in users, or with a public Navbar for guests.
+ * Supplies rich listing context to the AI chat via ChatListingContext.
+ */
+
 import { Helmet } from "react-helmet-async";
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { motion } from "framer-motion";
@@ -73,10 +83,12 @@ interface GovtJob {
     created_at?: string | null;
 }
 
+/** Normalizes a tag string for consistent comparison (lowercase, hyphens). */
 function normalizeTagKey(t: string): string {
     return t.toLowerCase().trim().replace(/\s+/g, "-");
 }
 
+/** Returns true if the tag array contains a recognizable "government job" category tag. Used for AI chat context. */
 function matchesGovernmentJobCategoryTag(tags: string[] | null | undefined): boolean {
     if (!tags?.length) return false;
     return tags.some((t) => {
@@ -90,6 +102,7 @@ function matchesGovernmentJobCategoryTag(tags: string[] | null | undefined): boo
     });
 }
 
+/** Government jobs listing page with search, region filter, pagination, and tracker integration. */
 const GovtJobs = () => {
     const navigate = useNavigate();
     const { setListingContext } = useChatListingContext();
@@ -117,6 +130,11 @@ const GovtJobs = () => {
         fetchTrackedJobIds(user.id).then(setTrackedJobIds);
     }, [user]);
 
+    /**
+     * Adds a job to the user's tracker (and unlocks its practice test).
+     * Enforces practice-slot limits: free/pro users have a capped number of slots.
+     * Pro Max users bypass tracker limits and go straight to the practice test.
+     */
     const handleAddToTracker = useCallback(async (e: React.MouseEvent, job: GovtJob) => {
         e.stopPropagation();
         if (!user) {

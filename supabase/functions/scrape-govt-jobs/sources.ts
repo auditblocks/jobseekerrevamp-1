@@ -69,14 +69,17 @@ export const GOVT_JOB_SOURCES: GovtJobSourceConfig[] = [
   },
 ];
 
+/** Look up a single source config by its unique key (e.g. "upsc", "ssc"). */
 export function getSourceByKey(key: string): GovtJobSourceConfig | undefined {
   return GOVT_JOB_SOURCES.find((s) => s.key === key);
 }
 
+/** Return only sources whose adapter is implemented and marked `enabled: true`. */
 export function listEnabledSources(): GovtJobSourceConfig[] {
   return GOVT_JOB_SOURCES.filter((s) => s.enabled);
 }
 
+/** Compact view of all registered sources (enabled or not) — used in admin API responses. */
 export function listSourceKeysForAdmin(): { key: string; displayName: string; enabled: boolean }[] {
   return GOVT_JOB_SOURCES.map((s) => ({
     key: s.key,
@@ -85,6 +88,7 @@ export function listSourceKeysForAdmin(): { key: string; displayName: string; en
   }));
 }
 
+/** Comma-separated list of all registered source keys — used in error messages. */
 export function formatRegisteredSourceKeys(): string {
   return GOVT_JOB_SOURCES.map((s) => s.key).join(", ");
 }

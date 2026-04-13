@@ -1,3 +1,10 @@
+/**
+ * @file Contact.tsx
+ * @description Public contact/support page. Renders a contact form (via ContactSupportForm)
+ * pre-filled with the logged-in user's name and email when available,
+ * plus a direct email support link.
+ */
+
 import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,6 +15,7 @@ import StructuredData from "@/components/SEO/StructuredData";
 import { ContactSupportForm } from "@/components/ContactSupportForm";
 import { useAuth } from "@/hooks/useAuth";
 
+/** Contact page component. Pre-fills user details from auth context when available. */
 const Contact = () => {
   const navigate = useNavigate();
   const { user, profile } = useAuth();
