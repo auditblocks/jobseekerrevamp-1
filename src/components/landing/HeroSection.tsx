@@ -11,6 +11,10 @@ import { Link } from "react-router-dom";
 import { HomeSectionLink } from "@/components/landing/HomeSectionLink";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  Dialog,
+  DialogContent,
+} from "@/components/ui/dialog";
 
 /**
  * Landing-page hero with animated stats, floating feature cards, and a mock dashboard preview.
@@ -23,6 +27,7 @@ const HeroSection = () => {
     responseRate: "Real-time",
   });
   const [thirdStatLabel, setThirdStatLabel] = useState("Engagement tracking");
+  const [isDemoOpen, setIsDemoOpen] = useState(false);
   const [dashboardPreviewStats, setDashboardPreviewStats] = useState([
     { label: "Sent", value: "248", icon: Mail },
     { label: "Opened", value: "156", icon: BarChart3 },
@@ -236,7 +241,7 @@ const HeroSection = () => {
                   <ArrowRight className="w-5 h-5" />
                 </Button>
               </Link>
-              <Button variant="heroOutline" size="xl" className="w-full sm:w-auto text-primary-foreground">
+              <Button onClick={() => setIsDemoOpen(true)} variant="heroOutline" size="xl" className="w-full sm:w-auto text-primary-foreground">
                 Watch Demo
               </Button>
             </motion.div>
@@ -351,6 +356,14 @@ const HeroSection = () => {
           <path d="M0 120L60 110C120 100 240 80 360 70C480 60 600 60 720 65C840 70 960 80 1080 85C1200 90 1320 90 1380 90L1440 90V120H1380C1320 120 1200 120 1080 120C960 120 840 120 720 120C600 120 480 120 360 120C240 120 120 120 60 120H0Z" fill="hsl(220 20% 97%)" />
         </svg>
       </div>
+      {/* Demo Video Modal */}
+      <Dialog open={isDemoOpen} onOpenChange={setIsDemoOpen}>
+        <DialogContent className="sm:max-w-[800px] border-none bg-transparent shadow-none p-0">
+          <div className="relative rounded-2xl overflow-hidden glass aspect-video shadow-2xl ring-1 ring-white/10 flex items-center justify-center bg-black/50">
+            <img src="/fast-demo-video.webp" alt="JobSeeker Demo walkthrough" className="w-full h-auto max-h-[80vh] object-contain rounded-xl" />
+          </div>
+        </DialogContent>
+      </Dialog>
     </section>
   );
 };

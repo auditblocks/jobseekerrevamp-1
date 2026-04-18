@@ -78,7 +78,6 @@ const BlogListing = () => {
                     ) : (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                             {blogs.map((blog) => (
-                                {/* Strip leading slashes and "blog/" prefix from slug to build a clean route */}
                                 <Link
                                     to={`/blog/${blog.slug.replace(/^\/+/, "").replace(/^blog\//, "").replace(/^\/+/, "")}`}
                                     key={blog.id}

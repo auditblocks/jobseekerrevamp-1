@@ -120,6 +120,8 @@ const App = () => (
                   <Route path="/recruiters" element={<Recruiters />} />
                   <Route path="/analytics" element={<Analytics />} />
                   <Route path="/apply-latest-jobs" element={<ApplyLatestJobs />} />
+                  <Route path="/private-jobs" element={<Navigate to="/apply-latest-jobs" replace />} />
+                  <Route path="/practice-set" element={<Navigate to="/government-jobs" replace />} />
                   <Route path="/resume-optimizer" element={<ResumeOptimizer />} />
                   <Route path="/settings" element={<Settings />} />
                   <Route path="/dashboard/subscription" element={<Subscription />} />
