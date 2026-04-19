@@ -54,7 +54,7 @@ const CancellationsAndRefunds = () => {
               <CardHeader>
                 <CardTitle className="text-3xl">Cancellations and Refunds</CardTitle>
                 <p className="text-muted-foreground mt-2">
-                  Last updated: {new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}
+                  Last updated: 23rd December 2025
                 </p>
               </CardHeader>
               <CardContent className="prose prose-slate dark:prose-invert max-w-none">
