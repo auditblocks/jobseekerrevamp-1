@@ -1,7 +1,7 @@
 /**
  * @file CancellationsAndRefunds.tsx
- * @description Static legal page detailing the cancellation process, 7-day money-back
- * guarantee, refund eligibility criteria, and processing timelines. Marked as noindex.
+ * @description Static legal page: cancellation, issue-based refund policy (7-day
+ * guarantee for qualifying issues only), post–7-day review, free plan, timelines. noindex.
  */
 
 import { motion } from "framer-motion";
@@ -67,7 +67,10 @@ const CancellationsAndRefunds = () => {
                     </p>
                     <ul className="list-disc list-inside space-y-2 text-muted-foreground ml-4">
                       <li>You will continue to have access to all PRO features until the end of your paid period</li>
-                      <li>No partial refunds are provided for the unused portion of your subscription</li>
+                      <li>
+                        Ordinary cancellation does not entitle you to a refund for unused time; see Section 2 for when refunds
+                        may still apply (for example, billing errors or unresolved technical issues)
+                      </li>
                       <li>After cancellation, your account will automatically revert to the FREE tier</li>
                       <li>You can resubscribe at any time to regain PRO features</li>
                     </ul>
@@ -75,39 +78,90 @@ const CancellationsAndRefunds = () => {
 
                   <section>
                     <h2 className="text-2xl font-semibold mb-4">2. Refund Policy</h2>
-                    <h3 className="text-xl font-semibold mb-3">2.1 Money-Back Guarantee</h3>
                     <p className="text-muted-foreground mb-4">
-                      We offer a 7-day money-back guarantee for new subscriptions. If you are not satisfied with our service 
-                      within the first 7 days of your subscription, you may request a full refund.
+                      Refunds are <strong className="text-foreground">not</strong> issued for general dissatisfaction,
+                      change of mind, or deciding that you no longer wish to use a paid plan. They are considered{" "}
+                      <strong className="text-foreground">only</strong> when there is a verifiable problem with our service,
+                      platform availability, or your billing, as defined in Section 2.1 below. If none of those grounds applies,
+                      <strong className="text-foreground"> no refund will be provided.</strong> Our free plan exists so you can
+                      evaluate the product before subscribing; upgrading is optional.
+                    </p>
+
+                    <h3 className="text-xl font-semibold mb-3">2.1 Qualifying issues (only bases for a refund)</h3>
+                    <p className="text-muted-foreground mb-4">
+                      We may approve a refund only after we can reasonably verify that one of the following{" "}
+                      <strong className="text-foreground">qualifying issues</strong> occurred:
                     </p>
                     <ul className="list-disc list-inside space-y-2 text-muted-foreground ml-4">
-                      <li>Refund requests must be made within 7 days of the initial subscription purchase</li>
-                      <li>Refunds are processed within 5-10 business days</li>
-                      <li>Refunds will be issued to the original payment method</li>
-                      <li>Once a refund is processed, your subscription will be immediately cancelled</li>
+                      <li>
+                        <strong className="text-foreground">Unresolved technical issues:</strong> a defect or fault on our
+                        side prevents you from materially using the paid service, and our support team cannot resolve it within a
+                        reasonable time despite your cooperation
+                      </li>
+                      <li>
+                        <strong className="text-foreground">Duplicate or incorrect billing:</strong> you were charged more than
+                        once for the same period, charged the wrong amount, or charged for a plan or add-on you did not authorize
+                      </li>
+                      <li>
+                        <strong className="text-foreground">Unauthorized transaction:</strong> a charge you did not authorize
+                        (subject to investigation and any payment-provider or card-network rules)
+                      </li>
+                      <li>
+                        <strong className="text-foreground">Extended platform downtime:</strong> the paid service was
+                        unavailable due to our infrastructure or platform for more than 48 consecutive hours (excluding scheduled
+                        maintenance announced in advance, issues on your device or network, third-party outages outside our
+                        control, or force majeure)
+                      </li>
                     </ul>
 
-                    <h3 className="text-xl font-semibold mb-3 mt-6">2.2 Refund Eligibility</h3>
+                    <h3 className="text-xl font-semibold mb-3 mt-6">2.2 Seven-day money-back guarantee (new subscriptions)</h3>
                     <p className="text-muted-foreground mb-4">
-                      Refunds may be considered in the following circumstances:
+                      For your <strong className="text-foreground">first</strong> paid subscription only, we operate a{" "}
+                      <strong className="text-foreground">seven (7) calendar day money-back guarantee</strong> that applies{" "}
+                      <strong className="text-foreground">solely</strong> when a qualifying issue in Section 2.1 affected you
+                      during that seven-day period. It is <strong className="text-foreground">not</strong> a trial of paid
+                      features for subjective preference, and it is <strong className="text-foreground">not</strong> a
+                      &quot;satisfaction&quot; or change-of-mind policy.
                     </p>
                     <ul className="list-disc list-inside space-y-2 text-muted-foreground ml-4">
-                      <li>Technical issues that prevent you from using the service and cannot be resolved by our support team</li>
-                      <li>Duplicate charges or billing errors</li>
-                      <li>Unauthorized transactions on your account</li>
-                      <li>Service unavailability for an extended period (more than 48 hours)</li>
+                      <li>You must contact us within seven (7) days of the initial subscription charge and describe the qualifying issue with enough detail for us to investigate</li>
+                      <li>If we confirm a qualifying issue, we may issue a full refund to the original payment method where possible</li>
+                      <li>Refunds are typically processed within 5-10 business days after approval</li>
+                      <li>Once a refund is processed, the related paid subscription is cancelled</li>
                     </ul>
 
-                    <h3 className="text-xl font-semibold mb-3 mt-6">2.3 Non-Refundable Items</h3>
+                    <h3 className="text-xl font-semibold mb-3 mt-6">2.3 Qualifying issues reported after the seven-day period</h3>
                     <p className="text-muted-foreground mb-4">
-                      The following are not eligible for refunds:
+                      If a qualifying issue in Section 2.1 arises or is reported after the seven-day window in Section 2.2, we
+                      may still review a refund request in good faith. Approval, timing, and amount (full or partial) depend on
+                      verification, our logs, and the nature of the issue. This does not create an open-ended right to a refund
+                      absent a qualifying issue.
+                    </p>
+                    <p className="text-muted-foreground">
+                      Contact support with dates, screenshots, and transaction or order IDs to assist verification.
+                    </p>
+
+                    <h3 className="text-xl font-semibold mb-3 mt-6">2.4 When a refund is not available</h3>
+                    <p className="text-muted-foreground mb-4">
+                      The following are <strong className="text-foreground">not</strong> qualifying issues and{" "}
+                      <strong className="text-foreground">do not</strong> entitle you to a refund, including within the first
+                      seven days:
                     </p>
                     <ul className="list-disc list-inside space-y-2 text-muted-foreground ml-4">
-                      <li>Subscriptions cancelled after the 7-day money-back guarantee period</li>
-                      <li>Partial refunds for unused subscription time</li>
-                      <li>Resume analysis credits or one-time purchases (unless covered by guarantee)</li>
-                      <li>Refunds requested due to violation of our Terms of Service</li>
+                      <li>
+                        Preferring not to continue a paid plan, no longer needing paid features, or deciding the product is not
+                        for you, where the service and billing are working as described
+                      </li>
+                      <li>Expectations about outcomes (for example, interviews or job offers) that we do not guarantee</li>
+                      <li>Prorated or partial refunds for unused subscription time when no qualifying issue applies</li>
+                      <li>Resume analysis credits or one-time purchases, except where a Section 2.1 billing or access issue is verified</li>
+                      <li>Requests where use of the service violated our Terms of Service</li>
                     </ul>
+                    <p className="text-muted-foreground mt-4">
+                      JobSeeker offers a <strong className="text-foreground">free plan</strong> so you can use and assess the
+                      service before paying. There is no obligation to subscribe; if you do not wish to pay, remain on or return
+                      to the free plan and cancel renewal before the next charge.
+                    </p>
                   </section>
 
                   <section>
@@ -153,7 +207,11 @@ const CancellationsAndRefunds = () => {
                     <ul className="list-disc list-inside space-y-2 text-muted-foreground ml-4">
                       <li>You will receive an email reminder 3 days before your subscription renews</li>
                       <li>To prevent renewal, cancel your subscription before the renewal date</li>
-                      <li>Renewal charges are non-refundable after the 7-day guarantee period</li>
+                      <li>
+                        Renewal charges are not refundable for change of mind after renewal; they may still be refundable only
+                        if a qualifying issue in Section 2.1 is verified (for example, duplicate charge or unauthorized
+                        transaction)
+                      </li>
                       <li>You can change your subscription plan at any time</li>
                     </ul>
                   </section>

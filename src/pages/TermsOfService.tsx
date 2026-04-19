@@ -149,7 +149,15 @@ const TermsOfService = () => {
                       <li>Pay all fees associated with your subscription</li>
                       <li>Provide accurate payment information</li>
                       <li>Authorize us to charge your payment method</li>
-                      <li>Accept that fees are non-refundable except as required by law</li>
+                      <li>
+                        Accept that fees are generally non-refundable for voluntary cancellations or change of mind, except
+                        where our{" "}
+                        <a href="/cancellations-and-refunds" className="text-primary underline-offset-4 hover:underline">
+                          Cancellations and Refunds
+                        </a>{" "}
+                        policy applies (including the seven-day money-back guarantee for verified qualifying issues and the
+                        bases for refunds described there)
+                      </li>
                     </ul>
 
                     <h3 className="text-xl font-semibold mb-3 mt-4">5.3 Billing and Renewal</h3>
