@@ -17,7 +17,7 @@
  * Secrets (API tokens) are stored in `admin_integration_secrets` — a
  * superadmin-only table with RLS.
  */
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -64,6 +64,11 @@ const ALL_ADMIN_KEYS = [
   LINKEDIN_SECRET_KEYS.dataset,
   LINKEDIN_SECRET_KEYS.urls,
 ];
+
+/** Trim + strip BOM so pasted API keys match what the user sees in the field. */
+function normalizeSecretInput(raw: string): string {
+  return raw.replace(/^\uFEFF/, "").trim();
+}
 
 interface SyncLogRow {
   id: string;
@@ -188,10 +193,13 @@ const AdminNaukriJobs = () => {
   const [editLinkedInDataset, setEditLinkedInDataset] = useState("");
   const [editLinkedInUrls, setEditLinkedInUrls] = useState("");
   const [logs, setLogs] = useState<SyncLogRow[]>([]);
+  const naukriTokenInputRef = useRef<HTMLInputElement>(null);
+  const linkedInTokenInputRef = useRef<HTMLInputElement>(null);
 
   /** Loads all Naukri + LinkedIn secrets from `admin_integration_secrets` and derives saved state. */
-  const loadSecrets = async () => {
-    setLoading(true);
+  const loadSecrets = async (options?: { showSpinner?: boolean }) => {
+    const showSpinner = options?.showSpinner ?? true;
+    if (showSpinner) setLoading(true);
     try {
       const { data, error } = await supabase
         .from("admin_integration_secrets" as never)
@@ -269,7 +277,7 @@ const AdminNaukriJobs = () => {
       console.error(e);
       toast.error("Failed to load integration settings");
     } finally {
-      setLoading(false);
+      if (showSpinner) setLoading(false);
     }
   };
 
@@ -348,17 +356,20 @@ const AdminNaukriJobs = () => {
   const handleSaveNaukri = async () => {
     setSaving(true);
     try {
-      if (newToken.trim()) {
-        await upsertSecret(NAUKRI_SECRET_KEYS.token, newToken.trim());
+      const tokenRaw = naukriTokenInputRef.current?.value ?? newToken;
+      const tokenNorm = normalizeSecretInput(tokenRaw);
+      if (tokenNorm) {
+        await upsertSecret(NAUKRI_SECRET_KEYS.token, tokenNorm);
         setNewToken("");
+        if (naukriTokenInputRef.current) naukriTokenInputRef.current.value = "";
       }
       await upsertSecret(NAUKRI_SECRET_KEYS.actor, editActorId.trim());
       await upsertSecret(NAUKRI_SECRET_KEYS.dataset, editDatasetId.trim());
       toast.success("Naukri configuration saved");
-      await loadSecrets();
+      await loadSecrets({ showSpinner: false });
     } catch (e: unknown) {
       console.error(e);
-      toast.error("Failed to save configuration");
+      toast.error(e instanceof Error ? e.message : "Failed to save configuration");
     } finally {
       setSaving(false);
     }
@@ -367,18 +378,21 @@ const AdminNaukriJobs = () => {
   const handleSaveLinkedIn = async () => {
     setSavingLinkedIn(true);
     try {
-      if (editLinkedInToken.trim()) {
-        await upsertSecret(LINKEDIN_SECRET_KEYS.token, editLinkedInToken.trim());
+      const tokenRaw = linkedInTokenInputRef.current?.value ?? editLinkedInToken;
+      const tokenNorm = normalizeSecretInput(tokenRaw);
+      if (tokenNorm) {
+        await upsertSecret(LINKEDIN_SECRET_KEYS.token, tokenNorm);
         setEditLinkedInToken("");
+        if (linkedInTokenInputRef.current) linkedInTokenInputRef.current.value = "";
       }
       await upsertSecret(LINKEDIN_SECRET_KEYS.actor, editLinkedInActor.trim());
       await upsertSecret(LINKEDIN_SECRET_KEYS.dataset, editLinkedInDataset.trim());
       await upsertSecret(LINKEDIN_SECRET_KEYS.urls, editLinkedInUrls);
       toast.success("LinkedIn configuration saved");
-      await loadSecrets();
+      await loadSecrets({ showSpinner: false });
     } catch (e: unknown) {
       console.error(e);
-      toast.error("Failed to save LinkedIn configuration");
+      toast.error(e instanceof Error ? e.message : "Failed to save LinkedIn configuration");
     } finally {
       setSavingLinkedIn(false);
     }
@@ -399,12 +413,43 @@ const AdminNaukriJobs = () => {
 
   const linkedInCanImportOnly = linkedInEffectiveToken;
 
-  const parseInvokeError = (error: { message: string; context?: { body?: string } }) => {
-    const ctx = error.context?.body;
+  /**
+   * Supabase `functions.invoke` sets `error.context` to the raw `Response` on HTTP errors
+   * (see FunctionsHttpError). Reading `context.body` as a string never worked — we must
+   * `response.text()` to surface the edge function JSON (`{ error: "..." }`).
+   */
+  const parseInvokeError = async (error: { message: string; context?: unknown }): Promise<string> => {
     let msg = error.message;
-    if (typeof ctx === "string") {
+    const ctx = error.context;
+    if (ctx instanceof Response) {
       try {
-        const j = JSON.parse(ctx) as { error?: string };
+        const text = await ctx.text();
+        if (text.trim()) {
+          try {
+            const j = JSON.parse(text) as { error?: string; details?: string; success?: boolean };
+            if (typeof j.error === "string" && j.error.trim()) {
+              msg = j.error.trim();
+              if (typeof j.details === "string" && j.details.trim()) {
+                msg = `${msg} — ${j.details.trim()}`;
+              }
+            } else {
+              msg = `${msg}: ${text.slice(0, 800)}`;
+            }
+          } catch {
+            msg = `${msg}: ${text.slice(0, 800)}`;
+          }
+        }
+      } catch {
+        /* keep msg */
+      }
+    } else if (
+      ctx &&
+      typeof ctx === "object" &&
+      "body" in ctx &&
+      typeof (ctx as { body?: unknown }).body === "string"
+    ) {
+      try {
+        const j = JSON.parse((ctx as { body: string }).body) as { error?: string };
         if (j?.error) msg = j.error;
       } catch {
         /* ignore */
@@ -426,7 +471,7 @@ const AdminNaukriJobs = () => {
       throw new Error("Your session expired. Sign in again to run the scraper.");
     }
     const { data, error } = await supabase.functions.invoke(fnName, { body });
-    if (error) throw new Error(parseInvokeError(error as never));
+    if (error) throw new Error(await parseInvokeError(error as never));
     const d = data as ApifySyncResponse;
     if (d?.success === false && d?.error) throw new Error(d.error);
     toastSyncStats(d);
@@ -729,8 +774,9 @@ const AdminNaukriJobs = () => {
                           : "Required for Naukri sync (and as LinkedIn fallback)."}
                       </p>
                       <Input
+                        ref={naukriTokenInputRef}
                         type="password"
-                        autoComplete="new-password"
+                        autoComplete="off"
                         placeholder={savedConfig.hasToken ? "New token (optional)" : "apify_api_…"}
                         value={newToken}
                         onChange={(e) => setNewToken(e.target.value)}
@@ -899,9 +945,10 @@ const AdminNaukriJobs = () => {
                           : "Enter your Apify API token for LinkedIn runs (or save the Naukri token first to reuse it)."}
                       </p>
                       <Input
+                        ref={linkedInTokenInputRef}
                         id="li-token"
                         type="password"
-                        autoComplete="new-password"
+                        autoComplete="off"
                         placeholder={
                           savedLinkedIn.hasDedicatedToken || savedLinkedIn.hasSharedTokenFallback
                             ? "New token (optional)"

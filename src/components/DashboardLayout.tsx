@@ -29,6 +29,7 @@ import {
     GraduationCap,
     Rocket,
     Crown,
+    Gift,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -169,6 +170,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
         {
             title: "Account",
             items: [
+                { icon: Gift, label: "Referrals", path: "/referrals" },
                 { icon: CreditCard, label: "Subscription", path: "/dashboard/subscription" },
                 { icon: Settings, label: "Settings", path: "/settings" },
                 ...(isSuperadmin

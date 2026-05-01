@@ -10,6 +10,7 @@ import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { getAccountAccessDenialMessage } from "@/lib/accountAccess";
+import { claimPendingReferralIfAny } from "@/lib/referralStorage";
 
 /** Shape exposed to consumers via `useAuth()`. */
 interface AuthContextType {
@@ -120,6 +121,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    * banned / suspended accounts by signing them out immediately.
    * @returns `false` if the account was denied access; `true` otherwise.
    */
+  const tryClaimPendingReferral = () => claimPendingReferralIfAny(supabase);
+
   const fetchProfile = async (userId: string): Promise<boolean> => {
     const { error: clearSuspErr } = await supabase.rpc("clear_expired_user_suspension", {
       p_user_id: userId,
@@ -192,6 +195,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     setProfile(data);
+    void tryClaimPendingReferral();
     return true;
   };
 

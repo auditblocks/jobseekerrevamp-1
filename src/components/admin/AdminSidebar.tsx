@@ -26,6 +26,7 @@ import {
   BookOpen,
   Rocket,
   Zap,
+  Gift,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
@@ -72,6 +73,7 @@ const managementItems = [
   { title: "Requests", url: "/admin/requests", icon: FileText },
   { title: "Flash Sale", url: "/admin/flash-sale", icon: Zap },
   { title: "Dashboard Config", url: "/admin/dashboard-config", icon: Sliders },
+  { title: "Referral program", url: "/admin/referrals", icon: Gift },
 ];
 
 /**

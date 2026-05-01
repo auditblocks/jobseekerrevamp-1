@@ -23,6 +23,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { InAppNotificationPopup } from "@/components/InAppNotificationPopup";
 import DashboardLayout from "@/components/DashboardLayout";
 import { OnboardingProgress } from "@/components/OnboardingProgress";
+import { ReferralDashboardBanner } from "@/components/ReferralDashboardBanner";
 import { useTour } from "@/hooks/useTour";
 
 interface DashboardStats {
@@ -147,6 +148,8 @@ const Dashboard = () => {
             Compose Email
           </Button>
         </motion.div>
+
+        <ReferralDashboardBanner />
 
         {/* Onboarding Progress */}
         <motion.div

@@ -353,61 +353,26 @@ const Compose = () => {
             .eq("id", user.id);
         }
 
-        // Get the daily limit from subscription plan
-        // Use trim to handle potential whitespace issues
         const cleanTier = tier.trim();
 
-        const tierPlanResult = await supabase
-          .from("subscription_plans")
-          .select("daily_limit")
-          .eq("id", cleanTier)
-          .maybeSingle();
-        let planData = tierPlanResult.data;
-        const planError = tierPlanResult.error;
-
-        // If strict ID match fails, try to match by name or display_name
-        if (!planData) {
-          // Normalize the tier (e.g., "Pro Plan" -> "Pro Plan")
-          // We search case-insensitively against name and display_name
-          const { data: matchedPlan } = await supabase
-            .from("subscription_plans")
-            .select("daily_limit")
-            .or(`id.ilike.%${cleanTier}%,name.ilike.%${cleanTier}%,display_name.ilike.%${cleanTier}%`)
-            .limit(1)
-            .maybeSingle();
-
-          if (matchedPlan) {
-            planData = matchedPlan;
-          } else {
-            // Fallback: if we can't find it by strict string match, try our normalization heuristic
-            // E.g. if tier is "Pro Plan", normalized is "PRO".
-            const normalized = normalizeTier(cleanTier);
-            // Now look for a plan that might be named "PRO" or "Pro"
-            if (normalized !== "FREE") {
-              const { data: heuristicPlan } = await supabase
-                .from("subscription_plans")
-                .select("daily_limit")
-                .or(`id.ilike.%${normalized}%,name.ilike.%${normalized}%,display_name.ilike.%${normalized}%`)
-                .limit(1)
-                .maybeSingle();
-
-              if (heuristicPlan) {
-                planData = heuristicPlan;
-              }
-            }
-          }
+        const { data: capRpc, error: capRpcErr } = await supabase.rpc("effective_email_daily_cap", {
+          p_user_id: user.id,
+        });
+        if (capRpcErr) {
+          console.warn("effective_email_daily_cap:", capRpcErr.message);
         }
-
-        // Default limits if plan not found - fallback to safe defaults matching user expectations
-        // Use normalized tier for standardizing the fallback check
+        const cap = (capRpc ?? {}) as { total?: number; base?: number; bonus?: number };
         const normalizedFallback = normalizeTier(cleanTier);
-
-        const dailyLimit = planData?.daily_limit ?? (
-          normalizedFallback === "FREE" ? 5 :
-            normalizedFallback === "PRO" ? 20 :
-              normalizedFallback === "PRO_MAX" ? 100 :
-                5 // Ultimate safety fallback
-        );
+        const dailyLimit =
+          typeof cap.total === "number" && Number.isFinite(cap.total) && cap.total > 0
+            ? cap.total
+            : normalizedFallback === "FREE"
+              ? 5
+              : normalizedFallback === "PRO"
+                ? 20
+                : normalizedFallback === "PRO_MAX"
+                  ? 100
+                  : 5;
 
         setEmailLimit({
           dailyLimit,

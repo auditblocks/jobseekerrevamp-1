@@ -21,6 +21,7 @@ import { FlashSalePopup } from "@/components/FlashSalePopup";
 import { MobilePwaInstallPrompt } from "@/components/MobilePwaInstallPrompt";
 import { JobSeekerChatWidget } from "@/components/chat/JobSeekerChatWidget";
 import { ChatListingProvider } from "@/contexts/ChatListingContext";
+import { ReferralCapture } from "@/components/ReferralCapture";
 
 // Lazy load all page components for code splitting
 const Index = lazy(() => import("./pages/Index"));
@@ -55,6 +56,7 @@ const GovtJobTracker = lazy(() => import("./pages/GovtJobTracker"));
 const GovtJobExam = lazy(() => import("./pages/GovtJobExam"));
 const GovtJobAnalytics = lazy(() => import("./pages/GovtJobAnalytics"));
 const ApplyLatestJobs = lazy(() => import("./pages/ApplyLatestJobs"));
+const Referrals = lazy(() => import("./pages/Referrals"));
 
 // Admin pages - lazy loaded
 const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));
@@ -80,6 +82,7 @@ const AdminGovtJobEditor = lazy(() => import("./pages/admin/AdminGovtJobEditor")
 const AdminExamQuestions = lazy(() => import("./pages/admin/AdminExamQuestions"));
 const AdminExams = lazy(() => import("./pages/admin/AdminExams"));
 const AdminNaukriJobs = lazy(() => import("./pages/admin/AdminNaukriJobs"));
+const AdminReferrals = lazy(() => import("./pages/admin/AdminReferrals"));
 
 
 
@@ -99,6 +102,7 @@ const App = () => (
           {/* Sonner renders in a portal to body, ensuring it's above all content */}
           <Sonner />
           <BrowserRouter>
+            <ReferralCapture />
             <ChatListingProvider>
             <ActivityTracker />
             <FlashSalePopup />
@@ -111,6 +115,7 @@ const App = () => (
                   <Route path="/pricing" element={<Index />} />
                   <Route path="/auth" element={<Auth />} />
                   <Route path="/dashboard" element={<Dashboard />} />
+                  <Route path="/referrals" element={<Referrals />} />
                   <Route path="/compose" element={<Compose />} />
                   <Route path="/email-history" element={<EmailHistory />} />
                   {/* <Route path="/conversations" element={<Conversations />} /> */}
@@ -175,6 +180,7 @@ const App = () => (
                   <Route path="/admin/govt-jobs/:jobId/questions" element={<AdminExamQuestions />} />
                   <Route path="/admin/exams" element={<AdminExams />} />
                   <Route path="/admin/naukri-jobs" element={<AdminNaukriJobs />} />
+                  <Route path="/admin/referrals" element={<AdminReferrals />} />
 
                   {/* Public Blog Routes */}
                   <Route path="/blog" element={<BlogListing />} />

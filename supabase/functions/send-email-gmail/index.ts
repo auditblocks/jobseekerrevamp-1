@@ -100,10 +100,23 @@ serve(async (req) => {
       throw new Error("Gmail not connected. Please connect your Gmail account first.");
     }
 
-    // Check daily limit
-    const today = new Date().toISOString().split('T')[0];
-    const dailyLimit = profile.subscription_tier === "FREE" ? 5 :
-      profile.subscription_tier === "PRO" ? 50 : 1000;
+    // Check daily limit (base plan + referral bonus from DB)
+    const today = new Date().toISOString().split("T")[0];
+    const { data: capRow, error: capErr } = await supabase.rpc("effective_email_daily_cap", {
+      p_user_id: user.id,
+    });
+    if (capErr) {
+      console.error("effective_email_daily_cap:", capErr);
+    }
+    const capJson = (capRow ?? {}) as { total?: number; base?: number; bonus?: number };
+    const dailyLimit =
+      typeof capJson.total === "number" && Number.isFinite(capJson.total) && capJson.total > 0
+        ? capJson.total
+        : profile.subscription_tier === "FREE"
+        ? 5
+        : profile.subscription_tier === "PRO"
+        ? 50
+        : 1000;
 
     if (profile.last_sent_date === today && profile.daily_emails_sent >= dailyLimit) {
       throw new Error(`Daily email limit (${dailyLimit}) reached. Upgrade to send more emails.`);

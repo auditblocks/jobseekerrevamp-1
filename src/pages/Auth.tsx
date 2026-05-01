@@ -14,11 +14,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Mail, Lock, User, ArrowRight, Loader2, Eye, EyeOff, ArrowLeft } from "lucide-react";
+import { Mail, Lock, User, ArrowRight, Loader2, Eye, EyeOff, ArrowLeft, Gift } from "lucide-react";
 import { Chrome } from "lucide-react";
 import { Helmet } from "react-helmet-async";
 import { useAuth } from "@/hooks/useAuth";
 import { getAccountAccessDenialMessage } from "@/lib/accountAccess";
+import { REFERRAL_PENDING_CODE_KEY, claimPendingReferralIfAny } from "@/lib/referralStorage";
 
 /**
  * Validates that a redirect path is a same-origin relative path, rejecting
@@ -48,6 +49,17 @@ export function readPostLoginRedirect(): string {
   );
 }
 
+/** Persists a typed or pasted referral code so Google OAuth and post-login claim can use it. */
+function persistPendingReferralCode(raw: string): void {
+  const c = raw.trim().toUpperCase().replace(/\s+/g, "");
+  if (c.length < 4) return;
+  try {
+    localStorage.setItem(REFERRAL_PENDING_CODE_KEY, c);
+  } catch {
+    /* ignore */
+  }
+}
+
 /**
  * Auth page component — renders login or sign-up form based on `?mode=signup` param.
  * Processes Google OAuth hash callbacks, checks for suspended accounts on email login,
@@ -66,12 +78,24 @@ const Auth = () => {
     password: "",
     name: "",
   });
+  /** Optional referral code (signup). Synced with ?ref= and persisted for Google OAuth + claim RPC. */
+  const [referralCodeInput, setReferralCodeInput] = useState("");
 
   /** When sign-up returns an immediate session, SIGNED_IN also fires — skip duplicate welcome toast. */
   const skipNextSignedInWelcomeRef = useRef(false);
 
   useEffect(() => {
     setIsLogin(searchParams.get("mode") !== "signup");
+  }, [searchParams]);
+
+  // Prefill referral from URL when opening signup (or merge ?ref= when already on signup).
+  useEffect(() => {
+    if (searchParams.get("mode") === "signup") {
+      const ref = searchParams.get("ref")?.trim();
+      if (ref && ref.length >= 4) {
+        setReferralCodeInput((prev) => (prev.trim().length >= 4 ? prev : ref.toUpperCase()));
+      }
+    }
   }, [searchParams]);
 
   // OAuth hash only: process tokens, then redirect (avoid racing AuthProvider /dashboard vs /auth)
@@ -141,13 +165,33 @@ const Auth = () => {
   const handleGoogleSignIn = async () => {
     setLoading(true);
     try {
+      const typedRef = referralCodeInput.trim().toUpperCase().replace(/\s+/g, "");
+      const urlRef = new URLSearchParams(window.location.search).get("ref")?.trim();
+      if (typedRef.length >= 4) {
+        persistPendingReferralCode(typedRef);
+      } else if (urlRef && urlRef.length >= 4) {
+        persistPendingReferralCode(urlRef);
+      }
+
       // Use production URL from env, or fall back to current origin
       const siteUrl = import.meta.env.VITE_SITE_URL || window.location.origin;
       const next = readRedirectFromSearch() ?? getSafeInternalRedirect(new URLSearchParams(window.location.search).get("returnTo"));
       const signup = searchParams.get("mode") === "signup" ? "&mode=signup" : "";
+      const storedRef = (() => {
+        try {
+          return localStorage.getItem(REFERRAL_PENDING_CODE_KEY)?.trim();
+        } catch {
+          return null;
+        }
+      })();
+      const refCode =
+        (typedRef.length >= 4 ? typedRef : null) ??
+        (urlRef && urlRef.length >= 4 ? urlRef.toUpperCase() : null) ??
+        (storedRef && storedRef.length >= 4 ? storedRef.toUpperCase() : null);
+      const refParam = refCode ? `&ref=${encodeURIComponent(refCode)}` : "";
       const redirectUrl = next
-        ? `${siteUrl}/auth?redirect=${encodeURIComponent(next)}${signup}`
-        : `${siteUrl}/dashboard`;
+        ? `${siteUrl}/auth?redirect=${encodeURIComponent(next)}${signup}${refParam}`
+        : `${siteUrl}/dashboard${refCode ? `?ref=${encodeURIComponent(refCode)}` : ""}`;
 
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
@@ -210,6 +254,14 @@ const Auth = () => {
           navigate(readPostLoginRedirect(), { replace: true });
         }
       } else {
+        const typedSignup = referralCodeInput.trim().toUpperCase().replace(/\s+/g, "");
+        const urlRefSignup = new URLSearchParams(window.location.search).get("ref")?.trim();
+        if (typedSignup.length >= 4) {
+          persistPendingReferralCode(typedSignup);
+        } else if (urlRefSignup && urlRefSignup.length >= 4) {
+          persistPendingReferralCode(urlRefSignup);
+        }
+
         const redirectUrl = `${window.location.origin}/`;
         
         const { data: signUpData, error } = await supabase.auth.signUp({
@@ -225,6 +277,7 @@ const Auth = () => {
         
         if (error) throw error;
         if (signUpData.session) {
+          await claimPendingReferralIfAny(supabase);
           skipNextSignedInWelcomeRef.current = true;
           toast.success("Account created! Welcome in.");
           navigate(readPostLoginRedirect(), { replace: true });
@@ -296,8 +349,33 @@ const Auth = () => {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.1 }}
-              className="mb-5"
+              className="mb-5 space-y-4"
             >
+              {!isLogin && (
+                <div className="space-y-2">
+                  <Label htmlFor="referral-code" className="text-foreground">
+                    Referral code <span className="text-muted-foreground font-normal">(optional)</span>
+                  </Label>
+                  <div className="relative">
+                    <Gift className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground pointer-events-none" />
+                    <Input
+                      id="referral-code"
+                      type="text"
+                      inputMode="text"
+                      autoComplete="off"
+                      spellCheck={false}
+                      placeholder="e.g. friend's code or from invite link"
+                      value={referralCodeInput}
+                      onChange={(e) => setReferralCodeInput(e.target.value.toUpperCase())}
+                      className="pl-10 h-11 bg-secondary/50 border-border focus:border-accent font-mono text-sm uppercase"
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Applies when you create your account with Google or email. You can also use a link with{" "}
+                    <code className="text-[11px] bg-muted px-1 rounded">?ref=</code> in the URL.
+                  </p>
+                </div>
+              )}
               <Button
                 type="button"
                 variant="outline"

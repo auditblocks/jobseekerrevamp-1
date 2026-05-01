@@ -6,7 +6,7 @@
  *   1. Validate the HMAC-SHA256 signature (order_id|payment_id) against the
  *      Razorpay secret to ensure the callback is authentic.
  *   2. **Idempotency check** — if the payment was already verified, return the
- *      existing subscription details without mutating anything.
+ *      existing subscription details; still runs referral reward RPC once (idempotent).
  *   3. Resolve the subscription tier (`FREE` / `PRO` / `PRO_MAX`) and duration
  *      from the plan metadata and billing cycle (monthly vs yearly).
  *   4. Update `subscription_history` → completed, and write the new tier +
@@ -99,6 +99,32 @@ async function createHmac(key: string, message: string): Promise<string> {
   return hmacDigestToHex(signature);
 }
 
+type ReferralPaymentRpcResult = { ok?: boolean; reason?: string };
+
+/** Idempotent: safe on replays (DB uses ON CONFLICT / already_rewarded). */
+async function tryReferralOnPaymentSuccess(
+  supabase: ReturnType<typeof createClient>,
+  refereeUserId: string,
+  subscriptionHistoryId: string,
+) {
+  try {
+    const { data, error } = await supabase.rpc("referral_on_referee_payment_success", {
+      p_referee_id: refereeUserId,
+      p_subscription_history_id: subscriptionHistoryId,
+    });
+    if (error) {
+      console.warn("referral_on_referee_payment_success:", error.message);
+      return;
+    }
+    const row = data as ReferralPaymentRpcResult | null;
+    if (row && row.ok === false && row.reason) {
+      console.warn("referral_on_referee_payment_success:", row.reason);
+    }
+  } catch (refE) {
+    console.warn("referral_on_referee_payment_success exception:", refE);
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -174,6 +200,7 @@ serve(async (req) => {
     const idempotentRow = idemRows?.[0];
 
     if (idempotentRow) {
+      await tryReferralOnPaymentSuccess(supabase, user.id, idempotentRow.id);
       const isFlash = idempotentRow.plan_id === "flash_sale";
       const plan = idempotentRow.subscription_plans as { name?: string; duration_days?: number } | null;
       const subscriptionTier = isFlash
@@ -292,6 +319,8 @@ serve(async (req) => {
       console.error("Failed to update profile:", profileError);
       throw new Error(profileError.message || "Could not update subscription profile");
     }
+
+    await tryReferralOnPaymentSuccess(supabase, user.id, subscription.id);
 
     // Fetch user profile for receipt email
     const { data: profile } = await supabase

@@ -345,7 +345,8 @@ serve(async (req) => {
 
     if ("error" in resolved) {
       await finishLog("error", { error_message: resolved.error });
-      return json({ success: false, error: resolved.error }, 502);
+      // 422 = caller/config or upstream Apify issue (not Supabase infra). Keeps 5xx for real outages.
+      return json({ success: false, error: resolved.error }, 422);
     }
 
     const { items, error: fetchErr } = await fetchAllDatasetItems(
@@ -358,7 +359,7 @@ serve(async (req) => {
         dataset_id: resolved.datasetId,
         apify_run_id: resolved.runId,
       });
-      return json({ success: false, error: fetchErr }, 502);
+      return json({ success: false, error: fetchErr }, 422);
     }
 
     let upserted = 0;
