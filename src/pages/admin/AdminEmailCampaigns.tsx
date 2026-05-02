@@ -113,7 +113,7 @@ export default function AdminEmailCampaigns() {
   // Campaign form state
   const [campaignSubject, setCampaignSubject] = useState("");
   const [campaignBody, setCampaignBody] = useState("");
-  const [fromName, setFromName] = useState("JobSeeker");
+  const [fromName, setFromName] = useState("Start your job seeking journey");
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
   const [attachments, setAttachments] = useState<any[]>([]);
   const [isSending, setIsSending] = useState(false);
@@ -261,7 +261,7 @@ export default function AdminEmailCampaigns() {
   const resetForm = () => {
     setCampaignSubject("");
     setCampaignBody("");
-    setFromName("JobSeeker");
+    setFromName("Start your job seeking journey");
     setSelectedUsers([]);
     setAttachments([]);
   };
@@ -281,7 +281,7 @@ export default function AdminEmailCampaigns() {
       // Load campaign data
       setCampaignSubject(campaign.subject);
       setCampaignBody(campaign.html_body);
-      setFromName(campaign.from_name || "JobSeeker");
+      setFromName(campaign.from_name || "Start your job seeking journey");
       setEditingCampaignId(campaign.id);
 
       // Load attachments for this campaign
@@ -650,7 +650,7 @@ export default function AdminEmailCampaigns() {
                   id="from-name"
                   value={fromName}
                   onChange={(e) => setFromName(e.target.value)}
-                  placeholder="JobSeeker"
+                  placeholder="Start your job seeking journey"
                 />
               </div>
 
@@ -741,7 +741,7 @@ export default function AdminEmailCampaigns() {
                   id="edit-from-name"
                   value={fromName}
                   onChange={(e) => setFromName(e.target.value)}
-                  placeholder="JobSeeker"
+                  placeholder="Start your job seeking journey"
                 />
               </div>
 

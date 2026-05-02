@@ -25,6 +25,32 @@ interface CampaignRequest {
   from_email?: string;
 }
 
+/** Shown in inbox when no display name is supplied; bare `hello@…` would otherwise appear as "hello". */
+const DEFAULT_CAMPAIGN_FROM_DISPLAY = "Start your job seeking journey";
+
+/**
+ * Builds Resend `from` with a proper display name. A bare mailbox (e.g. hello@domain.com)
+ * makes Gmail show the local part ("hello") as the sender name.
+ */
+function buildResendFromAddress(options: {
+  from_email?: string;
+  from_name?: string;
+  campaign_from_name?: string | null;
+  defaultMailbox: string;
+}): string {
+  const mailbox = (options.from_email?.trim() || options.defaultMailbox).trim();
+  if (mailbox.includes("<") && mailbox.includes(">")) {
+    return mailbox;
+  }
+  const display = (
+    options.from_name ||
+    options.campaign_from_name ||
+    DEFAULT_CAMPAIGN_FROM_DISPLAY
+  ).trim();
+  const escaped = display.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+  return `"${escaped}" <${mailbox}>`;
+}
+
 /**
  * Rewrites anchor hrefs to route through the click-tracking edge function,
  * skipping mailto/tel links and already-tracked URLs to avoid double-wrapping.
@@ -309,10 +335,14 @@ serve(async (req) => {
         </div>`;
         emailBody += unsubscribeLink;
 
-        // Send email via Resend
-        // Use verified domain email address (startworking.in) - using a more friendly address
-        const defaultFromEmail = "hello@startworking.in"; // Changed from noreply to hello (less spammy)
-        const fromAddress = from_email || `${from_name || campaign.from_name || "JobSeeker"} <${defaultFromEmail}>`;
+        // Send email via Resend (verified mailbox; display name is required so clients do not show "hello")
+        const defaultFromEmail = "hello@startworking.in";
+        const fromAddress = buildResendFromAddress({
+          from_email,
+          from_name,
+          campaign_from_name: campaign.from_name,
+          defaultMailbox: defaultFromEmail,
+        });
         const replyToEmail = "support@startworking.in"; // Add reply-to address
         
         console.log(`Calling Resend API for ${recipient.email}`);
