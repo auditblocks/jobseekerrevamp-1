@@ -1,12 +1,7 @@
-/**
- * @fileoverview Wizard step 3: work experience, with nested bullet-point descriptions.
- */
-
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Plus, Trash2, X } from "lucide-react";
 import { StructuredResumeData } from "@/types/resume";
 import { StepProps } from "../stepTypes";
@@ -23,33 +18,21 @@ export function ExperienceStep({ data, onChange }: StepProps) {
     add({ jobTitle: "", company: "", location: "", startDate: "", endDate: "", current: false, description: [""] });
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex justify-between items-center">
-          <CardTitle>Work Experience</CardTitle>
-          <Button onClick={addExperience} size="sm">
-            <Plus className="h-4 w-4 mr-2" />
-            Add Experience
-          </Button>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        {data.workExperience.map((exp, index) => (
-          <ExperienceEntry
-            key={index}
-            exp={exp}
-            index={index}
-            onUpdate={(patch) => update(index, patch)}
-            onRemove={() => remove(index)}
-          />
-        ))}
-        {data.workExperience.length === 0 && (
-          <p className="text-sm text-muted-foreground text-center py-4">
-            No work experience added yet. Click "Add Experience" to get started.
-          </p>
-        )}
-      </CardContent>
-    </Card>
+    <div className="space-y-3">
+      {data.workExperience.map((exp, index) => (
+        <ExperienceEntry
+          key={index}
+          exp={exp}
+          index={index}
+          onUpdate={(patch) => update(index, patch)}
+          onRemove={() => remove(index)}
+        />
+      ))}
+      <Button onClick={addExperience} variant="outline" size="sm" className="w-full">
+        <Plus className="h-3.5 w-3.5 mr-1.5" />
+        Add Experience
+      </Button>
+    </div>
   );
 }
 
@@ -67,86 +50,79 @@ function ExperienceEntry({
   const description = useStringArrayField(exp.description, (next) => onUpdate({ description: next }));
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex justify-between items-center">
-          <CardTitle className="text-lg">Experience {index + 1}</CardTitle>
-          <Button variant="ghost" size="sm" onClick={onRemove} aria-label="Remove experience entry">
-            <Trash2 className="h-4 w-4" />
-          </Button>
+    <div className="border rounded-lg p-3 space-y-3 bg-muted/30">
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-medium text-muted-foreground">Position {index + 1}</span>
+        <Button variant="ghost" size="sm" onClick={onRemove} className="h-7 w-7 p-0" aria-label="Remove experience entry">
+          <Trash2 className="h-3.5 w-3.5" />
+        </Button>
+      </div>
+      <div className="grid grid-cols-2 gap-2.5">
+        <div className="space-y-1">
+          <Label className="text-xs">Job Title *</Label>
+          <Input value={exp.jobTitle} onChange={(e) => onUpdate({ jobTitle: e.target.value })} placeholder="Software Engineer" className="h-8 text-sm" />
         </div>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label>Job Title *</Label>
-            <Input value={exp.jobTitle} onChange={(e) => onUpdate({ jobTitle: e.target.value })} placeholder="Software Engineer" />
-          </div>
-          <div className="space-y-2">
-            <Label>Company *</Label>
-            <Input value={exp.company} onChange={(e) => onUpdate({ company: e.target.value })} placeholder="Company Name" />
-          </div>
-          <div className="space-y-2">
-            <Label>Location</Label>
-            <Input value={exp.location || ""} onChange={(e) => onUpdate({ location: e.target.value })} placeholder="City, State" />
-          </div>
-          <div className="space-y-2">
-            <Label>Start Date *</Label>
-            <Input value={exp.startDate} onChange={(e) => onUpdate({ startDate: e.target.value })} placeholder="MM/YYYY" />
-          </div>
-          <div className="space-y-2">
-            <Label>End Date</Label>
+        <div className="space-y-1">
+          <Label className="text-xs">Company *</Label>
+          <Input value={exp.company} onChange={(e) => onUpdate({ company: e.target.value })} placeholder="Company Name" className="h-8 text-sm" />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs">Start Date *</Label>
+          <Input value={exp.startDate} onChange={(e) => onUpdate({ startDate: e.target.value })} placeholder="MM/YYYY" className="h-8 text-sm" />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs">End Date</Label>
+          <div className="flex items-center gap-2">
             <Input
               value={exp.endDate}
               onChange={(e) => onUpdate({ endDate: e.target.value })}
-              placeholder="MM/YYYY or Present"
+              placeholder={exp.current ? "Present" : "MM/YYYY"}
               disabled={exp.current}
+              className="h-8 text-sm flex-1"
             />
-          </div>
-          <div className="space-y-2 flex items-end">
-            <div className="flex items-center space-x-2">
+            <label className="flex items-center gap-1 text-xs whitespace-nowrap cursor-pointer">
               <input
                 type="checkbox"
                 checked={exp.current}
                 onChange={(e) => onUpdate({ current: e.target.checked })}
                 className="rounded"
               />
-              <Label>Current Position</Label>
-            </div>
+              Current
+            </label>
           </div>
         </div>
-        <div className="space-y-2">
-          <Label>Responsibilities & Achievements</Label>
-          {exp.description.map((desc, descIndex) => (
-            <div key={descIndex} className="flex gap-2">
-              <Textarea
-                value={desc}
-                onChange={(e) => description.update(descIndex, e.target.value)}
-                placeholder="Describe your responsibilities and achievements..."
-                className="flex-1"
-              />
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => description.remove(descIndex)}
-                disabled={exp.description.length === 1}
-                aria-label="Remove bullet point"
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-          ))}
-          <Button variant="outline" size="sm" onClick={() => description.add("")}>
-            <Plus className="h-4 w-4 mr-2" />
-            Add Bullet Point
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
+      </div>
+      <div className="space-y-1.5">
+        <Label className="text-xs">Key Achievements</Label>
+        {exp.description.map((desc, descIndex) => (
+          <div key={descIndex} className="flex gap-1.5">
+            <Textarea
+              value={desc}
+              onChange={(e) => description.update(descIndex, e.target.value)}
+              placeholder="Describe your impact..."
+              className="flex-1 min-h-[60px] text-sm"
+            />
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => description.remove(descIndex)}
+              disabled={exp.description.length === 1}
+              className="h-7 w-7 p-0 shrink-0 mt-1"
+              aria-label="Remove bullet point"
+            >
+              <X className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        ))}
+        <Button variant="ghost" size="sm" onClick={() => description.add("")} className="h-7 text-xs">
+          <Plus className="h-3 w-3 mr-1" />
+          Add bullet
+        </Button>
+      </div>
+    </div>
   );
 }
 
-/** Requires at least one work experience entry — matches the original builder's validation. */
 export function validateExperienceStep(data: StructuredResumeData): string | null {
   if (data.workExperience.length === 0) return "Please add at least one work experience";
   return null;

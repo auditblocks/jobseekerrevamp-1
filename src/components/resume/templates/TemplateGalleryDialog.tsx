@@ -1,11 +1,3 @@
-/**
- * @fileoverview Standalone template picker for raw resume text (no structured
- * data yet available). Offers a resume-source toggle (original/optimized),
- * a template gallery, and a preview dialog with HTML/PDF download — this is
- * the one place the "separate preview dialog" UX is intentionally kept, since
- * there's no live form to preview against.
- */
-
 import { useState } from "react";
 import {
   Dialog,
@@ -98,28 +90,24 @@ export function TemplateGalleryDialog({
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Choose Resume Template</DialogTitle>
+            <DialogTitle>Choose a Template</DialogTitle>
             <DialogDescription>
-              Select a professional template for your resume. Preview and download as HTML.
+              Pick a professional template and download your resume.
             </DialogDescription>
           </DialogHeader>
 
           {optimizedResume && (
-            <div className="mb-4 p-4 bg-accent/5 rounded-lg border border-accent/30">
-              <Label className="text-sm font-medium mb-2 block">Resume Source</Label>
+            <div className="mb-4 p-3 bg-accent/5 rounded-lg border border-accent/20">
+              <Label className="text-xs font-medium mb-2 block">Resume Source</Label>
               <RadioGroup value={resumeSource} onValueChange={(value) => setResumeSource(value as "original" | "optimized")}>
                 <div className="flex gap-4">
                   <div className="flex items-center space-x-2">
                     <RadioGroupItem value="optimized" id="optimized" />
-                    <Label htmlFor="optimized" className="cursor-pointer">
-                      Optimized Resume
-                    </Label>
+                    <Label htmlFor="optimized" className="cursor-pointer text-sm">Optimized</Label>
                   </div>
                   <div className="flex items-center space-x-2">
                     <RadioGroupItem value="original" id="original" />
-                    <Label htmlFor="original" className="cursor-pointer">
-                      Original Resume
-                    </Label>
+                    <Label htmlFor="original" className="cursor-pointer text-sm">Original</Label>
                   </div>
                 </div>
               </RadioGroup>
@@ -135,11 +123,10 @@ export function TemplateGalleryDialog({
         </DialogContent>
       </Dialog>
 
-      {/* Preview Dialog */}
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
         <DialogContent className="max-w-6xl max-h-[95vh] overflow-hidden flex flex-col">
           <DialogHeader>
-            <DialogTitle>{selectedTemplate?.name} Template Preview</DialogTitle>
+            <DialogTitle>{selectedTemplate?.name} Preview</DialogTitle>
             <DialogDescription>
               Preview your resume with the {selectedTemplate?.name} template
             </DialogDescription>
@@ -159,18 +146,16 @@ export function TemplateGalleryDialog({
             )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setPreviewOpen(false)}>
-              Close
-            </Button>
+            <Button variant="outline" onClick={() => setPreviewOpen(false)}>Close</Button>
             {selectedTemplate && (
               <>
                 <Button variant="outline" onClick={() => handleDownload(selectedTemplate, "html")} disabled={isExporting}>
                   <FileText className="mr-2 h-4 w-4" />
-                  Download HTML
+                  HTML
                 </Button>
                 <Button onClick={() => handleDownload(selectedTemplate, "pdf")} disabled={isExporting}>
                   <FileDown className="mr-2 h-4 w-4" />
-                  Download PDF
+                  PDF
                 </Button>
               </>
             )}

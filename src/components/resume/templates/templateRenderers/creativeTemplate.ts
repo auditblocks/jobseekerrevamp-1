@@ -1,7 +1,3 @@
-/**
- * @fileoverview HTML renderer for the "creative" (two-column sidebar) template family.
- */
-
 import { ResumeTemplate } from "../templateRegistry";
 import { ParsedResume, FormattingData } from "../resumeParsing";
 import { escapeHtml, formatSummary } from "./htmlUtils";
@@ -12,364 +8,300 @@ export function renderCreativeTemplate(
   formatData?: FormattingData | null,
   profilePhotoUrl?: string | null,
 ): string {
+  if (template.id === "elegant") {
+    return renderElegant(parsed, template, formatData, profilePhotoUrl);
+  }
+  return renderCreative(parsed, template, formatData, profilePhotoUrl);
+}
+
+function isValidPhoto(url: string | null | undefined): url is string {
+  return Boolean(
+    url &&
+    typeof url === "string" &&
+    url.trim().length > 0 &&
+    !url.startsWith("data:;base64") &&
+    !url.startsWith("data:;base64,="),
+  );
+}
+
+function renderCreative(
+  parsed: ParsedResume,
+  template: ResumeTemplate,
+  formatData?: FormattingData | null,
+  profilePhotoUrl?: string | null,
+): string {
   const { header, professionalTitle, summary, experience, education, skills, projects, languages, certifications } = parsed;
+  const sidebar = formatData?.sidebar_color || template.accentColor;
+  const font = formatData?.font_family || "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+  const showPhoto = template.hasPhoto && isValidPhoto(profilePhotoUrl);
 
-  const sidebarColor = formatData?.sidebar_color || (formatData as any)?.styling?.colors?.[0] || template.accentColor;
-  const fontFamily = formatData?.font_family || (formatData as any)?.styling?.fonts?.[0] || "Arial, sans-serif";
-
-  // Validate profilePhotoUrl - filter out empty strings and invalid data URLs
-  const isValidPhotoUrl =
-    profilePhotoUrl &&
-    typeof profilePhotoUrl === "string" &&
-    profilePhotoUrl.trim().length > 0 &&
-    !profilePhotoUrl.startsWith("data:;base64") &&
-    !profilePhotoUrl.startsWith("data:;base64,=");
-
-  const photoHtml =
-    template.hasPhoto && isValidPhotoUrl
-      ? `<div class="photo-container">
-          <img src="${escapeHtml(profilePhotoUrl)}" alt="${escapeHtml(header.name)}" class="profile-photo" />
-        </div>`
-      : "";
-
-  const html = `
-<!DOCTYPE html>
+  return `<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Resume - ${escapeHtml(header.name || "Your Name")}</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body {
-      font-family: ${fontFamily};
-      line-height: 1.6;
-      color: #333;
-      background: #f5f5f5;
-      display: flex;
-      justify-content: center;
-      padding: 20px;
-    }
-    .resume-container {
-      max-width: 1000px;
-      width: 100%;
-      background: #fff;
-      box-shadow: 0 0 20px rgba(0,0,0,0.1);
-      display: flex;
-      min-height: 800px;
-    }
-    .sidebar {
-      width: 280px;
-      background: ${sidebarColor};
-      color: #fff;
-      padding: 30px 20px;
-      display: flex;
-      flex-direction: column;
-    }
-    .main-content {
-      flex: 1;
-      padding: 30px 40px;
-      background: #fff;
-    }
-    .photo-container {
-      width: 100%;
-      margin-bottom: 25px;
-      text-align: center;
-    }
-    .profile-photo {
-      width: 150px;
-      height: 150px;
-      border-radius: 50%;
-      object-fit: cover;
-      border: 4px solid rgba(255,255,255,0.3);
-      box-shadow: 0 4px 10px rgba(0,0,0,0.2);
-    }
-    .name-title {
-      margin-bottom: 20px;
-    }
-    .name {
-      font-size: 28px;
-      font-weight: 700;
-      color: #fff;
-      margin-bottom: 5px;
-      text-align: center;
-    }
-    .professional-title {
-      font-size: 16px;
-      color: rgba(255,255,255,0.9);
-      text-align: center;
-      font-weight: 400;
-    }
-    .sidebar-section {
-      margin-bottom: 25px;
-    }
-    .sidebar-title {
-      font-size: 18px;
-      font-weight: 600;
-      color: #fff;
-      margin-bottom: 12px;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      border-bottom: 2px solid rgba(255,255,255,0.3);
-      padding-bottom: 8px;
-    }
-    .sidebar-content {
-      font-size: 14px;
-      color: rgba(255,255,255,0.95);
-      line-height: 1.8;
-    }
-    .sidebar-item {
-      margin-bottom: 8px;
-    }
-    .sidebar-item strong {
-      display: block;
-      margin-bottom: 3px;
-      color: #fff;
-    }
-    .skills-list {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-    }
-    .skill-tag {
-      background: rgba(255,255,255,0.2);
-      color: #fff;
-      padding: 6px 12px;
-      border-radius: 4px;
-      font-size: 13px;
-      border: 1px solid rgba(255,255,255,0.3);
-    }
-    .main-header {
-      margin-bottom: 30px;
-      padding-bottom: 20px;
-      border-bottom: 2px solid ${sidebarColor};
-    }
-    .main-name {
-      font-size: 36px;
-      font-weight: 700;
-      color: ${sidebarColor};
-      margin-bottom: 5px;
-    }
-    .main-title {
-      font-size: 18px;
-      color: #666;
-      font-weight: 400;
-    }
-    .section {
-      margin-bottom: 30px;
-    }
-    .section-title {
-      font-size: 20px;
-      font-weight: 600;
-      color: ${sidebarColor};
-      margin-bottom: 15px;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      border-bottom: 2px solid ${sidebarColor};
-      padding-bottom: 5px;
-    }
-    .summary-text {
-      font-size: 15px;
-      line-height: 1.8;
-      color: #555;
-      text-align: justify;
-    }
-    .experience-item, .education-item, .project-item {
-      margin-bottom: 20px;
-      padding-bottom: 15px;
-      border-bottom: 1px solid #eee;
-    }
-    .experience-item:last-child, .education-item:last-child, .project-item:last-child {
-      border-bottom: none;
-    }
-    .job-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: start;
-      margin-bottom: 8px;
-    }
-    .job-title {
-      font-size: 18px;
-      font-weight: 600;
-      color: #222;
-    }
-    .company {
-      font-size: 16px;
-      color: ${sidebarColor};
-      font-weight: 500;
-      margin-top: 2px;
-    }
-    .dates {
-      font-size: 14px;
-      color: #888;
-      white-space: nowrap;
-    }
-    .description {
-      margin-top: 10px;
-    }
-    .description ul {
-      list-style: none;
-      padding-left: 0;
-    }
-    .description li {
-      margin-bottom: 6px;
-      padding-left: 20px;
-      position: relative;
-      font-size: 14px;
-      color: #555;
-    }
-    .description li:before {
-      content: "▸";
-      position: absolute;
-      left: 0;
-      color: ${sidebarColor};
-      font-weight: bold;
-    }
-    .project-name {
-      font-size: 18px;
-      font-weight: 600;
-      color: #222;
-      margin-bottom: 5px;
-    }
-    .project-duration {
-      font-size: 13px;
-      color: #888;
-      margin-bottom: 8px;
-    }
-    .project-description {
-      font-size: 14px;
-      color: #555;
-      line-height: 1.7;
-    }
-    @media print {
-      body { padding: 0; background: #fff; }
-      .resume-container { box-shadow: none; }
-      .sidebar { page-break-inside: avoid; }
-    }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Resume - ${escapeHtml(header.name || "Resume")}</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:${font};line-height:1.55;color:#1f2937;background:#f8fafc;-webkit-font-smoothing:antialiased;display:flex;justify-content:center;padding:20px}
+.resume{max-width:960px;width:100%;display:flex;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,0.08),0 8px 24px rgba(0,0,0,0.06);min-height:800px}
+.sidebar{width:260px;background:${sidebar};color:#fff;padding:36px 24px;flex-shrink:0;display:flex;flex-direction:column}
+.main{flex:1;padding:36px 40px}
+.photo{width:120px;height:120px;border-radius:50%;object-fit:cover;border:3px solid rgba(255,255,255,0.25);margin:0 auto 20px;display:block}
+.sidebar .name{font-size:22px;font-weight:700;text-align:center;margin-bottom:2px}
+.sidebar .title{font-size:13px;text-align:center;color:rgba(255,255,255,0.8);font-weight:400;margin-bottom:20px}
+.sb-section{margin-bottom:22px}
+.sb-heading{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:rgba(255,255,255,0.6);margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid rgba(255,255,255,0.15)}
+.sb-item{font-size:12.5px;color:rgba(255,255,255,0.9);margin-bottom:6px;line-height:1.5;word-break:break-word}
+.sb-item a{color:rgba(255,255,255,0.9);text-decoration:none}
+.sb-tag{display:inline-block;font-size:11px;padding:3px 8px;background:rgba(255,255,255,0.15);border-radius:3px;margin:0 4px 4px 0;color:#fff}
+.section{margin-bottom:28px}
+.section:last-child{margin-bottom:0}
+.section-title{font-size:13px;font-weight:700;color:${sidebar};text-transform:uppercase;letter-spacing:1.5px;padding-bottom:6px;border-bottom:2px solid ${sidebar};margin-bottom:14px}
+.summary{font-size:13.5px;color:#4b5563;line-height:1.7}
+.summary p{margin-bottom:8px}
+.entry{margin-bottom:18px}
+.entry:last-child{margin-bottom:0}
+.entry-header{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.entry-title{font-size:14px;font-weight:600;color:#111827}
+.entry-subtitle{font-size:13px;color:${sidebar};font-weight:500;margin-top:1px}
+.entry-date{font-size:11.5px;color:#9ca3af;white-space:nowrap}
+.entry-bullets{margin-top:6px;padding-left:14px}
+.entry-bullets li{font-size:12.5px;color:#4b5563;margin-bottom:4px;line-height:1.6}
+.entry-bullets li::marker{color:${sidebar}}
+.project-desc{font-size:12.5px;color:#4b5563;margin-top:3px;line-height:1.6}
+@media print{body{padding:0;background:#fff}.resume{box-shadow:none}.sidebar{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+</style>
 </head>
 <body>
-  <div class="resume-container">
-    <div class="sidebar">
-      ${photoHtml}
-      <div class="name-title">
-        <div class="name">${escapeHtml(header.name || "Your Name")}</div>
-        ${professionalTitle ? `<div class="professional-title">${escapeHtml(professionalTitle)}</div>` : ""}
-      </div>
+<div class="resume">
+  <div class="sidebar">
+    ${showPhoto ? `<img src="${escapeHtml(profilePhotoUrl!)}" alt="${escapeHtml(header.name)}" class="photo">` : ""}
+    <div class="name">${escapeHtml(header.name || "Your Name")}</div>
+    ${professionalTitle ? `<div class="title">${escapeHtml(professionalTitle)}</div>` : ""}
 
-      <div class="sidebar-section">
-        <div class="sidebar-title">Personal Information</div>
-        <div class="sidebar-content">
-          ${header.email ? `<div class="sidebar-item"><strong>Email:</strong> ${escapeHtml(header.email)}</div>` : ""}
-          ${header.phone ? `<div class="sidebar-item"><strong>Mobile:</strong> ${escapeHtml(header.phone)}</div>` : ""}
-          ${header.workExperience ? `<div class="sidebar-item"><strong>Total work experience:</strong> ${escapeHtml(header.workExperience)}</div>` : ""}
-          ${header.linkedin ? `<div class="sidebar-item"><strong>Social Link:</strong> <a href="${escapeHtml(header.linkedin)}" style="color: rgba(255,255,255,0.9); text-decoration: underline;">${escapeHtml(header.linkedin)}</a></div>` : ""}
-          ${header.location ? `<div class="sidebar-item"><strong>City:</strong> ${escapeHtml(header.location.split(',')[0])}</div>` : ""}
-          ${header.location ? `<div class="sidebar-item"><strong>Country:</strong> ${header.location.includes(',') ? escapeHtml(header.location.split(',')[1]?.trim() || '') : ''}</div>` : ""}
-        </div>
-      </div>
-
-      ${skills.length > 0 ? `
-      <div class="sidebar-section">
-        <div class="sidebar-title">Key Skills</div>
-        <div class="skills-list">
-          ${skills.map((skill) => `<span class="skill-tag">${escapeHtml(skill)}</span>`).join("")}
-        </div>
-      </div>
-      ` : ""}
-
-      ${languages && languages.length > 0 ? `
-      <div class="sidebar-section">
-        <div class="sidebar-title">Languages</div>
-        <div class="sidebar-content">
-          ${languages.map((lang) => `<div class="sidebar-item">${escapeHtml(lang)}</div>`).join("")}
-        </div>
-      </div>
-      ` : ""}
-
-      ${certifications && certifications.length > 0 ? `
-      <div class="sidebar-section">
-        <div class="sidebar-title">Courses & Certifications</div>
-        <div class="sidebar-content">
-          ${certifications.map((cert) => `<div class="sidebar-item">${escapeHtml(cert)}</div>`).join("")}
-        </div>
-      </div>
-      ` : ""}
+    <div class="sb-section">
+      <div class="sb-heading">Contact</div>
+      ${header.email ? `<div class="sb-item">${escapeHtml(header.email)}</div>` : ""}
+      ${header.phone ? `<div class="sb-item">${escapeHtml(header.phone)}</div>` : ""}
+      ${header.location ? `<div class="sb-item">${escapeHtml(header.location)}</div>` : ""}
+      ${header.linkedin ? `<div class="sb-item"><a href="${escapeHtml(header.linkedin)}">${escapeHtml(header.linkedin.replace(/^https?:\/\//, ""))}</a></div>` : ""}
     </div>
 
-    <div class="main-content">
-      ${!photoHtml ? `
-      <div class="main-header">
-        <div class="main-name">${escapeHtml(header.name || "Your Name")}</div>
-        ${professionalTitle ? `<div class="main-title">${escapeHtml(professionalTitle)}</div>` : ""}
-      </div>
-      ` : ""}
+    ${skills.length > 0 ? `
+    <div class="sb-section">
+      <div class="sb-heading">Skills</div>
+      <div>${skills.map(s => `<span class="sb-tag">${escapeHtml(s)}</span>`).join("")}</div>
+    </div>` : ""}
 
-      ${summary ? `
-      <div class="section">
-        <div class="section-title">Profile Summary</div>
-        <div class="summary-text"><p>${formatSummary(summary)}</p></div>
-      </div>
-      ` : ""}
+    ${languages && languages.length > 0 ? `
+    <div class="sb-section">
+      <div class="sb-heading">Languages</div>
+      ${languages.map(l => `<div class="sb-item">${escapeHtml(l)}</div>`).join("")}
+    </div>` : ""}
 
-      ${experience.length > 0 ? `
-      <div class="section">
-        <div class="section-title">Work Experience</div>
-        ${experience.map((exp) => `
-          <div class="experience-item">
-            <div class="job-header">
-              <div>
-                <div class="job-title">${escapeHtml(exp.title)}</div>
-                ${exp.company ? `<div class="company">${escapeHtml(exp.company)}</div>` : ""}
-              </div>
-              ${exp.dates ? `<div class="dates">${escapeHtml(exp.dates)}</div>` : ""}
-            </div>
-            ${exp.description.length > 0 ? `
-            <div class="description">
-              <ul>
-                ${exp.description.map((desc) => `<li>${escapeHtml(desc)}</li>`).join("")}
-              </ul>
-            </div>
-            ` : ""}
-          </div>
-        `).join("")}
-      </div>
-      ` : ""}
-
-      ${education.length > 0 ? `
-      <div class="section">
-        <div class="section-title">Education</div>
-        ${education.map((edu) => `
-          <div class="education-item">
-            <div class="job-header">
-              <div>
-                <div class="job-title">${escapeHtml(edu.degree)}</div>
-                ${edu.institution ? `<div class="company">${escapeHtml(edu.institution)}</div>` : ""}
-              </div>
-              ${edu.dates ? `<div class="dates">${escapeHtml(edu.dates)}</div>` : ""}
-            </div>
-          </div>
-        `).join("")}
-      </div>
-      ` : ""}
-
-      ${projects && projects.length > 0 ? `
-      <div class="section">
-        <div class="section-title">Projects</div>
-        ${projects.map((proj) => `
-          <div class="project-item">
-            <div class="project-name">${escapeHtml(proj.name)}</div>
-            ${proj.duration ? `<div class="project-duration">Duration: ${escapeHtml(proj.duration)}</div>` : ""}
-            <div class="project-description">${escapeHtml(proj.description)}</div>
-          </div>
-        `).join("")}
-      </div>
-      ` : ""}
-    </div>
+    ${certifications && certifications.length > 0 ? `
+    <div class="sb-section">
+      <div class="sb-heading">Certifications</div>
+      ${certifications.map(c => `<div class="sb-item">${escapeHtml(c)}</div>`).join("")}
+    </div>` : ""}
   </div>
-</body>
-</html>
-    `;
 
-  return html.trim();
+  <div class="main">
+    ${summary ? `
+    <div class="section">
+      <div class="section-title">Profile</div>
+      <div class="summary"><p>${formatSummary(summary)}</p></div>
+    </div>` : ""}
+
+    ${experience.length > 0 ? `
+    <div class="section">
+      <div class="section-title">Experience</div>
+      ${experience.map(exp => `
+      <div class="entry">
+        <div class="entry-header">
+          <div>
+            <div class="entry-title">${escapeHtml(exp.title)}</div>
+            ${exp.company ? `<div class="entry-subtitle">${escapeHtml(exp.company)}</div>` : ""}
+          </div>
+          ${exp.dates ? `<div class="entry-date">${escapeHtml(exp.dates)}</div>` : ""}
+        </div>
+        ${exp.description.length > 0 ? `<ul class="entry-bullets">${exp.description.map(d => `<li>${escapeHtml(d)}</li>`).join("")}</ul>` : ""}
+      </div>`).join("")}
+    </div>` : ""}
+
+    ${education.length > 0 ? `
+    <div class="section">
+      <div class="section-title">Education</div>
+      ${education.map(edu => `
+      <div class="entry">
+        <div class="entry-header">
+          <div>
+            <div class="entry-title">${escapeHtml(edu.degree)}</div>
+            ${edu.institution ? `<div class="entry-subtitle">${escapeHtml(edu.institution)}</div>` : ""}
+          </div>
+          ${edu.dates ? `<div class="entry-date">${escapeHtml(edu.dates)}</div>` : ""}
+        </div>
+      </div>`).join("")}
+    </div>` : ""}
+
+    ${projects && projects.length > 0 ? `
+    <div class="section">
+      <div class="section-title">Projects</div>
+      ${projects.map(p => `
+      <div class="entry">
+        <div class="entry-header">
+          <div class="entry-title">${escapeHtml(p.name)}</div>
+          ${p.duration ? `<div class="entry-date">${escapeHtml(p.duration)}</div>` : ""}
+        </div>
+        <div class="project-desc">${escapeHtml(p.description)}</div>
+      </div>`).join("")}
+    </div>` : ""}
+  </div>
+</div>
+</body>
+</html>`;
+}
+
+function renderElegant(
+  parsed: ParsedResume,
+  template: ResumeTemplate,
+  formatData?: FormattingData | null,
+  profilePhotoUrl?: string | null,
+): string {
+  const { header, professionalTitle, summary, experience, education, skills, projects, languages, certifications } = parsed;
+  const sidebar = formatData?.sidebar_color || template.accentColor;
+  const font = formatData?.font_family || "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+  const showPhoto = template.hasPhoto && isValidPhoto(profilePhotoUrl);
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Resume - ${escapeHtml(header.name || "Resume")}</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:${font};line-height:1.55;color:#1f2937;background:#f8fafc;-webkit-font-smoothing:antialiased;display:flex;justify-content:center;padding:20px}
+.resume{max-width:960px;width:100%;display:flex;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,0.08),0 8px 24px rgba(0,0,0,0.06);min-height:800px}
+.sidebar{width:280px;background:${sidebar};color:#fff;padding:40px 28px;flex-shrink:0;display:flex;flex-direction:column}
+.main{flex:1;padding:40px 44px}
+.photo{width:130px;height:130px;border-radius:50%;object-fit:cover;border:4px solid rgba(255,255,255,0.2);margin:0 auto 22px;display:block;box-shadow:0 4px 12px rgba(0,0,0,0.15)}
+.sidebar .name{font-family:'Playfair Display',Georgia,serif;font-size:24px;font-weight:700;text-align:center;margin-bottom:2px;letter-spacing:0.5px}
+.sidebar .title{font-size:12px;text-align:center;color:rgba(255,255,255,0.7);font-weight:400;letter-spacing:1px;text-transform:uppercase;margin-bottom:24px}
+.sb-divider{width:40px;height:1px;background:rgba(255,255,255,0.2);margin:0 auto 24px}
+.sb-section{margin-bottom:24px}
+.sb-heading{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:2px;color:rgba(255,255,255,0.5);margin-bottom:10px}
+.sb-item{font-size:12.5px;color:rgba(255,255,255,0.85);margin-bottom:7px;line-height:1.5;word-break:break-word}
+.sb-item a{color:rgba(255,255,255,0.85);text-decoration:none}
+.sb-tag{display:inline-block;font-size:11px;padding:3px 9px;border:1px solid rgba(255,255,255,0.2);border-radius:2px;margin:0 4px 5px 0;color:rgba(255,255,255,0.9)}
+.section{margin-bottom:30px}
+.section:last-child{margin-bottom:0}
+.section-title{font-family:'Playfair Display',Georgia,serif;font-size:16px;font-weight:600;color:${sidebar};letter-spacing:0.5px;padding-bottom:8px;border-bottom:1px solid #e5e7eb;margin-bottom:16px}
+.summary{font-size:13.5px;color:#4b5563;line-height:1.75}
+.summary p{margin-bottom:8px}
+.entry{margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid #f3f4f6}
+.entry:last-child{border-bottom:none;margin-bottom:0;padding-bottom:0}
+.entry-header{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.entry-title{font-size:14px;font-weight:600;color:#111827}
+.entry-subtitle{font-size:13px;color:#6b7280;font-weight:400;margin-top:2px;font-style:italic}
+.entry-date{font-size:11.5px;color:#9ca3af;white-space:nowrap}
+.entry-bullets{margin-top:6px;padding-left:14px}
+.entry-bullets li{font-size:12.5px;color:#4b5563;margin-bottom:4px;line-height:1.65}
+.entry-bullets li::marker{color:${sidebar}}
+.project-desc{font-size:12.5px;color:#4b5563;margin-top:3px;line-height:1.65}
+@media print{body{padding:0;background:#fff}.resume{box-shadow:none}.sidebar{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+</style>
+</head>
+<body>
+<div class="resume">
+  <div class="sidebar">
+    ${showPhoto ? `<img src="${escapeHtml(profilePhotoUrl!)}" alt="${escapeHtml(header.name)}" class="photo">` : ""}
+    <div class="name">${escapeHtml(header.name || "Your Name")}</div>
+    ${professionalTitle ? `<div class="title">${escapeHtml(professionalTitle)}</div>` : ""}
+    <div class="sb-divider"></div>
+
+    <div class="sb-section">
+      <div class="sb-heading">Contact</div>
+      ${header.email ? `<div class="sb-item">${escapeHtml(header.email)}</div>` : ""}
+      ${header.phone ? `<div class="sb-item">${escapeHtml(header.phone)}</div>` : ""}
+      ${header.location ? `<div class="sb-item">${escapeHtml(header.location)}</div>` : ""}
+      ${header.linkedin ? `<div class="sb-item"><a href="${escapeHtml(header.linkedin)}">${escapeHtml(header.linkedin.replace(/^https?:\/\//, ""))}</a></div>` : ""}
+    </div>
+
+    ${skills.length > 0 ? `
+    <div class="sb-section">
+      <div class="sb-heading">Expertise</div>
+      <div>${skills.map(s => `<span class="sb-tag">${escapeHtml(s)}</span>`).join("")}</div>
+    </div>` : ""}
+
+    ${languages && languages.length > 0 ? `
+    <div class="sb-section">
+      <div class="sb-heading">Languages</div>
+      ${languages.map(l => `<div class="sb-item">${escapeHtml(l)}</div>`).join("")}
+    </div>` : ""}
+
+    ${certifications && certifications.length > 0 ? `
+    <div class="sb-section">
+      <div class="sb-heading">Certifications</div>
+      ${certifications.map(c => `<div class="sb-item">${escapeHtml(c)}</div>`).join("")}
+    </div>` : ""}
+  </div>
+
+  <div class="main">
+    ${summary ? `
+    <div class="section">
+      <div class="section-title">Profile Summary</div>
+      <div class="summary"><p>${formatSummary(summary)}</p></div>
+    </div>` : ""}
+
+    ${experience.length > 0 ? `
+    <div class="section">
+      <div class="section-title">Professional Experience</div>
+      ${experience.map(exp => `
+      <div class="entry">
+        <div class="entry-header">
+          <div>
+            <div class="entry-title">${escapeHtml(exp.title)}</div>
+            ${exp.company ? `<div class="entry-subtitle">${escapeHtml(exp.company)}</div>` : ""}
+          </div>
+          ${exp.dates ? `<div class="entry-date">${escapeHtml(exp.dates)}</div>` : ""}
+        </div>
+        ${exp.description.length > 0 ? `<ul class="entry-bullets">${exp.description.map(d => `<li>${escapeHtml(d)}</li>`).join("")}</ul>` : ""}
+      </div>`).join("")}
+    </div>` : ""}
+
+    ${education.length > 0 ? `
+    <div class="section">
+      <div class="section-title">Education</div>
+      ${education.map(edu => `
+      <div class="entry">
+        <div class="entry-header">
+          <div>
+            <div class="entry-title">${escapeHtml(edu.degree)}</div>
+            ${edu.institution ? `<div class="entry-subtitle">${escapeHtml(edu.institution)}</div>` : ""}
+          </div>
+          ${edu.dates ? `<div class="entry-date">${escapeHtml(edu.dates)}</div>` : ""}
+        </div>
+      </div>`).join("")}
+    </div>` : ""}
+
+    ${projects && projects.length > 0 ? `
+    <div class="section">
+      <div class="section-title">Projects</div>
+      ${projects.map(p => `
+      <div class="entry">
+        <div class="entry-header">
+          <div class="entry-title">${escapeHtml(p.name)}</div>
+          ${p.duration ? `<div class="entry-date">${escapeHtml(p.duration)}</div>` : ""}
+        </div>
+        <div class="project-desc">${escapeHtml(p.description)}</div>
+      </div>`).join("")}
+    </div>` : ""}
+  </div>
+</div>
+</body>
+</html>`;
 }

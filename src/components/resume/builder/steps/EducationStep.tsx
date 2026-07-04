@@ -1,11 +1,6 @@
-/**
- * @fileoverview Wizard step 4: education entries.
- */
-
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Plus, Trash2 } from "lucide-react";
 import { StructuredResumeData } from "@/types/resume";
 import { StepProps } from "../stepTypes";
@@ -21,76 +16,58 @@ export function EducationStep({ data, onChange }: StepProps) {
   const addEducation = () => add({ degree: "", institution: "", location: "", graduationDate: "", gpa: "" });
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex justify-between items-center">
-          <CardTitle>Education</CardTitle>
-          <Button onClick={addEducation} size="sm">
-            <Plus className="h-4 w-4 mr-2" />
-            Add Education
-          </Button>
+    <div className="space-y-3">
+      {data.education.map((edu, index) => (
+        <div key={index} className="border rounded-lg p-3 space-y-2.5 bg-muted/30">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-muted-foreground">Education {index + 1}</span>
+            <Button variant="ghost" size="sm" onClick={() => remove(index)} className="h-7 w-7 p-0" aria-label="Remove education entry">
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+          <div className="grid grid-cols-2 gap-2.5">
+            <div className="space-y-1">
+              <Label className="text-xs">Degree *</Label>
+              <Input
+                value={edu.degree}
+                onChange={(e) => update(index, { degree: e.target.value })}
+                placeholder="B.Sc. Computer Science"
+                className="h-8 text-sm"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Institution *</Label>
+              <Input
+                value={edu.institution}
+                onChange={(e) => update(index, { institution: e.target.value })}
+                placeholder="University Name"
+                className="h-8 text-sm"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Graduation Date *</Label>
+              <Input
+                value={edu.graduationDate}
+                onChange={(e) => update(index, { graduationDate: e.target.value })}
+                placeholder="MM/YYYY"
+                className="h-8 text-sm"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">GPA (Optional)</Label>
+              <Input value={edu.gpa || ""} onChange={(e) => update(index, { gpa: e.target.value })} placeholder="3.8/4.0" className="h-8 text-sm" />
+            </div>
+          </div>
         </div>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {data.education.map((edu, index) => (
-          <Card key={index}>
-            <CardHeader>
-              <div className="flex justify-between items-center">
-                <CardTitle className="text-lg">Education {index + 1}</CardTitle>
-                <Button variant="ghost" size="sm" onClick={() => remove(index)} aria-label="Remove education entry">
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Degree *</Label>
-                  <Input
-                    value={edu.degree}
-                    onChange={(e) => update(index, { degree: e.target.value })}
-                    placeholder="Bachelor of Science in Computer Science"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Institution *</Label>
-                  <Input
-                    value={edu.institution}
-                    onChange={(e) => update(index, { institution: e.target.value })}
-                    placeholder="University Name"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Location</Label>
-                  <Input value={edu.location || ""} onChange={(e) => update(index, { location: e.target.value })} placeholder="City, State" />
-                </div>
-                <div className="space-y-2">
-                  <Label>Graduation Date *</Label>
-                  <Input
-                    value={edu.graduationDate}
-                    onChange={(e) => update(index, { graduationDate: e.target.value })}
-                    placeholder="MM/YYYY"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>GPA (Optional)</Label>
-                  <Input value={edu.gpa || ""} onChange={(e) => update(index, { gpa: e.target.value })} placeholder="3.8/4.0" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-        {data.education.length === 0 && (
-          <p className="text-sm text-muted-foreground text-center py-4">
-            No education entries added yet. Click "Add Education" to get started.
-          </p>
-        )}
-      </CardContent>
-    </Card>
+      ))}
+      <Button onClick={addEducation} variant="outline" size="sm" className="w-full">
+        <Plus className="h-3.5 w-3.5 mr-1.5" />
+        Add Education
+      </Button>
+    </div>
   );
 }
 
-/** Requires at least one education entry — matches the original builder's validation. */
 export function validateEducationStep(data: StructuredResumeData): string | null {
   if (data.education.length === 0) return "Please add at least one education entry";
   return null;
