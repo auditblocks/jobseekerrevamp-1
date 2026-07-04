@@ -292,6 +292,8 @@ meta_title should include the focus keyword naturally. meta_description should b
 suggested_slug should be short and descriptive.`;
 
     let rawContent: string | null = null;
+    let openRouterError = "";
+    let geminiError = "";
 
     if (openRouterKey?.trim()) {
       try {
@@ -319,11 +321,15 @@ suggested_slug should be short and descriptive.`;
           console.log("OpenRouter generation succeeded");
         } else {
           const errText = await orRes.text();
+          openRouterError = `Status ${orRes.status}: ${errText}`;
           console.warn("OpenRouter API returned error status:", orRes.status, errText.slice(0, 300));
         }
-      } catch (orErr) {
+      } catch (orErr: any) {
+        openRouterError = orErr.message || String(orErr);
         console.error("OpenRouter request failed:", orErr);
       }
+    } else {
+      openRouterError = "OpenRouter API Key is empty or not set";
     }
 
     // Fallback to direct Gemini API if OpenRouter failed or was not configured
@@ -342,21 +348,31 @@ suggested_slug should be short and descriptive.`;
         const response = await result.response;
         rawContent = response.text();
         console.log("Direct Gemini API fallback succeeded");
-      } catch (geminiErr) {
+      } catch (geminiErr: any) {
+        geminiError = geminiErr.message || String(geminiErr);
         console.error("Direct Gemini API fallback failed:", geminiErr);
       }
+    } else if (!geminiApiKey) {
+      geminiError = "Google Gemini API Key is empty or not set";
     }
 
     if (typeof rawContent !== "string" || !rawContent.trim()) {
-      return json({ success: false, message: "AI generation failed. Please check both OpenRouter and Gemini API keys." }, 500);
+      return json({ 
+        success: false, 
+        message: "AI generation failed.",
+        details: {
+          openRouter: openRouterError,
+          gemini: geminiError
+        }
+      }, 500);
     }
 
     let ai: BlogAiJson;
     try {
       ai = parseBlogAiResponse(rawContent);
-    } catch (e) {
+    } catch (e: any) {
       console.error("Parse AI JSON failed:", e);
-      return json({ success: false, message: "Could not parse AI output" }, 500);
+      return json({ success: false, message: "Could not parse AI output", details: e.message || String(e), rawContent }, 500);
     }
 
     const slugBase = ai.suggested_slug || ai.title;
@@ -410,7 +426,7 @@ suggested_slug should be short and descriptive.`;
 
     if (insertError || !inserted) {
       console.error("blogs insert error:", insertError);
-      return json({ success: false, message: "Failed to save blog post" }, 500);
+      return json({ success: false, message: "Failed to save blog post", details: insertError?.message || String(insertError) }, 500);
     }
 
     return json({
@@ -422,8 +438,8 @@ suggested_slug should be short and descriptive.`;
         featured_image_url: inserted.featured_image_url,
       },
     });
-  } catch (e) {
+  } catch (e: any) {
     console.error("generate-blog-post error:", e);
-    return json({ success: false, message: "Unexpected server error" }, 500);
+    return json({ success: false, message: "Unexpected server error", details: e.message || String(e) }, 500);
   }
 });
