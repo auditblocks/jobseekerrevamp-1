@@ -17,7 +17,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const OPENROUTER_MODEL = "google/gemini-2.0-flash-001";
+const OPENROUTER_MODEL = "google/gemini-2.0-flash";
 const META_TITLE_MAX = 60;
 const META_DESC_MAX = 160;
 const ALLOWED_HTML_TAGS = new Set([
@@ -218,7 +218,6 @@ serve(async (req) => {
     if (!supabaseUrl || !supabaseServiceKey) {
       return json({ success: false, message: "Server misconfiguration" }, 500);
     }
-
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     const token = authHeader.replace(/^Bearer\s+/i, "");
 
@@ -335,22 +334,32 @@ suggested_slug should be short and descriptive.`;
     // Fallback to direct Gemini API if OpenRouter failed or was not configured
     const geminiApiKey = Deno.env.get("GOOGLE_GEMINI_API_KEY");
     if (!rawContent && geminiApiKey) {
-      try {
-        console.log("Attempting direct Google Gemini API fallback...");
-        const genAI = new GoogleGenerativeAI(geminiApiKey);
-        const model = genAI.getGenerativeModel({
-          model: "gemini-1.5-flash",
-          generationConfig: {
-            responseMimeType: "application/json",
-          }
-        });
-        const result = await model.generateContent(`${systemPrompt}\n\n${userPrompt}`);
-        const response = await result.response;
-        rawContent = response.text();
-        console.log("Direct Gemini API fallback succeeded");
-      } catch (geminiErr: any) {
-        geminiError = geminiErr.message || String(geminiErr);
-        console.error("Direct Gemini API fallback failed:", geminiErr);
+      const geminiModels = ["gemini-1.5-flash-latest", "gemini-2.5-flash", "gemini-1.5-flash", "gemini-pro"];
+      const genAI = new GoogleGenerativeAI(geminiApiKey);
+      let lastGeminiErr: any = null;
+
+      for (const modelName of geminiModels) {
+        try {
+          console.log(`Attempting direct Google Gemini API fallback with model: ${modelName}...`);
+          const model = genAI.getGenerativeModel({
+            model: modelName,
+            generationConfig: {
+              responseMimeType: "application/json",
+            }
+          });
+          const result = await model.generateContent(`${systemPrompt}\n\n${userPrompt}`);
+          const response = await result.response;
+          rawContent = response.text();
+          console.log(`Direct Gemini API fallback with model ${modelName} succeeded`);
+          break; // Exit the loop on success
+        } catch (geminiErr: any) {
+          console.warn(`Direct Gemini API fallback with model ${modelName} failed:`, geminiErr.message || geminiErr);
+          lastGeminiErr = geminiErr;
+        }
+      }
+
+      if (!rawContent && lastGeminiErr) {
+        geminiError = lastGeminiErr.message || String(lastGeminiErr);
       }
     } else if (!geminiApiKey) {
       geminiError = "Google Gemini API Key is empty or not set";
