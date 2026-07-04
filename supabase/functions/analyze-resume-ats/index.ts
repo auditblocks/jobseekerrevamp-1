@@ -248,16 +248,19 @@ serve(async (req) => {
           throw new Error("No valid file path or URL provided");
         }
 
-        // Prepare PDF for Vision API
-        console.log("Preparing PDF for Vision API...");
+        const isDocx = (file_path && file_path.toLowerCase().endsWith(".docx")) || (file_url && file_url.toLowerCase().endsWith(".docx"));
+        const fileTypeName = isDocx ? "DOCX" : "PDF";
+        console.log(`Preparing ${fileTypeName} for Gemini API...`);
         pdfBase64 = await preparePdfForVision(pdfBuffer);
-        console.log(`PDF prepared, size: ${pdfBase64.length} characters`);
+        console.log(`${fileTypeName} prepared, size: ${pdfBase64.length} characters`);
         isPdfAnalysis = true;
       } catch (pdfError: any) {
-        console.error("PDF processing error:", pdfError);
+        const isDocx = (file_path && file_path.toLowerCase().endsWith(".docx")) || (file_url && file_url.toLowerCase().endsWith(".docx"));
+        const fileTypeName = isDocx ? "DOCX" : "PDF";
+        console.error(`${fileTypeName} processing error:`, pdfError);
         return new Response(
           JSON.stringify({
-            error: "Failed to process PDF file",
+            error: `Failed to process ${fileTypeName} file`,
             details: pdfError.message
           }),
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -384,7 +387,9 @@ Please provide a detailed analysis in the following EXACT JSON format (respond O
         {
           inlineData: {
             data: pdfBase64,
-            mimeType: "application/pdf"
+            mimeType: (file_path && file_path.toLowerCase().endsWith(".docx")) || (file_url && file_url.toLowerCase().endsWith(".docx"))
+              ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+              : "application/pdf"
           }
         }
       ];
