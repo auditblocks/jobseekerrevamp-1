@@ -10,6 +10,7 @@
  */
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
+import { GoogleGenerativeAI } from "https://esm.sh/@google/generative-ai@0.21.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -265,10 +266,6 @@ serve(async (req) => {
     const image_mode = body.image_mode === "none" ? "none" : "stock";
 
     const openRouterKey = Deno.env.get("OPENROUTER_API_KEY");
-    if (!openRouterKey?.trim()) {
-      return json({ success: false, message: "Blog generation is not configured (missing AI key)" }, 500);
-    }
-
     const defaultAuthor = Deno.env.get("BLOG_DEFAULT_AUTHOR")?.trim() || "";
 
     const systemPrompt = `You are an expert career and exam-prep content writer for an Indian job-seeker audience.
@@ -294,33 +291,64 @@ ${target_audience ? `Target audience: ${target_audience}` : ""}
 meta_title should include the focus keyword naturally. meta_description should be compelling and under 155 characters of readable prose (we will truncate if needed).
 suggested_slug should be short and descriptive.`;
 
-    const orRes = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${openRouterKey.trim()}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: OPENROUTER_MODEL,
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
-        temperature: 0.7,
-        response_format: { type: "json_object" },
-      }),
-    });
+    let rawContent: string | null = null;
 
-    if (!orRes.ok) {
-      const errText = await orRes.text();
-      console.error("OpenRouter error:", orRes.status, errText.slice(0, 500));
-      return json({ success: false, message: "AI generation failed" }, 500);
+    if (openRouterKey?.trim()) {
+      try {
+        console.log("Attempting blog generation via OpenRouter...");
+        const orRes = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${openRouterKey.trim()}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: OPENROUTER_MODEL,
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: userPrompt },
+            ],
+            temperature: 0.7,
+            response_format: { type: "json_object" },
+          }),
+        });
+
+        if (orRes.ok) {
+          const orData = await orRes.json();
+          rawContent = orData?.choices?.[0]?.message?.content || null;
+          console.log("OpenRouter generation succeeded");
+        } else {
+          const errText = await orRes.text();
+          console.warn("OpenRouter API returned error status:", orRes.status, errText.slice(0, 300));
+        }
+      } catch (orErr) {
+        console.error("OpenRouter request failed:", orErr);
+      }
     }
 
-    const orData = await orRes.json();
-    const rawContent = orData?.choices?.[0]?.message?.content;
-    if (typeof rawContent !== "string") {
-      return json({ success: false, message: "Empty AI response" }, 500);
+    // Fallback to direct Gemini API if OpenRouter failed or was not configured
+    const geminiApiKey = Deno.env.get("GOOGLE_GEMINI_API_KEY");
+    if (!rawContent && geminiApiKey) {
+      try {
+        console.log("Attempting direct Google Gemini API fallback...");
+        const genAI = new GoogleGenerativeAI(geminiApiKey);
+        const model = genAI.getGenerativeModel({
+          model: "gemini-1.5-flash",
+          generationConfig: {
+            responseMimeType: "application/json",
+          }
+        });
+        const result = await model.generateContent(`${systemPrompt}\n\n${userPrompt}`);
+        const response = await result.response;
+        rawContent = response.text();
+        console.log("Direct Gemini API fallback succeeded");
+      } catch (geminiErr) {
+        console.error("Direct Gemini API fallback failed:", geminiErr);
+      }
+    }
+
+    if (typeof rawContent !== "string" || !rawContent.trim()) {
+      return json({ success: false, message: "AI generation failed. Please check both OpenRouter and Gemini API keys." }, 500);
     }
 
     let ai: BlogAiJson;
