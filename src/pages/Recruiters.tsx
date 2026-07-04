@@ -38,6 +38,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import DashboardLayout from "@/components/DashboardLayout";
+import { EmptyState } from "@/components/common/EmptyState";
 
 interface Recruiter {
   id: string;
@@ -78,6 +79,7 @@ const Recruiters = () => {
   const [page, setPage] = useState(0); // 0-indexed internally
 
   const [isLoading, setIsLoading] = useState(true);
+  const [fetchError, setFetchError] = useState(false);
   const [tierCounts, setTierCounts] = useState<{ FREE: number, PRO: number, PRO_MAX: number }>({ FREE: 0, PRO: 0, PRO_MAX: 0 });
 
   // Debounce search
@@ -132,6 +134,7 @@ const Recruiters = () => {
   const fetchRecruiters = useCallback(
     async (currentPage: number) => {
       setIsLoading(true);
+      setFetchError(false);
 
       try {
         let query = supabase
@@ -169,6 +172,7 @@ const Recruiters = () => {
       } catch (error) {
         console.error("Error fetching recruiters:", error);
         toast.error("Failed to load recruiters");
+        setFetchError(true);
       } finally {
         setIsLoading(false);
       }
@@ -355,6 +359,14 @@ const Recruiters = () => {
           <div className="flex items-center justify-center py-16">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
           </div>
+        ) : fetchError ? (
+          <EmptyState
+            variant="error"
+            icon={Users}
+            title="Couldn't load recruiters"
+            description="Please try again."
+            action={{ label: "Retry", onClick: () => fetchRecruiters(page) }}
+          />
         ) : recruiters.length === 0 ? (
           <div className="text-center py-16">
             <Users className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />

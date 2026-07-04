@@ -37,10 +37,11 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { invokeEdgeFunctionWithRetry } from "@/lib/edgeFunctionRetry";
 import { toast } from "sonner";
 import SEOHead from "@/components/SEO/SEOHead";
-import { ResumeTemplates } from "@/components/resume/ResumeTemplates";
-import { ResumeTemplateBuilder } from "@/components/resume/ResumeTemplateBuilder";
+import { TemplateGalleryDialog } from "@/components/resume/templates/TemplateGalleryDialog";
+import { ResumeBuilderWizard } from "@/components/resume/builder/ResumeBuilderWizard";
 import { StructuredResumeData } from "@/types/resume";
 import DashboardLayout from "@/components/DashboardLayout";
 
@@ -512,16 +513,17 @@ const ResumeOptimizer = () => {
         analysis_id: finalAnalysisId,
       };
 
-      // TEMPORARY WORKAROUND: Since the deployed edge function doesn't support file_path yet,
-      // we extract text from PDF and send it as resume_text
-      // TODO: Once edge function is deployed with file_path support, we can use file_path directly
+      // Priority order: resume_text (already extracted client-side, avoids a storage
+      // round-trip) > file_path (edge function downloads from Supabase Storage and
+      // extracts server-side) > file_url (last-resort direct fetch). All three are
+      // fully supported by analyze-resume-ats; this ordering is intentional.
       const trimmedResumeText = resumeText?.trim() || '';
       if (trimmedResumeText.length > 0) {
         // Use extracted text (from PDF upload or manual input)
         analyzeBody.resume_text = trimmedResumeText;
         console.log("Sending analysis request with resume_text (length):", trimmedResumeText.length);
       } else if (uploadedFilePath && originalFileType) {
-        // Fallback: if no text extracted, try file_path (will work once edge function is updated)
+        // Fallback: if no text extracted, use file_path
         // Only send file_path if it's a valid non-empty string
         if (uploadedFilePath.trim().length > 0) {
           analyzeBody.file_path = uploadedFilePath.trim();
@@ -559,7 +561,7 @@ const ResumeOptimizer = () => {
         resume_text_length: analyzeBody.resume_text?.length || 0,
       });
 
-      const { data, error } = await supabase.functions.invoke("analyze-resume-ats", {
+      const { data, error } = await invokeEdgeFunctionWithRetry("analyze-resume-ats", {
         body: analyzeBody,
       });
 
@@ -693,7 +695,7 @@ const ResumeOptimizer = () => {
       });
 
       // Call optimize function
-      const { data, error } = await supabase.functions.invoke("optimize-resume", {
+      const { data, error } = await invokeEdgeFunctionWithRetry("optimize-resume", {
         body: {
           original_resume_text: resumeText,
           suggestions: allSuggestions,
@@ -1524,14 +1526,16 @@ const ResumeOptimizer = () => {
       </div>
 
       {/* Resume Templates Dialog */}
-      <ResumeTemplateBuilder
+      <ResumeBuilderWizard
         open={showTemplateBuilder}
         onOpenChange={setShowTemplateBuilder}
         initialData={structuredResumeData}
         profilePhotoUrl={profile?.profile_photo_url}
+        extractingData={extractingData}
+        formattingData={currentAnalysis?.formatting_analysis || currentAnalysis?.formatting_preservation || null}
       />
 
-      <ResumeTemplates
+      <TemplateGalleryDialog
         originalResume={resumeText}
         optimizedResume={optimizedResume}
         open={showTemplates}
@@ -1542,7 +1546,6 @@ const ResumeOptimizer = () => {
         userPhone={profile?.phone}
         userLocation={profile?.location}
         userLinkedIn={profile?.linkedin_url}
-        structuredData={structuredResumeData}
         professionalTitle={profile?.professional_title}
         formattingData={currentAnalysis?.formatting_analysis || currentAnalysis?.formatting_preservation || null}
       />

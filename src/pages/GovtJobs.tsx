@@ -39,6 +39,7 @@ import { useChatListingContext } from "@/contexts/ChatListingContext";
 import Navbar from "@/components/landing/Navbar";
 import FooterSection from "@/components/landing/FooterSection";
 import DashboardLayout from "@/components/DashboardLayout";
+import { EmptyState } from "@/components/common/EmptyState";
 import {
     Tooltip,
     TooltipContent,
@@ -109,6 +110,7 @@ const GovtJobs = () => {
     const { user, profile, loading: authLoading } = useAuth();
     const [jobs, setJobs] = useState<GovtJob[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [fetchError, setFetchError] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
     const [stateFilter, setStateFilter] = useState<string>("all");
     const [currentPage, setCurrentPage] = useState(1);
@@ -189,6 +191,7 @@ const GovtJobs = () => {
     const fetchJobs = async () => {
         try {
             setIsLoading(true);
+            setFetchError(false);
             const { data, error } = await supabase
                 .from("govt_jobs" as any)
                 .select("id, organization, post_name, exam_name, application_end_date, mode_of_apply, visibility, status, slug, location, summary, tags, source_key, state_code, created_at")
@@ -200,6 +203,7 @@ const GovtJobs = () => {
         } catch (error) {
             console.error("Error fetching jobs:", error);
             toast.error("Failed to load jobs");
+            setFetchError(true);
         } finally {
             setIsLoading(false);
         }
@@ -446,6 +450,16 @@ const GovtJobs = () => {
                 {isLoading ? (
                     <div className="flex justify-center py-20">
                         <Loader2 className="h-10 w-10 animate-spin text-accent" />
+                    </div>
+                ) : fetchError ? (
+                    <div className="py-8 border rounded-3xl bg-card/50 border-dashed">
+                        <EmptyState
+                            variant="error"
+                            icon={Briefcase}
+                            title="Couldn't load jobs"
+                            description="Please try again in a moment."
+                            action={{ label: "Retry", onClick: fetchJobs }}
+                        />
                     </div>
                 ) : filteredJobs.length === 0 ? (
                     <div className="text-center py-24 border rounded-3xl bg-card/50 border-dashed">

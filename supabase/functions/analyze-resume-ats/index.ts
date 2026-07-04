@@ -288,7 +288,7 @@ serve(async (req) => {
      * on 404s. Accepts both string prompts and multipart arrays (Vision API).
      */
     const tryGenerateContent = async (prompt: any) => {
-      const modelNames = ["gemini-pro"];
+      const modelNames = ["gemini-1.5-flash", "gemini-2.5-flash", "gemini-1.5-pro", "gemini-pro"];
 
       for (const modelName of modelNames) {
         try {

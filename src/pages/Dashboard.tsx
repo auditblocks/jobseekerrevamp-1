@@ -25,6 +25,7 @@ import DashboardLayout from "@/components/DashboardLayout";
 import { OnboardingProgress } from "@/components/OnboardingProgress";
 import { ReferralDashboardBanner } from "@/components/ReferralDashboardBanner";
 import { useTour } from "@/hooks/useTour";
+import { EmptyState } from "@/components/common/EmptyState";
 
 interface DashboardStats {
   emailsSent: number;
@@ -44,6 +45,7 @@ const Dashboard = () => {
     openRate: 0,
   });
   const [statsLoading, setStatsLoading] = useState(true);
+  const [statsError, setStatsError] = useState(false);
 
   // Redirect unauthenticated users to the auth page
   useEffect(() => {
@@ -60,6 +62,7 @@ const Dashboard = () => {
 
       try {
         setStatsLoading(true);
+        setStatsError(false);
 
         const { data: emailData, error: emailError } = await supabase
           .from("email_tracking")
@@ -89,6 +92,7 @@ const Dashboard = () => {
         });
       } catch (error) {
         console.error("Error fetching stats:", error);
+        setStatsError(true);
       } finally {
         setStatsLoading(false);
       }
@@ -166,34 +170,44 @@ const Dashboard = () => {
         </motion.div>
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-2 gap-3 sm:gap-6 max-w-2xl">
-          {statCards.map((stat, index) => (
-            <motion.div
-              key={index}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: index * 0.1 }}
-              className="bg-card rounded-lg sm:rounded-xl p-4 sm:p-6 border border-border shadow-card"
-            >
-              <div className="flex items-center justify-between mb-3 sm:mb-4">
-                <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-lg sm:rounded-xl ${stat.bg} flex items-center justify-center`}>
-                  <stat.icon className={`w-5 h-5 sm:w-6 sm:h-6 ${stat.color}`} />
+        {statsError ? (
+          <div className="max-w-2xl bg-card rounded-lg sm:rounded-xl border border-border shadow-card">
+            <EmptyState
+              variant="error"
+              title="Couldn't load your stats"
+              description="Something went wrong fetching your dashboard stats."
+            />
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-2 gap-3 sm:gap-6 max-w-2xl">
+            {statCards.map((stat, index) => (
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: index * 0.1 }}
+                className="bg-card rounded-lg sm:rounded-xl p-4 sm:p-6 border border-border shadow-card"
+              >
+                <div className="flex items-center justify-between mb-3 sm:mb-4">
+                  <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-lg sm:rounded-xl ${stat.bg} flex items-center justify-center`}>
+                    <stat.icon className={`w-5 h-5 sm:w-6 sm:h-6 ${stat.color}`} />
+                  </div>
                 </div>
-              </div>
-              {statsLoading ? (
-                <>
-                  <Skeleton className="h-7 sm:h-9 w-12 sm:w-16 mb-1" />
-                  <Skeleton className="h-3 sm:h-4 w-16 sm:w-20" />
-                </>
-              ) : (
-                <>
-                  <div className="text-2xl sm:text-3xl font-bold text-foreground mb-1">{stat.value}</div>
-                  <div className="text-xs sm:text-sm text-muted-foreground">{stat.label}</div>
-                </>
-              )}
-            </motion.div>
-          ))}
-        </div>
+                {statsLoading ? (
+                  <>
+                    <Skeleton className="h-7 sm:h-9 w-12 sm:w-16 mb-1" />
+                    <Skeleton className="h-3 sm:h-4 w-16 sm:w-20" />
+                  </>
+                ) : (
+                  <>
+                    <div className="text-2xl sm:text-3xl font-bold text-foreground mb-1">{stat.value}</div>
+                    <div className="text-xs sm:text-sm text-muted-foreground">{stat.label}</div>
+                  </>
+                )}
+              </motion.div>
+            ))}
+          </div>
+        )}
 
         {/* Quick Actions */}
         <motion.div

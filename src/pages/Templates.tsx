@@ -58,6 +58,7 @@ import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import DashboardLayout from "@/components/DashboardLayout";
+import { EmptyState } from "@/components/common/EmptyState";
 
 // Database interface
 interface EmailTemplate {
@@ -376,6 +377,13 @@ const Templates = () => {
           <div className="flex justify-center items-center h-64">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
+        ) : filteredTemplates.length === 0 ? (
+          <EmptyState
+            icon={FileText}
+            title="No templates found"
+            description="Try a different search or category, or create your first template."
+            action={{ label: "Create Template", onClick: () => setIsCreateOpen(true) }}
+          />
         ) : (
           <motion.div
             layout

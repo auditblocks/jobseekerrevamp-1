@@ -220,8 +220,15 @@ Respond ONLY with the JSON array.`;
                 content = aiData.choices?.[0]?.message?.content;
             } else if (geminiApiKey && geminiApiKey.startsWith("AIza")) {
                 const genAI = new GoogleGenerativeAI(geminiApiKey);
-                const model = genAI.getGenerativeModel({ model: "gemini-pro" });
-                const result = await model.generateContent(`${systemPrompt}\n\n${userPrompt}`);
+                let model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+                let result;
+                try {
+                    result = await model.generateContent(`${systemPrompt}\n\n${userPrompt}`);
+                } catch (geminiErr) {
+                    console.error("Gemini 1.5-flash failed, trying gemini-pro fallback:", geminiErr);
+                    model = genAI.getGenerativeModel({ model: "gemini-pro" });
+                    result = await model.generateContent(`${systemPrompt}\n\n${userPrompt}`);
+                }
                 const response = await result.response;
                 content = response.text();
             } else {

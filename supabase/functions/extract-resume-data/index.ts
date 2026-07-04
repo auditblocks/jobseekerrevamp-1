@@ -88,6 +88,9 @@ serve(async (req) => {
      * error so the caller gets a meaningful message if all models fail.
      */
     const modelNames = [
+      "gemini-1.5-flash",
+      "gemini-2.5-flash",
+      "gemini-1.5-pro",
       "gemini-pro",
     ];
 

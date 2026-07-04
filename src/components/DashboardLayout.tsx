@@ -189,6 +189,12 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
 
     return (
         <div className="min-h-screen bg-background flex">
+            <a
+                href="#main-content"
+                className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-[100] focus:bg-background focus:text-foreground focus:px-4 focus:py-2 focus:rounded-md focus:border"
+            >
+                Skip to main content
+            </a>
             {/* Sidebar */}
             <aside
                 className={`fixed inset-y-0 left-0 z-50 w-64 bg-sidebar transform transition-transform duration-300 
@@ -205,6 +211,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                         <button
                             onClick={() => setSidebarOpen(false)}
                             className="lg:hidden ml-auto text-sidebar-foreground"
+                            aria-label="Close sidebar"
                         >
                             <X className="w-5 h-5" />
                         </button>
@@ -290,6 +297,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                             <button
                                 onClick={handleSignOut}
                                 className="text-sidebar-foreground/60 hover:text-sidebar-foreground transition-colors"
+                                aria-label="Sign out"
                             >
                                 <LogOut className="w-4 h-4" />
                             </button>
@@ -319,6 +327,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                         <button
                             onClick={() => setSidebarOpen(true)}
                             className="lg:hidden text-foreground"
+                            aria-label="Open menu"
                         >
                             <Menu className="w-5 h-5 sm:w-6 sm:h-6" />
                         </button>
@@ -328,6 +337,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                             onClick={toggleSidebar}
                             className="hidden lg:flex items-center justify-center p-2 rounded-lg hover:bg-accent/10 text-foreground/60 hover:text-accent transition-colors"
                             title={isSidebarCollapsed ? "Show Sidebar" : "Hide Sidebar"}
+                            aria-label={isSidebarCollapsed ? "Show sidebar" : "Hide sidebar"}
                         >
                             <PanelLeft className={`w-5 h-5 transition-transform ${isSidebarCollapsed ? 'rotate-180' : ''}`} />
                         </button>
@@ -384,7 +394,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                 </header>
 
                 {/* Page Content */}
-                <main className="flex-1">
+                <main id="main-content" className="flex-1">
                     {children}
                 </main>
             </div>
