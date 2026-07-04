@@ -11,6 +11,7 @@
  */
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
+import { GoogleGenerativeAI } from "https://esm.sh/@google/generative-ai@0.21.0";
 import { CHATBOT_SAFETY_RULES, LISTING_SNAPSHOT_RULES, SITE_KNOWLEDGE } from "./site-knowledge.ts";
 
 const corsHeaders = {
@@ -89,8 +90,13 @@ ${context ? `\n## Current page context\n${context}\n` : ""}`;
       ...messages,
     ];
 
-    const response = useOpenRouter
-      ? await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    let sseStream: ReadableStream | null = null;
+
+    // 1. Try OpenRouter
+    if (openRouterKey) {
+      try {
+        console.log("Chatbot attempting OpenRouter...");
+        const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
           method: "POST",
           headers: {
             Authorization: `Bearer ${openRouterKey}`,
@@ -99,12 +105,29 @@ ${context ? `\n## Current page context\n${context}\n` : ""}`;
             "X-Title": "JobSeeker Chat",
           },
           body: JSON.stringify({
-            model: "google/gemini-2.0-flash-001",
+            model: "google/gemini-2.0-flash",
             messages: chatMessages,
             stream: true,
           }),
-        })
-      : await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        });
+
+        if (response.ok && response.body) {
+          console.log("Chatbot OpenRouter stream obtained");
+          sseStream = response.body;
+        } else {
+          const errText = await response.text();
+          console.warn("OpenRouter chatbot response not ok:", response.status, errText.slice(0, 300));
+        }
+      } catch (err) {
+        console.error("OpenRouter chatbot request failed:", err);
+      }
+    }
+
+    // 2. Try Lovable Gateway
+    if (!sseStream && lovableApiKey) {
+      try {
+        console.log("Chatbot attempting Lovable gateway...");
+        const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
           method: "POST",
           headers: {
             Authorization: `Bearer ${lovableApiKey}`,
@@ -117,22 +140,86 @@ ${context ? `\n## Current page context\n${context}\n` : ""}`;
           }),
         });
 
-    if (!response.ok) {
-      if (response.status === 429) {
-        return new Response(
-          JSON.stringify({ error: "Rate limit exceeded. Please try again later." }),
-          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-        );
+        if (response.ok && response.body) {
+          console.log("Chatbot Lovable gateway stream obtained");
+          sseStream = response.body;
+        } else {
+          const errText = await response.text();
+          console.warn("Lovable chatbot response not ok:", response.status, errText.slice(0, 300));
+        }
+      } catch (err) {
+        console.error("Lovable chatbot request failed:", err);
       }
-      if (response.status === 402) {
-        return new Response(
-          JSON.stringify({ error: "AI credits depleted. Please add credits." }),
-          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-        );
+    }
+
+    // 3. Fallback to direct Google Gemini API (using GOOGLE_GEMINI_API_KEY or GEMINI_API_KEY)
+    const geminiApiKey = Deno.env.get("GOOGLE_GEMINI_API_KEY") || Deno.env.get("GEMINI_API_KEY");
+    if (!sseStream && geminiApiKey) {
+      const geminiModels = ["gemini-1.5-flash-latest", "gemini-2.5-flash", "gemini-1.5-flash", "gemini-pro"];
+      const genAI = new GoogleGenerativeAI(geminiApiKey);
+
+      for (const modelName of geminiModels) {
+        try {
+          console.log(`Chatbot attempting direct Gemini API with model: ${modelName}...`);
+          const systemMsg = chatMessages.find(m => m.role === "system")?.content;
+          const otherMsgs = chatMessages.filter(m => m.role !== "system").map(m => ({
+            role: m.role === "assistant" ? "model" : "user",
+            parts: [{ text: m.content }]
+          }));
+
+          const activeModel = genAI.getGenerativeModel({
+            model: modelName,
+            systemInstruction: systemMsg,
+          });
+
+          const result = await activeModel.generateContentStream({
+            contents: otherMsgs,
+          });
+
+          const { readable, writable } = new TransformStream();
+          const writer = writable.getWriter();
+          const encoder = new TextEncoder();
+
+          (async () => {
+            try {
+              for await (const chunk of result.stream) {
+                const text = chunk.text();
+                if (text) {
+                  const openAiChunk = {
+                    choices: [
+                      {
+                        delta: {
+                          content: text,
+                        },
+                      },
+                    ],
+                  };
+                  await writer.write(encoder.encode(`data: ${JSON.stringify(openAiChunk)}\n\n`));
+                }
+              }
+              await writer.write(encoder.encode("data: [DONE]\n\n"));
+            } catch (streamErr: any) {
+              console.error("Gemini chatbot stream error:", streamErr);
+              const errChunk = {
+                error: streamErr.message || String(streamErr)
+              };
+              await writer.write(encoder.encode(`data: ${JSON.stringify(errChunk)}\n\n`));
+            } finally {
+              await writer.close();
+            }
+          })();
+
+          sseStream = readable;
+          console.log(`Chatbot direct Gemini API stream obtained with model: ${modelName}`);
+          break; // Exit models loop on success
+        } catch (geminiErr: any) {
+          console.warn(`Direct Gemini API model ${modelName} call failed:`, geminiErr.message || geminiErr);
+        }
       }
-      const errorText = await response.text();
-      console.error("AI API error:", response.status, errorText);
-      throw new Error("Failed to get AI response");
+    }
+
+    if (!sseStream) {
+      throw new Error("All AI providers (OpenRouter, Lovable, Gemini Direct) failed or were not configured.");
     }
 
     // Persist the latest user message for analytics/debugging (fire-and-forget)
@@ -147,7 +234,7 @@ ${context ? `\n## Current page context\n${context}\n` : ""}`;
     }
 
     // Proxy the upstream SSE stream directly to the client for low-latency streaming
-    return new Response(response.body, {
+    return new Response(sseStream, {
       headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
     });
   } catch (error: unknown) {
