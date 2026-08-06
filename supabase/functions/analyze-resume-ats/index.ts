@@ -28,6 +28,30 @@ interface AnalyzeRequest {
   analysis_id: string;
 }
 
+/**
+ * Shared JSON-schema fragment (and instructions) for the line-anchored issue list that
+ * powers the "flag specific lines in the resume, each with its own fix" review UI.
+ * Injected into both the text-based and PDF-vision prompt branches so results are
+ * consistent regardless of how the resume content was provided.
+ *
+ * `excerpt` must be an exact, verbatim copy of resume text — the frontend locates it via
+ * string matching to render an inline flag, so the model is instructed accordingly.
+ */
+const LINE_ISSUES_SCHEMA = `  "line_issues": [
+    {
+      "id": "<short stable slug, e.g. exp-1-verb>",
+      "category": "action_verb|metric|keyword|grammar|formatting|structure|contact|length|buzzword|tense|clarity",
+      "severity": "high|medium|low",
+      "section": "<section this line belongs to, e.g. 'Experience — Acme Corp'>",
+      "issue": "<very short label, e.g. 'Weak action verb'>",
+      "explanation": "<one sentence on why this hurts ATS parsing or recruiter screening>",
+      "excerpt": "<the EXACT line or bullet copied character-for-character from the resume text above — this must match verbatim so it can be located, do not paraphrase or truncate it>",
+      "suggested_replacement": "<the rewritten version of that exact line/bullet implementing the fix, ready to insert as-is in place of excerpt>"
+    }
+  ]
+
+IMPORTANT for line_issues: Go through the ENTIRE resume section by section (summary, every experience bullet, education, skills) and flag every bullet/line with a real problem — weak verbs, no quantified impact, vague responsibility statements, keyword gaps, passive voice, inconsistent tense, missing contact fields, overlong lines, clichéd buzzwords ("hardworking", "team player" with no evidence), etc. Aim for thorough coverage (typically 8-25 entries for a full resume), not just the 3-4 most obvious ones. Each "excerpt" MUST be copied verbatim from the resume text so it can be matched exactly — this is critical.`;
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -433,7 +457,9 @@ Please provide a detailed analysis in the following EXACT JSON format (respond O
       "fonts": ["<font families used>"],
       "layout": "<layout description>"
     }
-  }
+  },
+  "extracted_resume_text": "<full plain-text transcription of every line of this resume, in reading order, with a newline between each bullet/line — this is used to render an on-screen line-by-line review, so it must be a faithful, complete transcription, not a summary>",
+${LINE_ISSUES_SCHEMA}
 }`,
         {
           inlineData: {
@@ -489,7 +515,8 @@ Please provide a detailed analysis in the following EXACT JSON format (respond O
       "category": "formatting|keywords|content|sections",
       "impact": "expected ATS score improvement"
     }
-  ]
+  ],
+${LINE_ISSUES_SCHEMA}
 }`;
     }
 

@@ -8,7 +8,9 @@ export function renderCreativeTemplate(
   formatData?: FormattingData | null,
   profilePhotoUrl?: string | null,
 ): string {
-  if (template.id === "elegant") {
+  // Dispatch on `layout` so every theme variant (elegant-teal, elegant-forest, …)
+  // resolves to the right renderer rather than falling through to the default.
+  if (template.layout === "elegant") {
     return renderElegant(parsed, template, formatData, profilePhotoUrl);
   }
   return renderCreative(parsed, template, formatData, profilePhotoUrl);
@@ -32,7 +34,7 @@ function renderCreative(
 ): string {
   const { header, professionalTitle, summary, experience, education, skills, projects, languages, certifications } = parsed;
   const sidebar = formatData?.sidebar_color || template.accentColor;
-  const font = formatData?.font_family || "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+  const font = formatData?.font_family || template.fontFamily;
   const showPhoto = template.hasPhoto && isValidPhoto(profilePhotoUrl);
 
   return `<!DOCTYPE html>
@@ -41,7 +43,7 @@ function renderCreative(
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Resume - ${escapeHtml(header.name || "Resume")}</title>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:${font};line-height:1.55;color:#1f2937;background:#f8fafc;-webkit-font-smoothing:antialiased;display:flex;justify-content:center;padding:20px}
@@ -172,7 +174,7 @@ function renderElegant(
 ): string {
   const { header, professionalTitle, summary, experience, education, skills, projects, languages, certifications } = parsed;
   const sidebar = formatData?.sidebar_color || template.accentColor;
-  const font = formatData?.font_family || "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+  const font = formatData?.font_family || template.fontFamily;
   const showPhoto = template.hasPhoto && isValidPhoto(profilePhotoUrl);
 
   return `<!DOCTYPE html>

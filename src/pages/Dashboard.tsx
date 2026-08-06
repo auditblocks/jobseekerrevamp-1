@@ -14,8 +14,11 @@ import {
   Send,
   Eye,
   Users,
-  Clock,
   FileSearch,
+  Mail,
+  FileText,
+  ArrowRight,
+  CheckCircle2,
 } from "lucide-react";
 import { Helmet } from "react-helmet-async";
 import { useAuth } from "@/hooks/useAuth";
@@ -30,6 +33,14 @@ import { EmptyState } from "@/components/common/EmptyState";
 interface DashboardStats {
   emailsSent: number;
   openRate: number;
+}
+
+interface RecentEmail {
+  id: string;
+  recipient: string;
+  subject: string;
+  sent_at: string | null;
+  opened_at: string | null;
 }
 
 /**
@@ -55,6 +66,7 @@ const Dashboard = () => {
   }, [authLoading, user, navigate]);
 
   const [hasTemplates, setHasTemplates] = useState(false);
+  const [recentEmails, setRecentEmails] = useState<RecentEmail[]>([]);
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -90,6 +102,21 @@ const Dashboard = () => {
           emailsSent: totalEmails,
           openRate,
         });
+
+        // Pull the last few sent emails so "Recent Activity" shows real activity
+        // instead of a static placeholder once the user has actually sent something.
+        if (totalEmails > 0) {
+          const { data: recent, error: recentError } = await supabase
+            .from("email_tracking")
+            .select("id, recipient, subject, sent_at, opened_at")
+            .eq("user_id", user.id)
+            .order("sent_at", { ascending: false, nullsFirst: false })
+            .limit(5);
+
+          if (!recentError && recent) {
+            setRecentEmails(recent);
+          }
+        }
       } catch (error) {
         console.error("Error fetching stats:", error);
         setStatsError(true);
@@ -103,14 +130,20 @@ const Dashboard = () => {
     }
   }, [user?.id]);
 
-  const { startTour } = useTour();
+  const { startTour, restartTour } = useTour();
 
-  // Kick off the guided product tour once the user session is confirmed
+  const isGmailConnected = !!profile?.google_refresh_token;
+  const hasSentEmail = stats.emailsSent > 0;
+  const hasCompletedOnboarding = isGmailConnected && hasTemplates && hasSentEmail;
+
+  // Kick off the guided product tour once the user session is confirmed. Auto-start is
+  // gated on onboarding completion (see useTour) so it can resurface for a returning
+  // user who hasn't finished setup, not just on a permanent first-visit flag.
   useEffect(() => {
-    if (!authLoading && user) {
-      startTour();
+    if (!authLoading && user && !statsLoading) {
+      startTour(hasCompletedOnboarding);
     }
-  }, [authLoading, user, startTour]);
+  }, [authLoading, user, statsLoading, hasCompletedOnboarding, startTour]);
 
   if (authLoading) {
     return (
@@ -119,6 +152,31 @@ const Dashboard = () => {
       </div>
     );
   }
+
+  /** What to nudge the user toward next, based on where they actually are in onboarding. */
+  const nextStep = !isGmailConnected
+    ? {
+        icon: Mail,
+        title: "Connect Gmail to start reaching out",
+        description: "Sending goes through your own inbox, so replies land where you'll see them.",
+        cta: "Connect Gmail",
+        path: "/compose",
+      }
+    : !hasTemplates
+    ? {
+        icon: FileText,
+        title: "Create your first template",
+        description: "A saved template makes sending to multiple recruiters much faster.",
+        cta: "Create a template",
+        path: "/templates",
+      }
+    : {
+        icon: Send,
+        title: "Send your first email",
+        description: "You're set up — pick a recruiter and send your first outreach email.",
+        cta: "Browse recruiters",
+        path: "/recruiters",
+      };
 
   const statCards = [
     { label: "Emails Sent", value: stats.emailsSent.toString(), icon: Send, color: "text-accent", bg: "bg-accent/10" },
@@ -147,10 +205,20 @@ const Dashboard = () => {
           <p className="text-sm sm:text-base text-primary-foreground/70 mb-4 sm:mb-6">
             Ready to supercharge your job search? Start by sending your first email to recruiters.
           </p>
-          <Button variant="hero" size="default" className="w-full sm:w-auto" onClick={() => navigate("/compose")}>
-            <Send className="w-4 h-4 sm:w-5 sm:h-5" />
-            Compose Email
-          </Button>
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+            <Button variant="hero" size="default" className="w-full sm:w-auto" onClick={() => navigate("/compose")}>
+              <Send className="w-4 h-4 sm:w-5 sm:h-5" />
+              Compose Email
+            </Button>
+            <Button
+              variant="ghost"
+              size="default"
+              className="text-primary-foreground/80 hover:text-primary-foreground hover:bg-primary-foreground/10"
+              onClick={() => restartTour()}
+            >
+              Replay tour
+            </Button>
+          </div>
         </motion.div>
 
         <ReferralDashboardBanner />
@@ -163,9 +231,9 @@ const Dashboard = () => {
           transition={{ duration: 0.5, delay: 0.1 }}
         >
           <OnboardingProgress
-            isGmailConnected={!!profile?.google_refresh_token}
+            isGmailConnected={isGmailConnected}
             hasTemplates={hasTemplates}
-            hasSentEmail={stats.emailsSent > 0}
+            hasSentEmail={hasSentEmail}
           />
         </motion.div>
 
@@ -240,21 +308,66 @@ const Dashboard = () => {
           </div>
         </motion.div>
 
-        {/* Recent Activity */}
+        {/* Recent Activity — shows real sends once there are any, otherwise a concrete next step */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.5 }}
           className="bg-card rounded-xl border border-border p-6"
         >
-          <h3 className="text-lg font-semibold text-foreground mb-4">Recent Activity</h3>
-          <div className="flex flex-col items-center justify-center py-12 text-center">
-            <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
-              <Clock className="w-8 h-8 text-muted-foreground" />
+          <h3 className="text-lg font-semibold text-foreground mb-4">
+            {recentEmails.length > 0 ? "Recent Activity" : "Next Step"}
+          </h3>
+
+          {recentEmails.length > 0 ? (
+            <div className="space-y-2">
+              {recentEmails.map((email) => (
+                <div
+                  key={email.id}
+                  className="flex items-center justify-between gap-3 p-3 rounded-lg border border-border/60 bg-background/40"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-9 h-9 rounded-full bg-accent/10 flex items-center justify-center shrink-0">
+                      <Send className="w-4 h-4 text-accent" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-foreground truncate">{email.subject}</p>
+                      <p className="text-xs text-muted-foreground truncate">to {email.recipient}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    {email.opened_at && (
+                      <span className="text-xs text-success flex items-center gap-1">
+                        <CheckCircle2 className="w-3.5 h-3.5" /> Opened
+                      </span>
+                    )}
+                    {email.sent_at && (
+                      <span className="text-xs text-muted-foreground">
+                        {new Date(email.sent_at).toLocaleDateString()}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ))}
             </div>
-            <p className="text-muted-foreground">No recent activity yet</p>
-            <p className="text-sm text-muted-foreground mt-1">Start by sending your first email to recruiters</p>
-          </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-10 text-center">
+              <div className="w-16 h-16 rounded-full bg-accent/10 flex items-center justify-center mb-4">
+                <nextStep.icon className="w-8 h-8 text-accent" />
+              </div>
+              <p className="font-medium text-foreground">{nextStep.title}</p>
+              <p className="text-sm text-muted-foreground mt-1 max-w-sm">{nextStep.description}</p>
+              <Button
+                variant="hero"
+                size="sm"
+                className="mt-4"
+                onClick={() => navigate(nextStep.path)}
+              >
+                {nextStep.cta}
+                <ArrowRight className="w-4 h-4 ml-1" />
+              </Button>
+            </div>
+          )}
         </motion.div>
       </div>
 

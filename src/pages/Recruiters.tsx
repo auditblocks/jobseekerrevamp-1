@@ -59,6 +59,33 @@ const tierConfig = {
 
 const PAGE_SIZE = 12;
 
+/** DB tier values accept multiple casings/spacings — group the known variants per level. */
+const TIER_VARIANTS: Record<"FREE" | "PRO" | "PRO_MAX", string[]> = {
+  FREE: ["FREE", "Free"],
+  PRO: ["PRO", "Pro"],
+  PRO_MAX: ["PRO_MAX", "Pro Max", "PRO MAX"],
+};
+
+/** Module-level (no component state) tier-level parser, reused for the default "For You" filter. */
+function tierLevelOf(tier: string | null | undefined): number {
+  const t = (tier || "").trim().toUpperCase().replace(/\s+/g, "_");
+  if (t === "PRO_MAX" || t === "PROMAX") return 2;
+  if (t === "PRO" || t === "PRO_PLAN" || t === "PROPLAN") return 1;
+  return 0;
+}
+
+/**
+ * Returns every recruiter `tier` DB value the given user tier can access.
+ * Used to default the recruiter list to contacts the user can actually message,
+ * instead of a feed dominated by locked upgrade prompts.
+ */
+function accessibleTierVariants(userTier: string | null | undefined): string[] {
+  const level = tierLevelOf(userTier);
+  const levels: ("FREE" | "PRO" | "PRO_MAX")[] =
+    level >= 2 ? ["FREE", "PRO", "PRO_MAX"] : level >= 1 ? ["FREE", "PRO"] : ["FREE"];
+  return levels.flatMap((l) => TIER_VARIANTS[l]);
+}
+
 /**
  * Recruiter browsing page component.
  * Implements debounced search, domain/tier pill filters, server-side pagination,
@@ -72,6 +99,8 @@ const Recruiters = () => {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [selectedDomain, setSelectedDomain] = useState("All");
   const [selectedTier, setSelectedTier] = useState<string | null>(null);
+  /** Default view: only show recruiters the user's current plan can actually contact. */
+  const [showAvailableOnly, setShowAvailableOnly] = useState(true);
 
   const [recruiters, setRecruiters] = useState<Recruiter[]>([]);
   const [totalCount, setTotalCount] = useState(0);
@@ -128,7 +157,7 @@ const Recruiters = () => {
   // Reset page when filters change
   useEffect(() => {
     setPage(0);
-  }, [debouncedSearch, selectedDomain, selectedTier]);
+  }, [debouncedSearch, selectedDomain, selectedTier, showAvailableOnly]);
 
   // Main Fetch Logic
   const fetchRecruiters = useCallback(
@@ -154,6 +183,10 @@ const Recruiters = () => {
 
         if (selectedTier) {
           query = query.eq("tier", selectedTier);
+        } else if (showAvailableOnly && !isSuperadmin) {
+          // Default view: only recruiters this user's plan can actually contact,
+          // so a Free user's first browse isn't dominated by locked upgrade cards.
+          query = query.in("tier", accessibleTierVariants(profile?.subscription_tier));
         }
 
         // Pagination
@@ -177,7 +210,7 @@ const Recruiters = () => {
         setIsLoading(false);
       }
     },
-    [debouncedSearch, selectedDomain, selectedTier]
+    [debouncedSearch, selectedDomain, selectedTier, showAvailableOnly, isSuperadmin, profile?.subscription_tier]
   );
 
   useEffect(() => {
@@ -328,12 +361,28 @@ const Recruiters = () => {
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="flex flex-wrap gap-2 mb-8"
+          className="flex flex-wrap gap-2 mb-2"
         >
+          {!isSuperadmin && (
+            <Button
+              variant={selectedTier === null && showAvailableOnly ? "secondary" : "ghost"}
+              size="sm"
+              onClick={() => {
+                setSelectedTier(null);
+                setShowAvailableOnly(true);
+              }}
+            >
+              <Sparkles className="h-3 w-3 mr-1" />
+              For You
+            </Button>
+          )}
           <Button
-            variant={selectedTier === null ? "secondary" : "ghost"}
+            variant={selectedTier === null && !showAvailableOnly ? "secondary" : "ghost"}
             size="sm"
-            onClick={() => setSelectedTier(null)}
+            onClick={() => {
+              setSelectedTier(null);
+              setShowAvailableOnly(false);
+            }}
           >
             All Tiers
           </Button>
@@ -344,7 +393,10 @@ const Recruiters = () => {
                 key={tier}
                 variant={selectedTier === tier ? "secondary" : "ghost"}
                 size="sm"
-                onClick={() => setSelectedTier(selectedTier === tier ? null : tier)}
+                onClick={() => {
+                  setShowAvailableOnly(false);
+                  setSelectedTier(selectedTier === tier ? null : tier);
+                }}
                 className={selectedTier === tier ? config.bg : ""}
               >
                 <TierIcon className={`h-3 w-3 mr-1 ${config.color}`} />
@@ -353,6 +405,11 @@ const Recruiters = () => {
             );
           })}
         </motion.div>
+        {!isSuperadmin && selectedTier === null && showAvailableOnly && (
+          <p className="text-xs text-muted-foreground mb-6">
+            Showing recruiters your plan can contact. Switch to "All Tiers" to see what's available on higher plans.
+          </p>
+        )}
 
         {/* Recruiters Grid */}
         {isLoading ? (
@@ -371,6 +428,16 @@ const Recruiters = () => {
           <div className="text-center py-16">
             <Users className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
             <p className="text-muted-foreground">No recruiters found</p>
+            {showAvailableOnly && selectedTier === null && !isSuperadmin && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-4"
+                onClick={() => setShowAvailableOnly(false)}
+              >
+                Show all tiers instead
+              </Button>
+            )}
           </div>
         ) : (
           <>

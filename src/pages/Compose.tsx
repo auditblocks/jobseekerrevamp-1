@@ -61,6 +61,22 @@ import { cn } from "@/lib/utils";
 
 const MAX_RESUME_INLINE_BYTES = 5 * 1024 * 1024;
 
+/**
+ * Connecting Gmail is a full-page redirect to Google and back, which unmounts this
+ * component and wipes local React state. We stash the in-progress draft here right
+ * before redirecting so it can be restored when the user lands back on /compose —
+ * otherwise a user who writes an email, then connects Gmail to send it, loses everything
+ * they just wrote. (File attachments can't be serialized this way and are not restored.)
+ */
+const DRAFT_STORAGE_KEY = "composeDraftBeforeGmailConnect";
+
+interface StoredComposeDraft {
+  subject?: string;
+  body?: string;
+  selectedRecruiters?: string[];
+  attachResume?: boolean;
+}
+
 /** Converts an ArrayBuffer to a base64 string in chunks to avoid call-stack overflow on large files. */
 function arrayBufferToBase64(buf: ArrayBuffer): string {
   const bytes = new Uint8Array(buf);
@@ -202,6 +218,26 @@ const Compose = () => {
   const [cooldowns, setCooldowns] = useState<EmailCooldown[]>([]);
   const [isLoadingCooldowns, setIsLoadingCooldowns] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Restore a draft stashed before a Gmail-connect redirect (see DRAFT_STORAGE_KEY above).
+  // Runs once on mount so a user doesn't lose their email after connecting Gmail mid-draft.
+  useEffect(() => {
+    try {
+      const saved = sessionStorage.getItem(DRAFT_STORAGE_KEY);
+      if (!saved) return;
+      sessionStorage.removeItem(DRAFT_STORAGE_KEY);
+      const draft = JSON.parse(saved) as StoredComposeDraft;
+      if (draft.subject) setSubject(draft.subject);
+      if (draft.body) setBody(draft.body);
+      if (draft.selectedRecruiters?.length) setSelectedRecruiters(draft.selectedRecruiters);
+      if (typeof draft.attachResume === "boolean") setAttachResume(draft.attachResume);
+      if (draft.subject || draft.body || draft.selectedRecruiters?.length) {
+        toast.success("Welcome back — your draft was restored.");
+      }
+    } catch {
+      /* malformed or unavailable storage — nothing to restore */
+    }
+  }, []);
 
   // Fetch templates for dialog
   const { data: templates = [] } = useQuery({
@@ -488,6 +524,17 @@ const Compose = () => {
     if (!googleClientId) {
       toast.error("Google OAuth is not configured. Please contact support.");
       return;
+    }
+
+    // Preserve whatever the user has drafted so far — the redirect below unmounts
+    // this page, and without this the subject/body/recipient selection would be lost.
+    try {
+      const draft: StoredComposeDraft = { subject, body, selectedRecruiters, attachResume };
+      if (draft.subject || draft.body || draft.selectedRecruiters?.length) {
+        sessionStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(draft));
+      }
+    } catch {
+      /* storage unavailable (e.g. private browsing) — proceed without saving */
     }
 
     setIsConnectingGmail(true);

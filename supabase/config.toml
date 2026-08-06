@@ -101,3 +101,6 @@ verify_jwt = false
 
 [functions.admin-delete-user]
 verify_jwt = false
+
+[functions.lifecycle-reengagement-emails]
+verify_jwt = false

@@ -1,19 +1,35 @@
 import { ResumeTemplate } from "../templateRegistry";
 import { ParsedResume, FormattingData } from "../resumeParsing";
 import { escapeHtml, formatSummary } from "./htmlUtils";
+import {
+  renderCompact,
+  renderTimeline,
+  renderHeaderBand,
+  renderAcademic,
+} from "./layoutTemplates";
 
 export function renderSimpleTemplate(
   parsed: ParsedResume,
   template: ResumeTemplate,
   formatData?: FormattingData | null,
 ): string {
-  switch (template.id) {
+  // Dispatch on `layout`, not `id` — every layout ships in multiple theme variants
+  // (professional-teal, professional-burgundy, …) that must share one renderer.
+  switch (template.layout) {
     case "modern":
       return renderModern(parsed, template, formatData);
     case "executive":
       return renderExecutive(parsed, template, formatData);
     case "minimal":
       return renderMinimal(parsed, template, formatData);
+    case "compact":
+      return renderCompact(parsed, template, formatData);
+    case "timeline":
+      return renderTimeline(parsed, template, formatData);
+    case "headerband":
+      return renderHeaderBand(parsed, template, formatData);
+    case "academic":
+      return renderAcademic(parsed, template, formatData);
     default:
       return renderProfessional(parsed, template, formatData);
   }
@@ -26,7 +42,7 @@ function renderProfessional(
 ): string {
   const { header, professionalTitle, summary, experience, education, skills, projects, languages, certifications } = parsed;
   const accent = template.accentColor;
-  const font = formatData?.font_family || "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+  const font = formatData?.font_family || template.fontFamily;
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -34,7 +50,7 @@ function renderProfessional(
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Resume - ${escapeHtml(header.name || "Resume")}</title>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:${font};line-height:1.55;color:#1f2937;background:#fff;-webkit-font-smoothing:antialiased}
@@ -155,7 +171,7 @@ function renderModern(
 ): string {
   const { header, professionalTitle, summary, experience, education, skills, projects, languages, certifications } = parsed;
   const accent = template.accentColor;
-  const font = formatData?.font_family || "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+  const font = formatData?.font_family || template.fontFamily;
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -163,7 +179,7 @@ function renderModern(
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Resume - ${escapeHtml(header.name || "Resume")}</title>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:${font};line-height:1.55;color:#1f2937;background:#fff;-webkit-font-smoothing:antialiased}
@@ -284,7 +300,7 @@ function renderExecutive(
 ): string {
   const { header, professionalTitle, summary, experience, education, skills, projects, languages, certifications } = parsed;
   const accent = template.accentColor;
-  const font = formatData?.font_family || "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+  const font = formatData?.font_family || template.fontFamily;
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -421,7 +437,11 @@ function renderMinimal(
   formatData?: FormattingData | null,
 ): string {
   const { header, professionalTitle, summary, experience, education, skills, projects, languages, certifications } = parsed;
-  const font = formatData?.font_family || "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+  const font = formatData?.font_family || template.fontFamily;
+  // Minimal stays near-monochrome, but the theme accent is applied sparingly (name,
+  // section rule, list markers, links) so its theme variants are actually distinct
+  // from one another instead of rendering identically.
+  const accent = template.accentColor;
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -429,19 +449,19 @@ function renderMinimal(
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Resume - ${escapeHtml(header.name || "Resume")}</title>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:${font};line-height:1.55;color:#111827;background:#fff;-webkit-font-smoothing:antialiased}
 .page{max-width:780px;margin:0 auto;padding:48px 52px}
-.header{padding-bottom:16px;border-bottom:1px solid #d1d5db}
-.name{font-size:24px;font-weight:700;color:#111827}
+.header{padding-bottom:16px;border-bottom:2px solid ${accent}}
+.name{font-size:24px;font-weight:700;color:${accent}}
 .title{font-size:14px;color:#6b7280;margin-top:2px}
 .contact{display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:8px;font-size:12px;color:#9ca3af}
-.contact a{color:#6b7280;text-decoration:none}
+.contact a{color:${accent};text-decoration:none}
 .section{margin-top:22px;padding-top:22px;border-top:1px solid #e5e7eb}
 .section:first-of-type{border-top:none;padding-top:0;margin-top:20px}
-.section-title{font-size:12px;font-weight:700;color:#111827;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:12px}
+.section-title{font-size:12px;font-weight:700;color:${accent};text-transform:uppercase;letter-spacing:1.5px;margin-bottom:12px}
 .summary{font-size:13px;color:#374151;line-height:1.7}
 .summary p{margin-bottom:6px}
 .entry{margin-bottom:14px}
@@ -452,6 +472,7 @@ body{font-family:${font};line-height:1.55;color:#111827;background:#fff;-webkit-
 .entry-date{font-size:11.5px;color:#9ca3af;white-space:nowrap}
 .entry-bullets{margin-top:4px;padding-left:14px}
 .entry-bullets li{font-size:12.5px;color:#374151;margin-bottom:3px;line-height:1.6}
+.entry-bullets li::marker{color:${accent}}
 .skills-text{font-size:13px;color:#374151;line-height:1.8}
 .project-desc{font-size:12.5px;color:#374151;margin-top:2px;line-height:1.6}
 @media print{.page{padding:28px 36px}.section{margin-top:16px;padding-top:16px}}

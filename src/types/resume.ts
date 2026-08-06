@@ -46,3 +46,32 @@ export interface StructuredResumeData {
   languages?: string[];
 }
 
+/**
+ * A single line-anchored ATS issue returned by `analyze-resume-ats`.
+ * `excerpt` is an exact, verbatim substring of the analyzed resume text — the UI
+ * locates it via string matching to render an inline flag next to that line, and
+ * `suggested_replacement` is applied in its place when the user clicks Apply.
+ */
+export interface LineIssue {
+  id: string;
+  category:
+    | "action_verb"
+    | "metric"
+    | "keyword"
+    | "grammar"
+    | "formatting"
+    | "structure"
+    | "contact"
+    | "length"
+    | "buzzword"
+    | "tense"
+    | "clarity"
+    | string;
+  severity: "high" | "medium" | "low";
+  section?: string;
+  issue: string;
+  explanation: string;
+  excerpt: string;
+  suggested_replacement: string;
+}
+

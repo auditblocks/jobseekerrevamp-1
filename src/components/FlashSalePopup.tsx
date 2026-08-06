@@ -62,12 +62,27 @@ export function FlashSalePopup() {
     location.pathname === "/subscription" ||
     location.pathname === "/dashboard/subscription";
 
+  /** New accounts (<48h old) haven't experienced free value yet — an upsell here reads as bait-and-switch. */
+  const NEW_ACCOUNT_GRACE_MS = 48 * 60 * 60 * 1000;
+  const isBrandNewAccount = (() => {
+    if (!user?.created_at) return false;
+    const createdAt = new Date(user.created_at).getTime();
+    if (Number.isNaN(createdAt)) return false;
+    return Date.now() - createdAt < NEW_ACCOUNT_GRACE_MS;
+  })();
+
   useEffect(() => {
     if (!isAllowedRoute) {
       setIsVisible(false);
       return;
     }
     if (isElite) {
+      setIsVisible(false);
+      return;
+    }
+    // Signed-in users on brand-new accounts: hold off on the upsell until they've had
+    // a couple of days to experience the product for free (see NEW_ACCOUNT_GRACE_MS above).
+    if (user && isBrandNewAccount) {
       setIsVisible(false);
       return;
     }
@@ -78,7 +93,7 @@ export function FlashSalePopup() {
       if (isDismissed) return;
     }
     fetchConfig();
-  }, [isElite, profile?.subscription_tier, user?.id, location.pathname, isAllowedRoute]);
+  }, [isElite, profile?.subscription_tier, user?.id, location.pathname, isAllowedRoute, isBrandNewAccount]);
 
   const fetchConfig = async () => {
     try {
