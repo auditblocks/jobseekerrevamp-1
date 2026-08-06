@@ -17,7 +17,18 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
 import { isAuthorizedAdminRequest } from "../_shared/admin-auth.ts";
+import {
+  createSyncProgress,
+  detectTriggerSource,
+  type SyncProgressPatch,
+} from "../_shared/sync-progress.ts";
 import { externalKeyFromUrl, mapApifyItemToRow } from "./map-item.ts";
+
+/** Signature used to stream stage updates back into `naukri_sync_log`. */
+type ProgressFn = (
+  patch: SyncProgressPatch,
+  opts?: { throttleMs?: number },
+) => Promise<void>;
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -121,10 +132,15 @@ async function runActorAndResolveDataset(
   token: string,
   actorId: string,
   actorInput: Record<string, unknown>,
+  onProgress: ProgressFn,
 ): Promise<{ datasetId: string; runId: string } | { error: string }> {
   if (!actorId) {
     return { error: "Configure apify_actor_id in Admin → Naukri jobs." };
   }
+  await onProgress({
+    phase: "actor_starting",
+    phase_message: `Starting Apify actor ${actorId}…`,
+  });
   const startUrl =
     `https://api.apify.com/v2/acts/${encodeURIComponent(actorId)}/runs?token=${
       encodeURIComponent(token)
@@ -145,7 +161,15 @@ async function runActorAndResolveDataset(
   }
   const runId = String(run.id);
   // Poll for up to ~85 s (60 s Apify-side wait + 25 s buffer) with 5 s intervals
-  const pollDeadline = Date.now() + 85_000;
+  const pollStartedAt = Date.now();
+  const pollDeadline = pollStartedAt + 85_000;
+
+  await onProgress({
+    phase: "actor_running",
+    apify_run_id: runId,
+    actor_status: String(run.status ?? "READY"),
+    phase_message: `Apify run started — scraping Naukri listings…`,
+  });
 
   while (!isTerminalRunStatus(String(run.status ?? ""))) {
     if (Date.now() > pollDeadline) {
@@ -159,6 +183,14 @@ async function runActorAndResolveDataset(
     const next = await fetchActorRun(token, runId);
     if ("error" in next && next.error) return { error: next.error };
     run = next as Record<string, unknown>;
+    const elapsedSec = Math.round((Date.now() - pollStartedAt) / 1000);
+    await onProgress({
+      phase: "actor_running",
+      actor_status: String(run.status ?? "RUNNING"),
+      phase_message: `Scraping on Apify — run is ${
+        String(run.status ?? "RUNNING")
+      } (${elapsedSec}s elapsed)…`,
+    });
   }
 
   if (run.status !== "SUCCEEDED") {
@@ -171,6 +203,12 @@ async function runActorAndResolveDataset(
   if (!ds) {
     return { error: "Successful Apify run has no defaultDatasetId." };
   }
+  await onProgress({
+    phase: "resolving_dataset",
+    actor_status: "SUCCEEDED",
+    dataset_id: String(ds),
+    phase_message: "Scrape finished. Preparing to download results…",
+  });
   return { datasetId: String(ds), runId };
 }
 
@@ -206,10 +244,18 @@ function parseSyncBody(raw: string | null): SyncBodyOptions {
 async function fetchAllDatasetItems(
   token: string,
   datasetId: string,
+  onProgress: ProgressFn,
 ): Promise<{ items: unknown[] } | { error: string }> {
   const out: unknown[] = [];
   let offset = 0;
   const limit = 500;
+  await onProgress({
+    phase: "fetching_dataset",
+    dataset_id: datasetId,
+    progress_current: 0,
+    progress_total: null,
+    phase_message: "Downloading scraped jobs from Apify…",
+  });
   for (;;) {
     const u =
       `https://api.apify.com/v2/datasets/${encodeURIComponent(datasetId)}/items?token=${
@@ -223,6 +269,11 @@ async function fetchAllDatasetItems(
     const batch = await res.json();
     if (!Array.isArray(batch) || batch.length === 0) break;
     out.push(...batch);
+    await onProgress({
+      phase: "fetching_dataset",
+      progress_current: out.length,
+      phase_message: `Downloading scraped jobs from Apify — ${out.length} rows so far…`,
+    });
     if (batch.length < limit) break;
     offset += limit;
     if (offset > 20000) break;
@@ -252,6 +303,13 @@ serve(async (req) => {
       status: "running",
       started_at: new Date().toISOString(),
       pipeline: "naukri",
+      phase: "starting",
+      phase_message: syncOptions.importOnly
+        ? "Starting import of the latest Apify dataset…"
+        : "Starting Naukri scrape…",
+      trigger_source: detectTriggerSource(req),
+      run_mode: syncOptions.importOnly ? "import_only" : "full",
+      updated_at: new Date().toISOString(),
     })
     .select("id")
     .single();
@@ -260,22 +318,27 @@ serve(async (req) => {
     console.error("naukri_sync_log insert failed", logInsert.error);
   }
   const logId = logInsert.data?.id as string | undefined;
+  const progress = createSyncProgress(supabase, logId);
+  const onProgress: ProgressFn = (patch, opts) => progress.update(patch, opts);
   const finishLog = async (
     status: "success" | "error",
     extra: Record<string, unknown> = {},
   ) => {
     if (!logId) return;
-    await supabase
-      .from("naukri_sync_log")
-      .update({
-        status,
-        finished_at: new Date().toISOString(),
-        ...extra,
-      })
-      .eq("id", logId);
+    // On failure `phase` is deliberately left at the last reported stage so the
+    // admin UI can point at exactly which step broke.
+    const patch: Record<string, unknown> = {
+      status,
+      finished_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      ...extra,
+    };
+    if (status === "success") patch.phase = "done";
+    await supabase.from("naukri_sync_log").update(patch).eq("id", logId);
   };
 
   try {
+    await onProgress({ phase: "resolving", phase_message: "Reading Apify configuration…" });
     const apifyToken = await getSecret(supabase, "apify_api_token");
     if (!apifyToken) {
       await finishLog("error", { error_message: "Missing apify_api_token in admin_integration_secrets" });
@@ -289,14 +352,23 @@ serve(async (req) => {
 
     // Decision tree: explicit dataset → import_only (last success) → start a new run
     if (datasetOverride) {
+      await onProgress({
+        phase: "resolving_dataset",
+        phase_message: "Using the configured dataset override…",
+      });
       resolved = await resolveDatasetFromLastSuccess(apifyToken, actorId, datasetOverride);
     } else if (syncOptions.importOnly) {
+      await onProgress({
+        phase: "resolving_dataset",
+        phase_message: "Looking up the most recent successful Apify run…",
+      });
       resolved = await resolveDatasetFromLastSuccess(apifyToken, actorId, "");
     } else {
       const runResult = await runActorAndResolveDataset(
         apifyToken,
         actorId,
         syncOptions.actorInput,
+        onProgress,
       );
       if ("error" in runResult) {
         resolved = runResult;
@@ -313,6 +385,7 @@ serve(async (req) => {
     const { items, error: fetchErr } = await fetchAllDatasetItems(
       apifyToken,
       resolved.datasetId,
+      onProgress,
     );
     if (fetchErr) {
       await finishLog("error", {
@@ -325,16 +398,41 @@ serve(async (req) => {
 
     let upserted = 0;
     let skipped = 0;
+    let processed = 0;
     let unmappedLogged = 0;
     const seenApplyUrls = new Set<string>();
     let duplicateApplyUrlsInDataset = 0;
     const scrapedAt = new Date().toISOString();
 
+    await onProgress({
+      phase: "importing",
+      dataset_id: resolved.datasetId,
+      apify_run_id: resolved.runId,
+      dataset_item_count: items.length,
+      progress_current: 0,
+      progress_total: items.length,
+      items_upserted: 0,
+      items_skipped: 0,
+      phase_message: `Importing ${items.length} scraped rows into private jobs…`,
+    });
+
+    // Throttled so a large dataset does not issue one UPDATE per row.
+    const reportImportProgress = () =>
+      onProgress({
+        progress_current: processed,
+        progress_total: items.length,
+        items_upserted: upserted,
+        items_skipped: skipped,
+        phase_message: `Importing scraped jobs — ${processed} of ${items.length} rows processed…`,
+      }, { throttleMs: 1200 });
+
     // Map each Apify dataset item → DB row; skip items that lack a title or valid URL
     for (const raw of items) {
+      processed++;
       const mapped = mapApifyItemToRow(raw);
       if (!mapped) {
         skipped++;
+        await reportImportProgress();
         if (unmappedLogged < 5 && raw && typeof raw === "object") {
           unmappedLogged++;
           const keys = Object.keys(raw as Record<string, unknown>);
@@ -374,6 +472,7 @@ serve(async (req) => {
       } else {
         upserted++;
       }
+      await reportImportProgress();
     }
 
     await finishLog("success", {
@@ -381,6 +480,12 @@ serve(async (req) => {
       items_skipped: skipped,
       dataset_id: resolved.datasetId,
       apify_run_id: resolved.runId,
+      dataset_item_count: items.length,
+      progress_current: items.length,
+      progress_total: items.length,
+      phase_message:
+        `Imported ${upserted} job${upserted === 1 ? "" : "s"} into private jobs` +
+        (skipped > 0 ? ` · ${skipped} skipped` : ""),
     });
 
     return json({

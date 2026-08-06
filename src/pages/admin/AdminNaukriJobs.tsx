@@ -17,7 +17,7 @@
  * Secrets (API tokens) are stored in `admin_integration_secrets` — a
  * superadmin-only table with RLS.
  */
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -40,6 +40,8 @@ import { Loader2, RefreshCw, Save, AlertTriangle, CheckCircle2, XCircle } from "
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { AdminPrivateJobsListings } from "@/components/admin/AdminPrivateJobsListings";
+import { ApifySyncProgress } from "@/components/admin/ApifySyncProgress";
+import { Badge } from "@/components/ui/badge";
 
 /** Secret key identifiers stored in `admin_integration_secrets` for each pipeline. */
 const NAUKRI_SECRET_KEYS = {
@@ -81,6 +83,11 @@ interface SyncLogRow {
   apify_run_id: string | null;
   dataset_id: string | null;
   pipeline?: string | null;
+  phase?: string | null;
+  phase_message?: string | null;
+  trigger_source?: string | null;
+  run_mode?: string | null;
+  dataset_item_count?: number | null;
 }
 
 interface SavedConfig {
@@ -281,7 +288,7 @@ const AdminNaukriJobs = () => {
     }
   };
 
-  const loadLogs = async () => {
+  const loadLogs = useCallback(async () => {
     const { data, error } = await supabase
       .from("naukri_sync_log" as never)
       .select("*")
@@ -291,7 +298,7 @@ const AdminNaukriJobs = () => {
     if (!error && data) {
       setLogs(data as unknown as SyncLogRow[]);
     }
-  };
+  }, []);
 
   useEffect(() => {
     loadSecrets();
@@ -314,7 +321,17 @@ const AdminNaukriJobs = () => {
         setLimitsLoading(false);
       }
     })();
-  }, []);
+    // loadLogs is a stable useCallback, so this still runs once on mount.
+  }, [loadLogs]);
+
+  // Keep the run history fresh while a sync is in flight so the new row (and its
+  // running status) shows up without a manual reload.
+  const anySyncInFlight = syncing || syncingNaukriImport || syncingLinkedIn || syncingLinkedInImport;
+  useEffect(() => {
+    if (!anySyncInFlight) return;
+    const timer = window.setInterval(() => void loadLogs(), 5000);
+    return () => window.clearInterval(timer);
+  }, [anySyncInFlight, loadLogs]);
 
   const handleSaveApplyLimits = async () => {
     setLimitsSaving(true);
@@ -552,6 +569,41 @@ const AdminNaukriJobs = () => {
     return "—";
   };
 
+  /** Wall-clock time a run took, or how long it has been going if still running. */
+  const runDuration = (log: SyncLogRow) => {
+    const start = new Date(log.started_at).getTime();
+    const end = log.finished_at ? new Date(log.finished_at).getTime() : Date.now();
+    const sec = Math.max(0, Math.round((end - start) / 1000));
+    if (!Number.isFinite(sec)) return "—";
+    const min = Math.floor(sec / 60);
+    return min > 0 ? `${min}m ${String(sec % 60).padStart(2, "0")}s` : `${sec}s`;
+  };
+
+  const statusCell = (log: SyncLogRow) => {
+    if (log.status === "running") {
+      return (
+        <Badge variant="secondary" className="gap-1.5 font-normal">
+          <Loader2 className="h-3 w-3 animate-spin" />
+          Running
+        </Badge>
+      );
+    }
+    if (log.status === "success") {
+      return (
+        <Badge className="gap-1.5 bg-green-600 font-normal hover:bg-green-600">
+          <CheckCircle2 className="h-3 w-3" />
+          Success
+        </Badge>
+      );
+    }
+    return (
+      <Badge variant="destructive" className="gap-1.5 font-normal">
+        <XCircle className="h-3 w-3" />
+        Failed
+      </Badge>
+    );
+  };
+
   return (
     <AdminLayout>
       <Helmet>
@@ -665,6 +717,24 @@ const AdminNaukriJobs = () => {
           </TabsContent>
 
           <TabsContent value="naukri" className="space-y-8">
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle>Naukri — live sync status</CardTitle>
+                <CardDescription>
+                  Shows each stage of the run: scrape on Apify → download results → import into
+                  private jobs. Updates every 2 seconds, including runs started by the daily
+                  schedule.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ApifySyncProgress
+                  pipeline="naukri"
+                  isRunning={syncing || syncingNaukriImport}
+                  onRunFinished={loadLogs}
+                />
+              </CardContent>
+            </Card>
+
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle>Naukri — saved configuration</CardTitle>
@@ -811,6 +881,24 @@ const AdminNaukriJobs = () => {
           </TabsContent>
 
           <TabsContent value="linkedin" className="space-y-8">
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle>LinkedIn — live sync status</CardTitle>
+                <CardDescription>
+                  Shows each stage of the run: scrape on Apify → download results → import into
+                  private jobs. Updates every 2 seconds, including runs started by the daily
+                  schedule.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ApifySyncProgress
+                  pipeline="linkedin"
+                  isRunning={syncingLinkedIn || syncingLinkedInImport}
+                  onRunFinished={loadLogs}
+                />
+              </CardContent>
+            </Card>
+
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle>LinkedIn — saved configuration</CardTitle>
@@ -1008,45 +1096,75 @@ const AdminNaukriJobs = () => {
         <Card>
           <CardHeader>
             <CardTitle>Recent sync runs</CardTitle>
-            <CardDescription>Naukri and LinkedIn (last 40 executions)</CardDescription>
+            <CardDescription>
+              Naukri and LinkedIn, manual and scheduled (last 40 executions). Scheduled runs fire
+              three times a day per pipeline.
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Started</TableHead>
-                  <TableHead>Pipeline</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Upserted</TableHead>
-                  <TableHead>Skipped</TableHead>
-                  <TableHead>Error</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {logs.length === 0 ? (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center text-muted-foreground">
-                      No runs yet
-                    </TableCell>
+                    <TableHead>Started</TableHead>
+                    <TableHead>Pipeline</TableHead>
+                    <TableHead>Trigger</TableHead>
+                    <TableHead>Mode</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Scraped</TableHead>
+                    <TableHead className="text-right">Imported</TableHead>
+                    <TableHead className="text-right">Skipped</TableHead>
+                    <TableHead className="text-right">Took</TableHead>
+                    <TableHead>Detail</TableHead>
                   </TableRow>
-                ) : (
-                  logs.map((log) => (
-                    <TableRow key={log.id}>
-                      <TableCell className="whitespace-nowrap text-sm">
-                        {format(new Date(log.started_at), "MMM d, HH:mm")}
-                      </TableCell>
-                      <TableCell className="text-sm">{pipelineLabel(log.pipeline)}</TableCell>
-                      <TableCell>{log.status}</TableCell>
-                      <TableCell>{log.items_upserted ?? "—"}</TableCell>
-                      <TableCell>{log.items_skipped ?? "—"}</TableCell>
-                      <TableCell className="max-w-[200px] truncate text-xs text-destructive">
-                        {log.error_message ?? "—"}
+                </TableHeader>
+                <TableBody>
+                  {logs.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={10} className="text-center text-muted-foreground">
+                        No runs yet
                       </TableCell>
                     </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
+                  ) : (
+                    logs.map((log) => (
+                      <TableRow key={log.id}>
+                        <TableCell className="whitespace-nowrap text-sm">
+                          {format(new Date(log.started_at), "MMM d, HH:mm")}
+                        </TableCell>
+                        <TableCell className="text-sm">{pipelineLabel(log.pipeline)}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {log.trigger_source === "cron" ? "Scheduled" : "Manual"}
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {log.run_mode === "import_only" ? "Import only" : "Full"}
+                        </TableCell>
+                        <TableCell>{statusCell(log)}</TableCell>
+                        <TableCell className="text-right tabular-nums text-sm">
+                          {log.dataset_item_count ?? "—"}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums text-sm">
+                          {log.items_upserted ?? "—"}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums text-sm text-muted-foreground">
+                          {log.items_skipped ?? "—"}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums text-xs text-muted-foreground">
+                          {runDuration(log)}
+                        </TableCell>
+                        <TableCell
+                          className={`max-w-[240px] truncate text-xs ${
+                            log.error_message ? "text-destructive" : "text-muted-foreground"
+                          }`}
+                          title={log.error_message ?? log.phase_message ?? undefined}
+                        >
+                          {log.error_message ?? log.phase_message ?? "—"}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
           </CardContent>
         </Card>
       </div>

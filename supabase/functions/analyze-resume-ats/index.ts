@@ -13,6 +13,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
 import { GoogleGenerativeAI } from "https://esm.sh/@google/generative-ai@0.21.0";
+import { BlobReader, ZipReader, TextWriter } from "https://deno.land/x/zipjs@v2.7.17/index.js";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -204,6 +205,47 @@ serve(async (req) => {
       }
     };
 
+    /**
+     * In-memory DOCX text extraction using zipjs.
+     * Unzips the DOCX, reads word/document.xml, and extracts text within <w:t> tags.
+     */
+    const extractTextFromDocx = async (arrayBuffer: ArrayBuffer): Promise<string> => {
+      try {
+        const blob = new Blob([arrayBuffer]);
+        const zipReader = new ZipReader(new BlobReader(blob));
+        const entries = await zipReader.getEntries();
+        const documentEntry = entries.find((entry) => entry.filename === "word/document.xml");
+
+        if (!documentEntry) {
+          throw new Error("Invalid DOCX file: word/document.xml not found");
+        }
+
+        const xmlText = await documentEntry.getData!(new TextWriter());
+        await zipReader.close();
+
+        // Extract text from <w:t> tags
+        const matches = xmlText.match(/<w:t[^>]*>(.*?)<\/w:t>/g);
+        if (!matches) return "";
+
+        return matches
+          .map((match) => {
+            const content = match.replace(/<w:t[^>]*>/, "").replace(/<\/w:t>/, "");
+            // Decode common XML/HTML entities
+            return content
+              .replace(/&amp;/g, "&")
+              .replace(/&lt;/g, "<")
+              .replace(/&gt;/g, ">")
+              .replace(/&quot;/g, '"')
+              .replace(/&apos;/g, "'");
+          })
+          .join(" ");
+      } catch (error: any) {
+        console.error("DOCX extraction error:", error);
+        throw new Error(`Failed to extract text from DOCX: ${error.message}`);
+      }
+    };
+
+
     // Handle PDF file analysis
     let pdfBase64: string | null = null;
     let sanitizedResumeText: string | null = null;
@@ -249,11 +291,19 @@ serve(async (req) => {
         }
 
         const isDocx = (file_path && file_path.toLowerCase().endsWith(".docx")) || (file_url && file_url.toLowerCase().endsWith(".docx"));
-        const fileTypeName = isDocx ? "DOCX" : "PDF";
-        console.log(`Preparing ${fileTypeName} for Gemini API...`);
-        pdfBase64 = await preparePdfForVision(pdfBuffer);
-        console.log(`${fileTypeName} prepared, size: ${pdfBase64.length} characters`);
-        isPdfAnalysis = true;
+        
+        if (isDocx) {
+          console.log("DOCX file detected. Extracting text content...");
+          const extractedText = await extractTextFromDocx(pdfBuffer);
+          sanitizedResumeText = sanitizeText(extractedText);
+          console.log("DOCX text extracted and sanitized successfully, length:", sanitizedResumeText?.length || 0);
+          isPdfAnalysis = false;
+        } else {
+          console.log("PDF file detected. Preparing for Gemini Vision API...");
+          pdfBase64 = await preparePdfForVision(pdfBuffer);
+          console.log("PDF prepared, size:", pdfBase64.length, "characters");
+          isPdfAnalysis = true;
+        }
       } catch (pdfError: any) {
         const isDocx = (file_path && file_path.toLowerCase().endsWith(".docx")) || (file_url && file_url.toLowerCase().endsWith(".docx"));
         const fileTypeName = isDocx ? "DOCX" : "PDF";
@@ -266,6 +316,7 @@ serve(async (req) => {
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
+
     } else if (hasResumeText && resume_text) {
       sanitizedResumeText = sanitizeText(resume_text);
       if (!sanitizedResumeText || sanitizedResumeText.trim().length === 0) {
