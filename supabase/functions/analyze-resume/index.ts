@@ -292,7 +292,8 @@ serve(async (req) => {
           // Use pdfjs-dist for PDF text extraction
           console.log("Extracting text from PDF...");
           try {
-            // Import pdfjs-dist using esm.sh which works better with Deno
+            // Keep ?external=canvas so deploy does not try to bundle native canvas.node.
+            // (Runtime PDF extract here is best-effort; cover-letter uses Gemini instead.)
             const pdfjsLib = await import("https://esm.sh/pdfjs-dist@3.11.174?external=canvas");
 
             // Check if getDocument is available

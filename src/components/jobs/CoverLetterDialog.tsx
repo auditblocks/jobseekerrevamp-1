@@ -102,9 +102,24 @@ export function CoverLetterDialog({ job, onOpenChange }: CoverLetterDialogProps)
           job_description: job.summary ?? undefined,
         },
       });
-      if (error) throw error;
-      const d = data as { success?: boolean; error?: string; cover_letter?: { id: string; content: string } };
-      if (d?.error || !d?.cover_letter) throw new Error(d?.error || "Generation failed");
+      // functions.invoke often yields opaque FunctionsHttpError ("non-2xx"); prefer the
+      // JSON `{ error }` body from `data` or from error.context when present.
+      const d = data as { success?: boolean; error?: string; cover_letter?: { id: string; content: string } } | null;
+      if (d?.error) throw new Error(d.error);
+      if (error) {
+        let detail: string | undefined;
+        const ctx = (error as { context?: Response }).context;
+        if (ctx && typeof ctx.json === "function") {
+          try {
+            const body = (await ctx.json()) as { error?: string };
+            detail = body?.error;
+          } catch {
+            /* ignore unreadable error body */
+          }
+        }
+        throw new Error(detail || error.message);
+      }
+      if (!d?.cover_letter) throw new Error("Generation failed");
       setContent(d.cover_letter.content);
       setLetterId(d.cover_letter.id);
       toast.success("Cover letter generated");
@@ -153,7 +168,7 @@ export function CoverLetterDialog({ job, onOpenChange }: CoverLetterDialogProps)
               <>
                 Tailored for <strong>{job.title}</strong>
                 {job.company_name ? ` at ${job.company_name}` : ""}, grounded in your resume — no
-                placeholder text.
+                placeholder text. First generation may take a bit longer while we read the PDF/DOCX.
               </>
             ) : null}
           </DialogDescription>

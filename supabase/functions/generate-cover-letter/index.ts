@@ -19,6 +19,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
 import { generateChatText } from "../_shared/ai-provider.ts";
+import { resolveResumeText } from "../_shared/extract-resume-text.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -67,14 +68,22 @@ serve(async (req) => {
     // service-role client bypasses RLS, so check explicitly.
     const { data: resume, error: resumeError } = await supabase
       .from("resumes")
-      .select("id, extracted_text")
+      .select("id, extracted_text, file_url, file_type")
       .eq("id", resume_id)
       .eq("user_id", user.id)
       .maybeSingle();
     if (resumeError) throw resumeError;
     if (!resume) return json({ error: "Resume not found" }, 404);
-    if (!resume.extracted_text?.trim()) {
-      return json({ error: "This resume has no extracted text yet — re-upload or select a different resume." }, 400);
+
+    // Most uploaded PDFs/DOCX have empty extracted_text (upload-resume defers
+    // extraction). Resolve from the file on demand and cache it.
+    let resumeText: string;
+    try {
+      resumeText = await resolveResumeText(supabase, resume);
+    } catch (extractErr) {
+      console.error("Resume text resolution failed:", extractErr);
+      const msg = extractErr instanceof Error ? extractErr.message : "Could not read resume text";
+      return json({ error: msg }, 400);
     }
 
     const { data: profile } = await supabase
@@ -128,7 +137,7 @@ Return your response as JSON with a single "content" field containing the full l
 - Bio: ${profile?.bio || "N/A"}
 
 Resume content (verbatim, use for specifics):
-${resume.extracted_text.slice(0, 6000)}
+${resumeText.slice(0, 6000)}
 
 Target role:
 - Job title: ${jobTitle || "N/A"}
@@ -145,7 +154,10 @@ Write the cover letter now.`;
       const msg = aiError instanceof Error ? aiError.message : "Failed to generate cover letter";
       if (msg.includes("429")) return json({ error: "Rate limit exceeded. Please try again later." }, 429);
       if (msg.includes("402")) return json({ error: "AI credits depleted. Please try again later." }, 402);
-      return json({ error: "Failed to generate cover letter" }, 502);
+      // Surface a short provider detail so the UI / logs show the real failure
+      // (e.g. OpenRouter model 404) instead of a generic non-2xx FunctionsHttpError.
+      const short = msg.length > 280 ? `${msg.slice(0, 280)}…` : msg;
+      return json({ error: `Failed to generate cover letter: ${short}` }, 502);
     }
 
     let letterContent: string;
