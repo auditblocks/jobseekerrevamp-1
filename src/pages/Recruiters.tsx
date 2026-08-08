@@ -103,6 +103,12 @@ const Recruiters = () => {
   const [showAvailableOnly, setShowAvailableOnly] = useState(true);
 
   const [recruiters, setRecruiters] = useState<Recruiter[]>([]);
+  /** Live platform reply rate per recruiter email, from actual outreach on this
+   *  platform (get_recruiter_reply_stats_batch). Distinct from the static seeded
+   *  `response_rate` column — only present once a recruiter has enough sample size. */
+  const [replyStats, setReplyStats] = useState<
+    Record<string, { sample_size: number; reply_rate: number | null }>
+  >({});
   const [totalCount, setTotalCount] = useState(0);
   const [domains, setDomains] = useState<string[]>(["All"]);
   const [page, setPage] = useState(0); // 0-indexed internally
@@ -201,6 +207,7 @@ const Recruiters = () => {
         if (data) {
           setRecruiters(data);
           setTotalCount(count || 0);
+          void fetchReplyStats(data.map((r) => r.email));
         }
       } catch (error) {
         console.error("Error fetching recruiters:", error);
@@ -212,6 +219,21 @@ const Recruiters = () => {
     },
     [debouncedSearch, selectedDomain, selectedTier, showAvailableOnly, isSuperadmin, profile?.subscription_tier]
   );
+
+  /** Batched lookup of live reply-rate stats for the current page of recruiters. */
+  const fetchReplyStats = async (emails: string[]) => {
+    if (emails.length === 0) return;
+    try {
+      const { data, error } = await supabase.rpc("get_recruiter_reply_stats_batch" as never, {
+        p_emails: emails,
+      } as never);
+      if (error) throw error;
+      const map = (data ?? {}) as Record<string, { sample_size: number; reply_rate: number | null }>;
+      setReplyStats((prev) => ({ ...prev, ...map }));
+    } catch (error) {
+      console.error("Error fetching recruiter reply stats:", error);
+    }
+  };
 
   useEffect(() => {
     fetchRecruiters(page);
@@ -508,6 +530,20 @@ const Recruiters = () => {
                             <span className="font-medium">{recruiter.response_rate || 0}%</span>
                             <span className="text-muted-foreground ml-1">response</span>
                           </div>
+                          {(() => {
+                            const stat = replyStats[recruiter.email.toLowerCase()];
+                            if (!stat || stat.reply_rate === null) return null;
+                            return (
+                              <Badge
+                                variant="outline"
+                                className="gap-1 border-teal-500/30 text-teal-800 dark:text-teal-200"
+                                title={`Based on ${stat.sample_size} outreach threads from users on this platform`}
+                              >
+                                <Zap className="h-3 w-3" />
+                                {stat.reply_rate}% actually reply
+                              </Badge>
+                            );
+                          })()}
                         </div>
 
                         {recruiter.domain && (

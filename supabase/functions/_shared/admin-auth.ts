@@ -25,7 +25,9 @@ export async function isAuthorizedAdminRequest(
     return true;
   }
 
-  // Allow external cron services that pass the shared secret via header
+  // Allow external / pg_cron callers that pass the shared secret via header.
+  // Prefer this over relying on SUPABASE_SERVICE_ROLE_KEY string equality: hosted
+  // projects may inject a different key format than the legacy service_role JWT.
   const cronSecret = Deno.env.get("NAUKRI_SYNC_CRON_SECRET");
   const headerSecret = req.headers.get("x-cron-secret");
   if (cronSecret && headerSecret && headerSecret === cronSecret) {

@@ -27,6 +27,7 @@ import {
   Rocket,
   Zap,
   Gift,
+  HeartPulse,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
@@ -48,6 +49,7 @@ import { useAuth } from "@/hooks/useAuth";
 
 const mainItems = [
   { title: "Dashboard", url: "/admin", icon: LayoutDashboard },
+  { title: "Ops health", url: "/admin/ops-health", icon: HeartPulse },
   { title: "Users", url: "/admin/users", icon: Users },
   { title: "Recruiters", url: "/admin/recruiters", icon: UserSearch },
   { title: "Analytics", url: "/admin/analytics", icon: BarChart3 },

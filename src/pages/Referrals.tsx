@@ -11,7 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, Copy, Gift } from "lucide-react";
+import { Loader2, Copy, Gift, Trophy } from "lucide-react";
 import { toast } from "sonner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -41,6 +41,13 @@ type InviteeRow = {
   subscription_tier: string;
 };
 
+type LeaderboardRow = {
+  rank: number;
+  display_name: string;
+  referral_count: number;
+  is_you: boolean;
+};
+
 function formatIst(iso: string | null | undefined): string {
   if (!iso) return "—";
   try {
@@ -59,6 +66,8 @@ const Referrals = () => {
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState<ReferralStatus | null>(null);
   const [invitees, setInvitees] = useState<InviteeRow[]>([]);
+  const [leaderboard, setLeaderboard] = useState<LeaderboardRow[]>([]);
+  const [leaderboardLoading, setLeaderboardLoading] = useState(true);
   const siteOrigin = typeof window !== "undefined" ? window.location.origin : "";
 
   const load = useCallback(async () => {
@@ -99,6 +108,30 @@ const Referrals = () => {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    let cancelled = false;
+    (async () => {
+      setLeaderboardLoading(true);
+      try {
+        const { data, error } = await supabase.rpc("get_referral_leaderboard" as never, {
+          p_limit: 20,
+        } as never);
+        if (cancelled) return;
+        if (error) throw error;
+        setLeaderboard((data ?? []) as unknown as LeaderboardRow[]);
+      } catch (e) {
+        console.error("get_referral_leaderboard:", e);
+        if (!cancelled) setLeaderboard([]);
+      } finally {
+        if (!cancelled) setLeaderboardLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
 
   const inviteUrl =
     status?.code && siteOrigin
@@ -161,6 +194,59 @@ const Referrals = () => {
               </div>
             ) : (
               <p className="text-3xl font-bold tabular-nums">{status?.qualified_referrals_count ?? 0}</p>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Trophy className="h-4 w-4 text-amber-500" />
+              Referral leaderboard
+            </CardTitle>
+            <CardDescription>
+              Top referrers, ranked by qualified referrals. Names are shown as first name + last
+              initial. You can hide yourself from this list in Settings.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {leaderboardLoading ? (
+              <div className="flex justify-center py-6">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : leaderboard.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-2">
+                No qualified referrals yet — the leaderboard fills in as people sign up and
+                subscribe.
+              </p>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-14">Rank</TableHead>
+                    <TableHead>Name</TableHead>
+                    <TableHead className="text-right">Referrals</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {leaderboard.map((row) => (
+                    <TableRow key={row.rank} className={row.is_you ? "bg-accent/5" : undefined}>
+                      <TableCell className="font-medium tabular-nums">#{row.rank}</TableCell>
+                      <TableCell>
+                        {row.display_name}
+                        {row.is_you ? (
+                          <Badge variant="outline" className="ml-2 text-[10px]">
+                            You
+                          </Badge>
+                        ) : null}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums font-medium">
+                        {row.referral_count}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             )}
           </CardContent>
         </Card>

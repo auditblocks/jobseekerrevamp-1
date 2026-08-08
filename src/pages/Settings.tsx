@@ -136,6 +136,13 @@ const Settings = () => {
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [uploadingResume, setUploadingResume] = useState(false);
   const [savingNotifications, setSavingNotifications] = useState(false);
+  const [leaderboardVisible, setLeaderboardVisible] = useState(true);
+  const [savingLeaderboardVisibility, setSavingLeaderboardVisibility] = useState(false);
+  const [govtAlertKeywords, setGovtAlertKeywords] = useState<string[]>([]);
+  const [govtAlertKeywordInput, setGovtAlertKeywordInput] = useState("");
+  const [govtAlertEmailEnabled, setGovtAlertEmailEnabled] = useState(true);
+  const [govtAlertsLoading, setGovtAlertsLoading] = useState(true);
+  const [savingGovtAlerts, setSavingGovtAlerts] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [processingPayment, setProcessingPayment] = useState<string | null>(null);
   const [isYearly, setIsYearly] = useState(false);
@@ -156,8 +163,66 @@ const Settings = () => {
     if (user?.id) {
       fetchProfile();
       fetchResumes();
+      fetchGovtAlertPrefs();
     }
   }, [user?.id]);
+
+  const fetchGovtAlertPrefs = async () => {
+    if (!user?.id) return;
+    setGovtAlertsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("govt_job_alert_prefs" as never)
+        .select("keywords, email_enabled")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      if (error) throw error;
+      const row = data as unknown as { keywords: string[]; email_enabled: boolean } | null;
+      setGovtAlertKeywords(row?.keywords ?? []);
+      setGovtAlertEmailEnabled(row?.email_enabled ?? true);
+    } catch (error) {
+      console.error("Failed to fetch govt job alert prefs:", error);
+    } finally {
+      setGovtAlertsLoading(false);
+    }
+  };
+
+  const addGovtAlertKeyword = () => {
+    const v = govtAlertKeywordInput.trim();
+    if (!v) return;
+    if (govtAlertKeywords.some((k) => k.toLowerCase() === v.toLowerCase())) {
+      setGovtAlertKeywordInput("");
+      return;
+    }
+    setGovtAlertKeywords((prev) => [...prev, v]);
+    setGovtAlertKeywordInput("");
+  };
+
+  const removeGovtAlertKeyword = (kw: string) => {
+    setGovtAlertKeywords((prev) => prev.filter((k) => k !== kw));
+  };
+
+  /** Upserts govt_job_alert_prefs; notify-govt-job-alerts reads this hourly. */
+  const handleSaveGovtAlerts = async () => {
+    if (!user?.id) return;
+    setSavingGovtAlerts(true);
+    try {
+      const { error } = await supabase.from("govt_job_alert_prefs" as never).upsert(
+        {
+          user_id: user.id,
+          keywords: govtAlertKeywords,
+          email_enabled: govtAlertEmailEnabled,
+        } as never,
+        { onConflict: "user_id" },
+      );
+      if (error) throw error;
+      toast.success("Government job alerts saved");
+    } catch (error: any) {
+      toast.error("Failed to save alerts: " + error.message);
+    } finally {
+      setSavingGovtAlerts(false);
+    }
+  };
 
   const fetchPlans = async () => {
     try {
@@ -210,6 +275,7 @@ const Settings = () => {
             responseAlerts: prefs.notifications.responseAlerts ?? true,
           });
         }
+        setLeaderboardVisible((data as any).show_on_referral_leaderboard ?? true);
       }
     } catch (error) {
       console.error("Failed to fetch profile:", error);
@@ -489,6 +555,26 @@ const Settings = () => {
       toast.error("Failed to save preferences: " + error.message);
     } finally {
       setSavingNotifications(false);
+    }
+  };
+
+  /** Toggles public visibility on the referral leaderboard (src/pages/Referrals.tsx). Saves immediately. */
+  const handleToggleLeaderboardVisibility = async (checked: boolean) => {
+    if (!user?.id) return;
+    setLeaderboardVisible(checked);
+    setSavingLeaderboardVisibility(true);
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ show_on_referral_leaderboard: checked } as any)
+        .eq("id", user.id);
+      if (error) throw error;
+      toast.success(checked ? "You're visible on the referral leaderboard" : "Hidden from the referral leaderboard");
+    } catch (error: any) {
+      setLeaderboardVisible(!checked);
+      toast.error("Failed to update: " + error.message);
+    } finally {
+      setSavingLeaderboardVisibility(false);
     }
   };
 
@@ -991,6 +1077,104 @@ const Settings = () => {
                     <Save className="h-4 w-4 mr-2" />
                     Save Preferences
                   </Button>
+                </CardContent>
+              </Card>
+
+              <Card className="border-border/50 bg-card/50 mt-6">
+                <CardHeader>
+                  <CardTitle>Referral leaderboard</CardTitle>
+                  <CardDescription>Control whether you appear on the public referral leaderboard</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-medium">Show me on the leaderboard</p>
+                      <p className="text-sm text-muted-foreground">
+                        Displays your first name and last initial alongside your referral count on
+                        the Referrals page.
+                      </p>
+                    </div>
+                    <Switch
+                      checked={leaderboardVisible}
+                      disabled={savingLeaderboardVisibility}
+                      onCheckedChange={handleToggleLeaderboardVisibility}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="border-border/50 bg-card/50 mt-6">
+                <CardHeader>
+                  <CardTitle>Government job alerts</CardTitle>
+                  <CardDescription>
+                    Get notified when a new posting matches keywords you care about — organization
+                    name, exam name, or post type (e.g. "SSC", "Bank PO", "UPSC"). Checked roughly
+                    every hour.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {govtAlertsLoading ? (
+                    <div className="flex justify-center py-4">
+                      <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex flex-wrap gap-2">
+                        {govtAlertKeywords.length === 0 ? (
+                          <p className="text-sm text-muted-foreground">
+                            No keywords saved yet — add one below.
+                          </p>
+                        ) : (
+                          govtAlertKeywords.map((kw) => (
+                            <Badge key={kw} variant="secondary" className="gap-1 pl-3 pr-1.5 py-1">
+                              {kw}
+                              <button
+                                type="button"
+                                onClick={() => removeGovtAlertKeyword(kw)}
+                                className="ml-1 rounded-full p-0.5 hover:bg-muted-foreground/20"
+                                aria-label={`Remove ${kw}`}
+                              >
+                                <X className="h-3 w-3" />
+                              </button>
+                            </Badge>
+                          ))
+                        )}
+                      </div>
+                      <div className="flex gap-2">
+                        <Input
+                          placeholder="e.g. SSC, UPSC, Bank PO"
+                          value={govtAlertKeywordInput}
+                          onChange={(e) => setGovtAlertKeywordInput(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              addGovtAlertKeyword();
+                            }
+                          }}
+                        />
+                        <Button type="button" variant="outline" onClick={addGovtAlertKeyword}>
+                          Add
+                        </Button>
+                      </div>
+                      <div className="flex items-center justify-between pt-2">
+                        <div>
+                          <p className="font-medium text-sm">Also email me</p>
+                          <p className="text-xs text-muted-foreground">
+                            In-app notifications always fire; email is optional.
+                          </p>
+                        </div>
+                        <Switch
+                          checked={govtAlertEmailEnabled}
+                          onCheckedChange={setGovtAlertEmailEnabled}
+                        />
+                      </div>
+                      <Button onClick={handleSaveGovtAlerts} disabled={savingGovtAlerts}>
+                        {savingGovtAlerts && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                        <Save className="h-4 w-4 mr-2" />
+                        Save alerts
+                      </Button>
+                    </>
+                  )}
                 </CardContent>
               </Card>
             </motion.div>

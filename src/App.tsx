@@ -56,6 +56,8 @@ const GovtJobTracker = lazy(() => import("./pages/GovtJobTracker"));
 const GovtJobExam = lazy(() => import("./pages/GovtJobExam"));
 const GovtJobAnalytics = lazy(() => import("./pages/GovtJobAnalytics"));
 const ApplyLatestJobs = lazy(() => import("./pages/ApplyLatestJobs"));
+const PrivateJobTracker = lazy(() => import("./pages/PrivateJobTracker"));
+const CoverLetters = lazy(() => import("./pages/CoverLetters"));
 const Referrals = lazy(() => import("./pages/Referrals"));
 
 // Admin pages - lazy loaded
@@ -82,6 +84,7 @@ const AdminGovtJobEditor = lazy(() => import("./pages/admin/AdminGovtJobEditor")
 const AdminExamQuestions = lazy(() => import("./pages/admin/AdminExamQuestions"));
 const AdminExams = lazy(() => import("./pages/admin/AdminExams"));
 const AdminNaukriJobs = lazy(() => import("./pages/admin/AdminNaukriJobs"));
+const AdminOpsHealth = lazy(() => import("./pages/admin/AdminOpsHealth"));
 const AdminReferrals = lazy(() => import("./pages/admin/AdminReferrals"));
 
 
@@ -126,6 +129,8 @@ const App = () => (
                   <Route path="/analytics" element={<Analytics />} />
                   <Route path="/apply-latest-jobs" element={<ApplyLatestJobs />} />
                   <Route path="/private-jobs" element={<Navigate to="/apply-latest-jobs" replace />} />
+                  <Route path="/private-jobs/tracker" element={<PrivateJobTracker />} />
+                  <Route path="/private-jobs/cover-letters" element={<CoverLetters />} />
                   <Route path="/practice-set" element={<Navigate to="/government-jobs" replace />} />
                   <Route path="/resume-optimizer" element={<ResumeOptimizer />} />
                   <Route path="/settings" element={<Settings />} />
@@ -180,6 +185,7 @@ const App = () => (
                   <Route path="/admin/govt-jobs/:jobId/questions" element={<AdminExamQuestions />} />
                   <Route path="/admin/exams" element={<AdminExams />} />
                   <Route path="/admin/naukri-jobs" element={<AdminNaukriJobs />} />
+                  <Route path="/admin/ops-health" element={<AdminOpsHealth />} />
                   <Route path="/admin/referrals" element={<AdminReferrals />} />
 
                   {/* Public Blog Routes */}

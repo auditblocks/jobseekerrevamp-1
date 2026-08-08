@@ -30,6 +30,8 @@ import {
     Rocket,
     Crown,
     Gift,
+    ListChecks,
+    PenLine,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -139,6 +141,8 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                 { icon: Mail, label: "Email History", path: "/email-history" },
                 // { icon: MessageSquare, label: "Conversations", path: "/conversations" },
                 { icon: Rocket, label: "Apply latest jobs", path: "/apply-latest-jobs" },
+                { icon: ListChecks, label: "My applications", path: "/private-jobs/tracker" },
+                { icon: PenLine, label: "Cover letters", path: "/private-jobs/cover-letters" },
                 { icon: FileText, label: "Templates", path: "/templates" },
                 { icon: Users, label: "Recruiters", path: "/recruiters" },
                 {

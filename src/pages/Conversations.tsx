@@ -55,7 +55,31 @@ interface ConversationMessage {
   body_full: string | null;
   sent_at: string;
   status: string | null;
+  /** AI-classified reply intent (recruiter messages only); null until classified. */
+  intent?: "interested" | "rejection" | "auto_reply" | "neutral" | null;
 }
+
+const INTENT_BADGE: Record<
+  NonNullable<ConversationMessage["intent"]>,
+  { label: string; className: string }
+> = {
+  interested: {
+    label: "Interested",
+    className: "bg-green-600/15 text-green-800 hover:bg-green-600/20 dark:text-green-200",
+  },
+  rejection: {
+    label: "Rejection",
+    className: "bg-red-600/15 text-red-800 hover:bg-red-600/20 dark:text-red-200",
+  },
+  auto_reply: {
+    label: "Auto-reply",
+    className: "bg-muted text-muted-foreground hover:bg-muted",
+  },
+  neutral: {
+    label: "Needs a read",
+    className: "bg-amber-500/15 text-amber-800 hover:bg-amber-500/20 dark:text-amber-200",
+  },
+};
 
 /**
  * Conversations page component.
@@ -475,8 +499,15 @@ const Conversations = () => {
                                   }`}
                               >
                                 <div className="flex items-center justify-between mb-2">
-                                  <span className="text-sm font-medium">
+                                  <span className="flex items-center gap-2 text-sm font-medium">
                                     {message.sender_type === "user" ? "You" : thread.recruiter_name || "Recruiter"}
+                                    {message.sender_type === "recruiter" && message.intent ? (
+                                      <Badge
+                                        className={`rounded-md border-0 px-1.5 py-0 text-[10px] font-medium ${INTENT_BADGE[message.intent].className}`}
+                                      >
+                                        {INTENT_BADGE[message.intent].label}
+                                      </Badge>
+                                    ) : null}
                                   </span>
                                   <span className="text-xs text-muted-foreground">
                                     {new Date(message.sent_at).toLocaleDateString("en-US", {

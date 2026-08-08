@@ -10,6 +10,7 @@
  */
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
+import { classifyIntent } from "../_shared/classify-intent.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -304,7 +305,7 @@ serve(async (req) => {
 
       // Create conversation message
       const messageNumber = (existingThread?.total_messages || 0) + 1;
-      const { error: messageError } = await supabase
+      const { data: newMessage, error: messageError } = await supabase
         .from("conversation_messages")
         .insert({
           thread_id: threadId,
@@ -319,7 +320,9 @@ serve(async (req) => {
             gmail_message_id: message.id,
             gmail_thread_id: message.threadId,
           },
-        });
+        })
+        .select("id")
+        .single();
 
       if (messageError) {
         console.error("Failed to create conversation message:", messageError);
@@ -334,6 +337,22 @@ serve(async (req) => {
           .eq("id", threadId);
 
         console.log("Created conversation message for reply from:", senderEmail);
+
+        // Best-effort reply intent classification — never blocks ingestion.
+        try {
+          const classification = await classifyIntent(bodyContent);
+          if (classification && newMessage?.id) {
+            await supabase
+              .from("conversation_messages")
+              .update({
+                intent: classification.intent,
+                intent_confidence: classification.confidence,
+              })
+              .eq("id", newMessage.id);
+          }
+        } catch (intentError) {
+          console.error("Reply intent classification failed:", intentError);
+        }
       }
 
       // Remove UNREAD label so subsequent webhook invocations won't reprocess this message

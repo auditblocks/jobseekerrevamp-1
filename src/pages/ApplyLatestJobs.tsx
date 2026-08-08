@@ -2,8 +2,10 @@
  * @file ApplyLatestJobs.tsx
  * @description Aggregated private-sector job listing page sourcing from Naukri and LinkedIn
  * (synced via Apify). Server-side filtering and pagination via the
- * `get_apply_latest_jobs_page` RPC. Authenticated users can "Apply" which records
- * a row in private_job_applies and opens the employer's listing in a new tab.
+ * `get_apply_latest_jobs_page_v2` RPC, which also returns a free keyword-overlap
+ * `fit_score` per job when the caller has an active analyzed resume (no AI call —
+ * see `matched_keywords` on resume_analyses). Authenticated users can "Apply" which
+ * records a row in private_job_applies and opens the employer's listing in a new tab.
  * Daily apply limits are enforced per tier (privateApplyPolicy).
  * Guests can browse but must sign up to apply.
  * Supplies listing context to ChatListingContext for the AI assistant.
@@ -72,6 +74,8 @@ import {
   fetchPrivateApplySlots,
   fetchAppliedJobIds,
 } from "@/lib/privateApplyPolicy";
+import { UpgradeNudgeBanner } from "@/components/jobs/UpgradeNudgeBanner";
+import { CoverLetterDialog } from "@/components/jobs/CoverLetterDialog";
 
 interface NaukriJobRow {
   id: string;
@@ -88,6 +92,8 @@ interface NaukriJobRow {
   raw_item?: Record<string, unknown> | null;
   skills: unknown;
   source: string;
+  /** 0-100 keyword-overlap match against the caller's active resume; null when unscored. */
+  fit_score?: number | null;
 }
 
 const RAW_DESC_KEYS = [
@@ -157,7 +163,7 @@ function formatSkillsList(skills: unknown): string[] {
 type ExperienceFilter = "all" | "entry" | "mid" | "senior" | "lead";
 type SalaryFilter = "all" | "listed" | "unlisted";
 type RecencyFilter = "all" | "week" | "month";
-type SortKey = "scraped_desc" | "posted_desc" | "title_asc";
+type SortKey = "scraped_desc" | "posted_desc" | "title_asc" | "fit_desc";
 type SourceFilter = "all" | "naukri" | "linkedin";
 
 function jobSource(job: NaukriJobRow): "naukri" | "linkedin" {
@@ -202,9 +208,10 @@ type ApplyLatestJobsPagePayload = {
   items: NaukriJobRow[];
   posted_today_count: number;
   posted_today_sample: { title: string; company_name: string | null; apply_url: string }[];
+  has_fit_scores: boolean;
 };
 
-/** Type-safe parser for the JSON returned by the get_apply_latest_jobs_page RPC. */
+/** Type-safe parser for the JSON returned by the get_apply_latest_jobs_page_v2 RPC. */
 function parseApplyPagePayload(raw: unknown): ApplyLatestJobsPagePayload | null {
   if (!raw || typeof raw !== "object") return null;
   const o = raw as Record<string, unknown>;
@@ -218,6 +225,7 @@ function parseApplyPagePayload(raw: unknown): ApplyLatestJobsPagePayload | null 
     items,
     posted_today_count: Number.isFinite(postedTodayCount) ? postedTodayCount : 0,
     posted_today_sample: sample as ApplyLatestJobsPagePayload["posted_today_sample"],
+    has_fit_scores: o.has_fit_scores === true,
   };
 }
 
@@ -237,6 +245,7 @@ const ApplyLatestJobs = () => {
   const [postedTodaySample, setPostedTodaySample] = useState<
     ApplyLatestJobsPagePayload["posted_today_sample"]
   >([]);
+  const [hasFitScores, setHasFitScores] = useState(false);
   const [locationOptions, setLocationOptions] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [locationsLoading, setLocationsLoading] = useState(true);
@@ -250,6 +259,7 @@ const ApplyLatestJobs = () => {
   const [remoteOnly, setRemoteOnly] = useState(false);
   const [sourceFilter, setSourceFilter] = useState<SourceFilter>("all");
   const [detailJob, setDetailJob] = useState<NaukriJobRow | null>(null);
+  const [coverLetterJob, setCoverLetterJob] = useState<NaukriJobRow | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState<number>(DEFAULT_PAGE_SIZE);
   const [detailRawLoading, setDetailRawLoading] = useState(false);
@@ -268,6 +278,7 @@ const ApplyLatestJobs = () => {
         locationFilter,
         remoteOnly,
         sourceFilter,
+        user?.id ?? "",
       ].join("\u001f"),
     [
       searchForFetch,
@@ -278,6 +289,7 @@ const ApplyLatestJobs = () => {
       locationFilter,
       remoteOnly,
       sourceFilter,
+      user?.id,
     ],
   );
   const prevFiltersDigestRef = useRef<string | null>(null);
@@ -347,7 +359,7 @@ const ApplyLatestJobs = () => {
       setLoading(true);
       try {
         const offset = Math.max(0, (currentPage - 1) * pageSize);
-        const { data, error } = await supabase.rpc("get_apply_latest_jobs_page", {
+        const { data, error } = await supabase.rpc("get_apply_latest_jobs_page_v2" as never, {
           p_search: searchForFetch,
           p_source: sourceFilter,
           p_location: locationFilter,
@@ -358,7 +370,8 @@ const ApplyLatestJobs = () => {
           p_sort: sortBy,
           p_limit: pageSize,
           p_offset: offset,
-        });
+          p_user_id: user?.id ?? null,
+        } as never);
         if (cancelled) return;
         if (error) throw error;
         const parsed = parseApplyPagePayload(data as unknown);
@@ -371,6 +384,7 @@ const ApplyLatestJobs = () => {
         setTotalCount(parsed.total);
         setPostedTodayCount(parsed.posted_today_count);
         setPostedTodaySample(parsed.posted_today_sample);
+        setHasFitScores(parsed.has_fit_scores);
       } catch (e) {
         console.error(e);
         if (!cancelled) {
@@ -571,6 +585,17 @@ const ApplyLatestJobs = () => {
           ? { ...prev, used_today: prev.used_today + 1, remaining: Math.max(0, prev.remaining - 1) }
           : prev,
       );
+      // Best-effort: seeds the status tracker at "Applied". Never blocks the apply
+      // flow — the apply itself already succeeded above.
+      void supabase
+        .from("private_job_tracker" as never)
+        .upsert(
+          { user_id: user.id, naukri_job_id: job.id, application_status: "Applied" } as never,
+          { onConflict: "user_id,naukri_job_id", ignoreDuplicates: true },
+        )
+        .then(({ error: trackerError }) => {
+          if (trackerError) console.error("private_job_tracker seed error:", trackerError);
+        });
       window.open(job.apply_url, "_blank", "noopener,noreferrer");
       toast.success("Application tracked!");
     } catch (e: any) {
@@ -701,6 +726,9 @@ const ApplyLatestJobs = () => {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
+                    {hasFitScores ? (
+                      <SelectItem value="fit_desc">Best match for you</SelectItem>
+                    ) : null}
                     <SelectItem value="scraped_desc">Recently synced</SelectItem>
                     <SelectItem value="posted_desc">Recently posted</SelectItem>
                     <SelectItem value="title_asc">Title A → Z</SelectItem>
@@ -795,6 +823,8 @@ const ApplyLatestJobs = () => {
               listings, or Reset filters to see everything again.
             </p>
           </motion.div>
+
+          {user ? <UpgradeNudgeBanner slots={applySlots} /> : null}
 
           {/* Daily apply counter */}
           {user && applySlots && !isUnlimitedApply(applySlots) ? (
@@ -962,6 +992,20 @@ const ApplyLatestJobs = () => {
                                     <Badge className={sb.className}>{sb.label}</Badge>
                                   );
                                 })()}
+                                {typeof job.fit_score === "number" ? (
+                                  <Badge
+                                    className={cn(
+                                      "rounded-md border-0 px-2 py-0.5 text-xs font-medium",
+                                      job.fit_score >= 60
+                                        ? "bg-green-600/15 text-green-800 hover:bg-green-600/20 dark:text-green-200"
+                                        : job.fit_score >= 30
+                                          ? "bg-amber-500/15 text-amber-800 hover:bg-amber-500/20 dark:text-amber-200"
+                                          : "bg-muted text-muted-foreground hover:bg-muted",
+                                    )}
+                                  >
+                                    {job.fit_score}% match
+                                  </Badge>
+                                ) : null}
                                 {job.salary_text?.trim() ? (
                                   <Badge className="rounded-md border-0 bg-emerald-600/15 px-2 py-0.5 text-xs font-medium text-emerald-800 hover:bg-emerald-600/20 dark:text-emerald-200">
                                     {job.salary_text}
@@ -1020,6 +1064,18 @@ const ApplyLatestJobs = () => {
                               <FileText className="mr-2 h-4 w-4" />
                               Details
                             </Button>
+                            {user ? (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 w-full text-xs text-muted-foreground hover:text-foreground sm:w-auto"
+                                onClick={() => setCoverLetterJob(job)}
+                              >
+                                <Sparkles className="mr-1.5 h-3.5 w-3.5" />
+                                Cover letter
+                              </Button>
+                            ) : null}
                             {user ? (
                               appliedJobIds.has(job.id) ? (
                                 <Button
@@ -1217,6 +1273,20 @@ const ApplyLatestJobs = () => {
           ) : null}
         </DialogContent>
       </Dialog>
+
+      <CoverLetterDialog
+        job={
+          coverLetterJob
+            ? {
+                id: coverLetterJob.id,
+                title: coverLetterJob.title,
+                company_name: coverLetterJob.company_name,
+                summary: coverLetterJob.summary,
+              }
+            : null
+        }
+        onOpenChange={(open) => !open && setCoverLetterJob(null)}
+      />
 
       {/* Upgrade popup — secondary modal on top of everything */}
       <AlertDialog open={showUpgradePopup} onOpenChange={setShowUpgradePopup}>
